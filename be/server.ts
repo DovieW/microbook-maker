@@ -3,17 +3,22 @@ import fs from 'fs';
 import PDFDocument from 'pdfkit';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
+import multer from 'multer';
 
 const app = express();
 const port = 3001;
+const upload = multer({ dest: 'uploads/' });
 
-app.post('/upload', (req, res) => {
+app.post('/api/upload', upload.single('file'), (req, res) => {
   try {
+    console.log(req);
     // Create a new PDF
     let doc = new PDFDocument();
 
      // Handle the 'finish' event of the PDF stream
     doc.on('finish', () => {
+      // Once the PDF has been written to disk, send it in the response
+      // res.sendFile(outputPath);
       res.send('PDF created!');
     });
 
@@ -24,7 +29,7 @@ app.post('/upload', (req, res) => {
     doc.pipe(fs.createWriteStream(outputPath));
 
     // Read the uploaded text file and split it into words
-    let text = fs.readFileSync('uploaded.txt', 'utf8');
+    let text = fs.readFileSync(req.file!.path, 'utf8');
     let words = text.split(' ');
 
     // Now we'll add each word to the PDF, creating new pages and chunks as necessary
@@ -38,6 +43,8 @@ app.post('/upload', (req, res) => {
     const wordsPerLine = Math.floor(chunkWidth / (fontSize / 2.2));  // Estimate of words per line based on font size
     const linesPerChunk = Math.floor(chunkHeight / (fontSize * 1.5));  // Estimate of lines per chunk based on font size
     const wordsPerChunk = wordsPerLine * linesPerChunk;
+
+    console.log(`${chunkHeight} ${chunkWidth} ${fontSize} ${wordsPerChunk} ${wordsPerLine} ${pageNumber}`);
 
     while (wordIndex < words.length) {
       // Add the page number to the top of the page
