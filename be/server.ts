@@ -44,8 +44,6 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
     const linesPerChunk = Math.floor(chunkHeight / (fontSize * 1.5));  // Estimate of lines per chunk based on font size
     const wordsPerChunk = wordsPerLine * linesPerChunk;
 
-    console.log(`${chunkHeight} ${chunkWidth} ${fontSize} ${wordsPerChunk} ${wordsPerLine} ${pageNumber}`);
-
     while (wordIndex < words.length) {
       // Add the page number to the top of the page
       doc.text(`Page ${pageNumber}`, 0, 0);
@@ -53,8 +51,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
       // Add each chunk of text to the page
       for (let i = 0; i < 16; i++) {
         if (wordIndex < words.length) {
-          let chunkWords = words.slice(wordIndex, wordIndex + wordsPerChunk);
-          let chunkText = chunkWords.join(' ');
+          let chunkText = words.slice(wordIndex, wordIndex + wordsPerChunk).join(' ');
           doc.text(chunkText, chunkX, chunkY, { width: chunkWidth, height: chunkHeight });
           wordIndex += wordsPerChunk;
 
