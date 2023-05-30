@@ -1,10 +1,8 @@
 {
   "name": "mbm-be",
   "version": "0.1.0",
-  "description": "",
   "main": "index.js",
-  "scripts": {
-  },
+  "scripts": {},
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -21,5 +19,6 @@
     "@types/pdfkit": "^0.12.9",
     "@types/uuid": "^9.0.1",
     "ts-node": "^10.9.1"
-  }
+  },
+  "description": ""
 }
