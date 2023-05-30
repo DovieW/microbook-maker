@@ -11,7 +11,8 @@ const upload = multer({ dest: 'uploads/' });
 
 app.post('/api/upload', upload.single('file'), (req, res) => {
   try {
-    let doc = new PDFDocument({font: 'Poppins-Regular.ttf', margin: 15});
+    const margin = 15
+    let doc = new PDFDocument({font: 'Poppins-Regular.ttf', margin: margin});
     // doc.columns
 
     // Define the output file path
@@ -28,7 +29,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
     // let wordIndex = 0;
     // let chunkX = 0, chunkY = 0;
     // const chunkWidth = doc.page.width / 4;   // divide each page into 16 parts
-    const chunkHeight = doc.page.height / 4;
+    const chunkHeight = (doc.page.height / 4) - margin;
     // const fontSize = 7; 
     // doc.fontSize(fontSize);
     // const wordsPerLine = Math.floor(chunkWidth / (fontSize / 2.2));
@@ -42,6 +43,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
         columnGap: 10,
         align: 'justify',
         ellipsis: true,
+        height: chunkHeight
       });
 
     // while (wordIndex < words.length) {
