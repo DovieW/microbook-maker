@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      * {
+        font-size: 7px;
+      }
+
+      .grid-container {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        grid-template-rows: repeat(4, 1fr);
+        gap: 10px 0px;
+      }
+
+      .grid-item {
+        line-height: 1;
+        border: 1px dotted black;
+        padding: 10px;
+        box-sizing: border-box;
+        height: 240px;
+        overflow: hidden;
+      }
+
+      h3, h4 {
+        display: inline;
+      }
+
+      .page {
+        page-break-after: always;
+        margin: 25px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <h3 id="pageNumber1"></h3><span> - </span><h4 id="title"></h4>
+      <div class="grid-container">
+        <div class="grid-item"></div>
+        <div class="grid-item"></div>
+        <div class="grid-item"></div>
+        <div class="grid-item"></div>
+        <div class="grid-item"></div>
+        <div class="grid-item"></div>
+        <div class="grid-item"></div>
+        <div class="grid-item"></div>
+        <div class="grid-item"></div>
+        <div class="grid-item"></div>
+        <div class="grid-item"></div>
+        <div class="grid-item"></div>
+        <div class="grid-item"></div>
+        <div class="grid-item"></div>
+        <div class="grid-item"></div>
+        <div class="grid-item"></div>
+      </div>
+    </div>
+  </body>
+</html>

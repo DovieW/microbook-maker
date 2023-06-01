@@ -1,0 +1,103 @@
+  // const express = require('express');
+  const fs = require('fs');
+  const multer = require('multer');
+  const puppeteer = require('puppeteer');
+  const express = require('express');
+  const app = express();
+  const port = 3001;
+  // const upload = multer({ dest: 'uploads/' });
+  const upload = multer({ storage: multer.memoryStorage() });
+
+  app.post('/api/upload', upload.single('file'), (req, res) => {
+    try {
+      async function run() {
+        const browser = await puppeteer.launch();
+        const page = await browser.newPage();
+        // let text = fs.readFileSync(req.file.path, 'utf8');
+        let text = req.file.buffer.toString('utf8');
+
+        await page.goto(`file://${process.cwd()}/page.html`);
+
+        await page.evaluate((text, bookName) => {
+          pageIndex = 1;
+          document.querySelector('#title').innerHTML = bookName;
+
+          const words = text.split(' ');
+          let blocks = Array.from(document.querySelectorAll('.grid-item'));
+
+          let currentBlockIndex = 0;
+          let currentBlock = blocks[currentBlockIndex];
+
+          function createNewPage() {
+            pageIndex++;
+            const page = document.createElement('div');
+            const pageNumber = document.createElement('h3');
+            const title = document.createElement('h4');
+            const dash = document.createElement('span');
+
+            page.className = 'page';
+            pageNumber.id = 'pageNumber' + pageIndex;
+            title.innerHTML = bookName;
+            dash.innerHTML = ' - ';
+
+            page.appendChild(pageNumber);
+            page.appendChild(dash);
+            page.appendChild(title);
+            const newGrid = document.createElement('div');
+            newGrid.className = 'grid-container';
+            for (let i = 0; i < 16; i++) {
+              const newGridItem = document.createElement('div');
+              newGridItem.className = 'grid-item';
+              newGrid.appendChild(newGridItem);
+            }
+            page.appendChild(newGrid);
+            document.body.appendChild(page);
+            blocks = Array.from(document.querySelectorAll('.grid-item'));
+          }
+
+          for (let i = 0; i < words.length; i++) {
+            currentBlock.textContent += ' ' + words[i];
+
+            if (currentBlock.scrollHeight > currentBlock.clientHeight) {
+              // If the word made the block to overflow, remove it from the block
+              currentBlock.textContent = currentBlock.textContent.slice(
+                0,
+                currentBlock.textContent.length - words[i].length
+              );
+
+              // Move to the next block
+              currentBlockIndex += 1;
+              if (currentBlockIndex >= blocks.length) {
+                createNewPage(); // Create a new page if all blocks are filled
+                currentBlockIndex = blocks.length - 16; // Reset the block index to the first block of the new page
+              }
+              currentBlock = blocks[currentBlockIndex];
+              currentBlock.textContent += ' ' + words[i]; // Add the word to the new block
+            }
+          }
+          for (let i = 0; i < pageIndex; i++) {
+            document.querySelector('#pageNumber' + (i+1)).innerHTML = `${i+1}/${pageIndex}`;
+          }
+        }, text, req.query.bookName);
+
+        const pdf = await page.pdf({ format: 'Letter' });
+
+        await browser.close();
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', 'attachment; filename=download.pdf');
+        res.send(pdf);
+      }
+
+      run();
+
+      // res.send('PDF created!');
+    } catch (error) {
+      console.error(error);
+      res.status(500).send('An error occurred while creating the PDF.');
+    }
+  });
+
+  app.listen(port, () => {
+    console.log(`Example app listening on port ${port}`);
+  });
