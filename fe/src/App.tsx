@@ -13,7 +13,11 @@ function App() {
       formData.append('file', file);
   
       try {
-        const response = await fetch('/api/upload', {
+        const params = new URLSearchParams({
+          bookName: 'My Book 7',
+          fontSize: '5'
+        });
+        const response = await fetch(`/api/upload?${params.toString()}`, {
           method: 'POST',
           body: formData,
         });
@@ -24,12 +28,13 @@ function App() {
   
         const blob = await response.blob(); // if you expect a Blob (PDF) as the response
         const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', 'output.pdf'); // or any other filename you want
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
+        // const link = document.createElement('a');
+        // link.href = url;
+        // link.setAttribute('download', 'output.pdf'); // or any other filename you want
+        // document.body.appendChild(link);
+        // link.click();
+        // link.remove();
+        window.open(url);
       } catch (error) {
         console.error('There was a problem with the fetch operation: ', error);
       }
@@ -48,8 +53,6 @@ function App() {
       </Button>
       <input type="file" onChange={() => {if (uploadRef && uploadRef.current && uploadRef.current.files) setDisableUpload(false)}} ref={uploadRef} accept=".txt"/>
       <br/><br/>
-      <Button variant="contained">Download PDF</Button>
-      <Button variant="contained">Print</Button>
     </>
   );
 }
