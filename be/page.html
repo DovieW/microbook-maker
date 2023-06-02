@@ -2,8 +2,8 @@
 <html>
   <head>
     <style>
-      * {
-        font-size: 7px;
+      body {
+        margin: -10px;
       }
 
       .grid-container {
@@ -15,26 +15,53 @@
 
       .grid-item {
         line-height: 1;
-        border: 1px dotted black;
-        padding: 10px;
+        /* border: 1px dashed black; */
+        padding: 5px;
         box-sizing: border-box;
         height: 240px;
         overflow: hidden;
+        font-family: Arial, Helvetica, sans-serif;
+        text-align: justify;
       }
 
-      h3, h4 {
+      h3 {
         display: inline;
+        font-family: 'Times New Roman', Times, serif;
+        font-size: 1.5em;
       }
 
       .page {
         page-break-after: always;
         margin: 25px;
       }
+
+      #header {
+        margin-bottom: 5px;
+        margin-left: 5px;
+      }
+
+      /* Right border for all items except those in the 4th column */
+      .grid-item:nth-child(4n-2), /* 2nd column */
+      .grid-item:nth-child(4n-1), /* 3rd column */
+      .grid-item:nth-child(4n-3)  /* 1st column */
+      {
+          border-right: 1px dashed black;
+      }
+
+      /* Bottom border for all items except those in the 4th row */
+      .grid-item:nth-child(-n+12) {
+          border-bottom: 1px dashed black;
+      }
+
+      /* Top border for all items except those in the first row */
+      .grid-item:nth-child(n+5) {
+          border-top: 1px dashed black;
+      }
     </style>
   </head>
-  <body>
+  <body">
     <div class="page">
-      <h3 id="pageNumber1"></h3><span> - </span><h4 id="title"></h4>
+      <div id="header"><h3 id="pageNumber1"></h3><h3 id="frontOrBack">.</h3><h3> - </h3><h3 id="title"></h3></div>
       <div class="grid-container">
         <div class="grid-item"></div>
         <div class="grid-item"></div>

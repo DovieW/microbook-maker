@@ -13,13 +13,19 @@
       async function run() {
         const browser = await puppeteer.launch();
         const page = await browser.newPage();
+
+        // await page.setViewport({ width: 816, height: 1056 });
+
         // let text = fs.readFileSync(req.file.path, 'utf8');
         let text = req.file.buffer.toString('utf8');
 
-        await page.goto(`file://${process.cwd()}/page.html`);
+        await page.goto(`file://${__dirname}/page.html`);
+        await page.addStyleTag({content: `body { font-size: ${req.query.fontSize}px; }`});
 
-        await page.evaluate((text, bookName) => {
+        await page.evaluate((text, bookName, fontSize) => {
           pageIndex = 1;
+          frontOrBackText = ':';
+          // document.querySelector('body').style.fontSize = Number(fontSize);
           document.querySelector('#title').innerHTML = bookName;
 
           const words = text.split(' ');
@@ -32,15 +38,19 @@
             pageIndex++;
             const page = document.createElement('div');
             const pageNumber = document.createElement('h3');
-            const title = document.createElement('h4');
-            const dash = document.createElement('span');
+            const frontOrBack = document.createElement('h3');
+            const title = document.createElement('h3');
+            const dash = document.createElement('h3');
 
             page.className = 'page';
             pageNumber.id = 'pageNumber' + pageIndex;
+            frontOrBack.innerHTML = frontOrBackText;
+            frontOrBackText = frontOrBackText === '.' ? ':' : '.';
             title.innerHTML = bookName;
             dash.innerHTML = ' - ';
 
             page.appendChild(pageNumber);
+            page.appendChild(frontOrBack);
             page.appendChild(dash);
             page.appendChild(title);
             const newGrid = document.createElement('div');
@@ -78,8 +88,10 @@
           for (let i = 0; i < pageIndex; i++) {
             document.querySelector('#pageNumber' + (i+1)).innerHTML = `${i+1}/${pageIndex}`;
           }
-        }, text, req.query.bookName);
+        }, text, req.query.bookName, req.query.fontSize);
 
+        let htmlContent = await page.content();
+        fs.writeFileSync('output.html', htmlContent);
         const pdf = await page.pdf({ format: 'Letter' });
 
         await browser.close();
