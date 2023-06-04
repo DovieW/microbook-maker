@@ -14,6 +14,7 @@ function App() {
   const [wordCount, setWordCount] = useState(0);
   const [fontSize, setFontSize] = useState('5');
   const [loading, setLoading] = useState(false);
+  const [id, setId] = useState<string|null>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -42,7 +43,8 @@ function App() {
       try {
         const params = new URLSearchParams({
           bookName: bookName,
-          fontSize: fontSize
+          fontSize: fontSize,
+          wordCount: wordCount.toString()
         });
         const response = await fetch(`/api/upload?${params.toString()}`, {
           method: 'POST',
@@ -53,19 +55,20 @@ function App() {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
   
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
+        // const blob = await response.blob();
+        // const url = window.URL.createObjectURL(blob);
         // const link = document.createElement('a');
         // link.href = url;
         // link.setAttribute('download', 'output.pdf'); // or any other filename you want
         // document.body.appendChild(link);
         // link.click();
         // link.remove();
-        window.open(url);
+        // window.open(url);
+
+        const data = await response.json();
+        setId(data.id);
       } catch (error) {
         console.error('There was a problem with the fetch operation: ', error);
-      } finally {
-        setLoading(false);
       }
     }
   }
@@ -180,17 +183,20 @@ function App() {
               justifyContent: 'center',
             }}
           >
-            <CircularProgress color="inherit" size={80}/>
-            <Typography
-              sx={{ mt: 2 }}
+            <Typography sx={{ mt: 2 }}>Click the button below and keep reloading the page to check the status of the PDF and to download when complete</Typography>
+            <Button
+              variant='contained'
+              sx={{mt: 2}}
+              component='span'
+              disableElevation
+              onClick={() => {
+                setLoading(false);
+                window.open(`/api/download?id=${id}&bookName=${bookName}`, '_blank');
+              }
+            }
             >
-              This can take a few seconds up to a few minutes depending on how large the text is
-            </Typography>
-            <Typography
-              sx={{ mt: 2 }}
-            >
-              Don't close or reload the page
-            </Typography>
+              Check PDF
+            </Button>
           </Box>
         </Backdrop>
       </Box>
