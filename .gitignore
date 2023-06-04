@@ -1,3 +1,5 @@
+be/generated/*
+be/uploads/*
 # Logs
 logs
 *.log
