@@ -27,6 +27,7 @@
           frontOrBackText = ':';
           // document.querySelector('body').style.fontSize = Number(fontSize);
           document.querySelector('#title').innerHTML = bookName;
+          if (bookName !== '') document.querySelector('#dash').innerHTML = ' - ';
 
           const words = text.split(' ');
           let blocks = Array.from(document.querySelectorAll('.grid-item'));
@@ -37,22 +38,25 @@
           function createNewPage() {
             pageIndex++;
             const page = document.createElement('div');
+            const header = document.createElement('div');
             const pageNumber = document.createElement('h3');
             const frontOrBack = document.createElement('h3');
             const title = document.createElement('h3');
             const dash = document.createElement('h3');
 
             page.className = 'page';
+            header.className = 'header';
             pageNumber.id = 'pageNumber' + pageIndex;
             frontOrBack.innerHTML = frontOrBackText;
             frontOrBackText = frontOrBackText === '.' ? ':' : '.';
             title.innerHTML = bookName;
             dash.innerHTML = ' - ';
 
-            page.appendChild(pageNumber);
-            page.appendChild(frontOrBack);
-            page.appendChild(dash);
-            page.appendChild(title);
+            header.appendChild(pageNumber);
+            header.appendChild(frontOrBack);
+            if (bookName !== '') header.appendChild(dash);
+            header.appendChild(title);
+            page.appendChild(header);
             const newGrid = document.createElement('div');
             newGrid.className = 'grid-container';
             for (let i = 0; i < 16; i++) {
@@ -108,6 +112,11 @@
       console.error(error);
       res.status(500).send('An error occurred while creating the PDF.');
     }
+  });
+
+  app.get('/api/sample', (req, res) => {
+    const file = path.join(__dirname, 'sample.pdf');
+    res.sendFile(file);
   });
 
   app.listen(port, () => {
