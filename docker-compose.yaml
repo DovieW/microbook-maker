@@ -1,0 +1,7 @@
+version: '3.8'
+
+services:
+  my-app:
+    image: dovieuu/microbook-maker:latest
+    ports:
+      - 80:3000

@@ -20,7 +20,7 @@ function App() {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files.length > 0) {
       setDisableUpload(false);
-      setBookName(event.target.files[0].name.split('.')[0]);
+      if (!bookName) setBookName(event.target.files[0].name.split('.')[0]);
       
       const reader = new FileReader();
       reader.onload = (e) => {

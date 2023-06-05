@@ -2,7 +2,7 @@ bored in shul?
 
 get antsy?
 
-grab a txt
+[grab a txt](https://raw.githubusercontent.com/DovieW/microbook-maker/master/alice_in_wonderland.txt)
 
 learn to fold
 
