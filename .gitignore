@@ -1,5 +1,6 @@
 be/generated/*
 be/uploads/*
+fe/build/
 # Logs
 logs
 *.log
