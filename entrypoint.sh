@@ -1,7 +1,7 @@
 #!/bin/bash
 
-cd /app/be
+nginx
 
-pm2 start --name microbook-maker
+pm2 start /app/be/index.js --name microbook-maker
 
 tail -f ~/.pm2/logs/microbook-maker-out.log ~/.pm2/logs/microbook-maker-error.log

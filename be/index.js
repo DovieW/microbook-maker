@@ -22,10 +22,10 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
     try {
       await run(req, id, bookName, fontSize);
     } catch (error) {
-      const txt = error;
+      console.error(error);
+      const txt = error.toString();
       const failedPath = path.join(__dirname, 'generated', `FAILED_${id}_${bookName}.txt`);
       fs.writeFileSync(failedPath, txt);
-      console.error(error);
     }
   });
 
@@ -168,7 +168,7 @@ app.get('/api/download/', (req, res) => {
   } else if (fs.existsSync(faildPdfOutput)) {
     return res.send('PDF generation failed for some reason 😭');
   } else {
-    return res.send('PDF is not ready. Can take a few seconds up to 10 minutes depending on how large the text is');
+    return res.send('Not started. It\'s either in the queue or about to start.');
   }
 });
 
