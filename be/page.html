@@ -3,22 +3,38 @@
   <head>
     <style>
       body {
-        margin: -10px;
+        margin: 0px;
+        /* margin: -10px; */
+      }
+
+      .page {
+        page-break-after: always;
+        /* margin: 25px; */
+        width: 816px;
+        height: 1056px;
+      }
+
+      /* .header {
+        margin-left: 5px;
+        height: 1%;
+      } */
+      .header {
+        display: inline-block;
       }
 
       .grid-container {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
         grid-template-rows: repeat(4, 1fr);
-        gap: 10px 0px;
+        /* gap: 10px 0px; */
+        height: 99%;
       }
 
       .grid-item {
         line-height: 1;
-        /* border: 1px dashed black; */
-        padding: 5px;
+        padding: 2px;
         box-sizing: border-box;
-        height: 240px;
+        /* height: 245px; */
         overflow: hidden;
         font-family: Arial, Helvetica, sans-serif;
         text-align: justify;
@@ -30,16 +46,6 @@
         font-size: 1.6em;
       }
 
-      .page {
-        page-break-after: always;
-        margin: 25px;
-      }
-
-      .header {
-        margin-bottom: 5px;
-        margin-left: 5px;
-      }
-
       /* Right border for all items except those in the 4th column */
       .grid-item:nth-child(4n-2), /* 2nd column */
       .grid-item:nth-child(4n-1), /* 3rd column */
@@ -49,9 +55,9 @@
       }
 
       /* Bottom border for all items except those in the 4th row */
-      .grid-item:nth-child(-n+12) {
+      /* .grid-item:nth-child(-n+12) {
           border-bottom: 1px dashed black;
-      }
+      } */
 
       /* Top border for all items except those in the first row */
       .grid-item:nth-child(n+5) {
@@ -59,27 +65,6 @@
       }
     </style>
   </head>
-  <body">
-    <div class="page">
-      <div class="header"><h3 id="pageNumber1"></h3><h3>.</h3><h3 id="dash"></h3><h3 id="title"></h3></div>
-      <div class="grid-container">
-        <div class="grid-item"></div>
-        <div class="grid-item"></div>
-        <div class="grid-item"></div>
-        <div class="grid-item"></div>
-        <div class="grid-item"></div>
-        <div class="grid-item"></div>
-        <div class="grid-item"></div>
-        <div class="grid-item"></div>
-        <div class="grid-item"></div>
-        <div class="grid-item"></div>
-        <div class="grid-item"></div>
-        <div class="grid-item"></div>
-        <div class="grid-item"></div>
-        <div class="grid-item"></div>
-        <div class="grid-item"></div>
-        <div class="grid-item"></div>
-      </div>
-    </div>
+  <body>
   </body>
 </html>
