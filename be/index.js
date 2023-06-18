@@ -123,7 +123,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
       }
       
       for (let i = 0; i < pageIndex; i++) {
-        document.querySelector('#pageNumber' + i).textContent = `${i+1}/${pageIndex}`;
+        document.querySelector('#pageNumber' + i).textContent = `${Math.ceil((i+1) / 2)}/${Math.ceil((pageIndex+1) / 2)}`;
       }
     }, text, bookName);
 
