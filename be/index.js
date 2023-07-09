@@ -121,9 +121,10 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
           currentBlock.innerHTML += ' ' + words[i]; // Add the word to the new block
         }
       }
-      
+
+      const SHEETS_AMOUNT = Math.ceil(pageIndex / 2);
       for (let i = 0; i < pageIndex; i++) {
-        document.querySelector('#pageNumber' + i).textContent = `${Math.ceil((i+1) / 2)}/${Math.ceil((pageIndex+1) / 2)}`;
+        document.querySelector('#pageNumber' + i).textContent = `${Math.ceil((i+1) / 2)}/${SHEETS_AMOUNT}`;
       }
     }, text, bookName);
 
