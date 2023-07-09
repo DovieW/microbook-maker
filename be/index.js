@@ -24,7 +24,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 
   setImmediate(async () => {
     try {
-      await run(req, id, bookName, fontSize);
+      await run(req, id, bookName, fontSize, wordCount);
     } catch (error) {
       console.error(error);
       writeToInProgress('ERROR: ' + error.toString());
@@ -32,7 +32,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
   });
 
 
-  async function run(req, id, bookName, fontSize) {
+  async function run(req, id, bookName, fontSize, wordCount) {
     const browser = await puppeteer.launch();
     const page = await browser.newPage();
 
@@ -51,7 +51,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 
     writeToInProgress(`Creating: ${bookName}`);
 
-    await page.evaluate((text, bookName) => {
+    await page.evaluate((text, bookName, wordCount) => {
       pageIndex = 0;
       frontOrBackText = ':';
       // document.querySelector('#title').textContent = bookName;
@@ -83,7 +83,14 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
         header.appendChild(frontOrBack);
         if (bookName !== '') header.appendChild(dash);
         header.appendChild(title);
-        // page.appendChild(header);
+
+        // add word count to first page
+        if (pageIndex === 0) {
+          const wordCountEl = document.createElement('h4');
+          wordCountEl.textContent = ' ' + Intl.NumberFormat().format(wordCount) + ' words';
+          wordCountEl.style.color = 'grey';
+          header.appendChild(wordCountEl);
+        }
 
         const grid = document.createElement('div');
         grid.className = 'grid-container';
@@ -126,7 +133,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
       for (let i = 0; i < pageIndex; i++) {
         document.querySelector('#pageNumber' + i).textContent = `${Math.ceil((i+1) / 2)}/${SHEETS_AMOUNT}`;
       }
-    }, text, bookName);
+    }, text, bookName, wordCount);
 
     writeToInProgress('Finished creating pages. Writing to file...');
 
