@@ -10,6 +10,7 @@ import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import HistoryIcon from '@mui/icons-material/History';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 
 function App() {
   const [disableUpload, setDisableUpload] = useState(true);
@@ -168,15 +169,19 @@ function App() {
           maxWidth='sm'
           sx={{
             display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'flex-end',
+            justifyContent: 'flex-end',
             padding: 3,
           }}
         >
+          <Tooltip title='Uploads'>
+            <IconButton color='primary' onClick={() => window.open('/uploads', '_blank')}>
+              <UploadFileIcon/>
+            </IconButton>
+          </Tooltip>
           <Tooltip title='History'>
-          <IconButton color='primary' onClick={() => window.open('https://mbm.dovie.dev/generated', '_blank')}>
-            <HistoryIcon/>
-          </IconButton>
+            <IconButton color='primary' onClick={() => window.open('/generated', '_blank')}>
+              <HistoryIcon/>
+            </IconButton>
           </Tooltip>
         </Container>
         <Backdrop

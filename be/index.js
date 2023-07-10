@@ -5,10 +5,22 @@ const express = require('express');
 const app = express();
 const port = 3001;
 const path = require('path');
-const upload = multer({ dest: 'uploads/' });
+const storage = multer.diskStorage({
+  destination: function(req, file, cb) {
+    cb(null, 'uploads/')
+  },
+  filename: function(req, file, cb) {
+    const date = new Date();
+    const formattedDate = `${date.getFullYear()}_${date.getMonth() + 1}_${date.getDate()}_${date.getHours()}_${date.getMinutes()}_${date.getSeconds()}`;
+    const fileName = `${formattedDate}_${file.originalname}`;
+    cb(null, fileName);
+  }
+});
+const upload = multer({ storage: storage });
 const serveIndex = require('serve-index');
 
 app.use('/generated', express.static(path.join(__dirname, 'generated')), serveIndex(path.join(__dirname, 'generated'), {'icons': true}));
+app.use('/uploads', serveIndex(path.join(__dirname, 'uploads'), {'icons': true}));
 
 app.post('/api/upload', upload.single('file'), (req, res) => {
   const date = new Date();
