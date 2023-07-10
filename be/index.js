@@ -6,10 +6,14 @@ const app = express();
 const port = 3001;
 const path = require('path');
 const upload = multer({ dest: 'uploads/' });
-app.use('/generated', express.static(path.join(__dirname, 'generated')));
+const serveIndex = require('serve-index');
+
+app.use('/generated', express.static(path.join(__dirname, 'generated')), serveIndex(path.join(__dirname, 'generated'), {'icons': true}));
 
 app.post('/api/upload', upload.single('file'), (req, res) => {
-  const id = Date.now().toString();
+  const date = new Date();
+  const id = `${date.getFullYear()}_${date.getMonth() + 1}_${date.getDate()}_${date.getHours()}_${date.getMinutes()}_${date.getSeconds()}`;
+
   const {bookName, wordCount, fontSize} = req.query;
   let estimatedNumberOfPages = 0;
   if (wordCount) {
@@ -35,6 +39,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
   async function run(req, id, bookName, fontSize, wordCount) {
     const browser = await puppeteer.launch();
     const page = await browser.newPage();
+    const inProgressPath = path.join(__dirname, 'generated', `IN_PROGRESS_${id}_${bookName}.txt`);
 
     page.on('console', pageIndex => {
       writeToInProgress(`Creating page ${pageIndex.text()} of ${estimatedNumberOfPages}-ish. It should take around ${Number.parseFloat(((estimatedNumberOfPages - Number(pageIndex.text())) * 5) / 60).toFixed(1)}-ish minutes.`);
@@ -146,6 +151,11 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
     fs.writeFileSync(pdfOutput, pdf);
 
     await browser.close();
+
+    // Delete the IN_PROGRESS file after PDF is created
+    if (fs.existsSync(inProgressPath)) {
+      fs.unlinkSync(inProgressPath);
+    }
   }
   
   res.json({ message: 'PDF creation started.', id });

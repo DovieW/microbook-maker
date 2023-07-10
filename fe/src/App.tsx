@@ -7,6 +7,9 @@ import Container from '@mui/material/Container';
 import {CssBaseline, Backdrop, CircularProgress} from '@mui/material';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import HistoryIcon from '@mui/icons-material/History';
+import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
 
 function App() {
   const [disableUpload, setDisableUpload] = useState(true);
@@ -54,16 +57,6 @@ function App() {
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
-  
-        // const blob = await response.blob();
-        // const url = window.URL.createObjectURL(blob);
-        // const link = document.createElement('a');
-        // link.href = url;
-        // link.setAttribute('download', 'output.pdf'); // or any other filename you want
-        // document.body.appendChild(link);
-        // link.click();
-        // link.remove();
-        // window.open(url);
 
         const data = await response.json();
         setId(data.id);
@@ -171,6 +164,21 @@ function App() {
             </Button>
           </Box>
         </Container>
+        <Container
+          maxWidth='sm'
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'flex-end',
+            padding: 3,
+          }}
+        >
+          <Tooltip title='History'>
+          <IconButton color='primary' onClick={() => window.open('https://mbm.dovie.dev/generated', '_blank')}>
+            <HistoryIcon/>
+          </IconButton>
+          </Tooltip>
+        </Container>
         <Backdrop
           open={loading}
           sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }}
@@ -183,7 +191,7 @@ function App() {
               justifyContent: 'center',
             }}
           >
-            <Typography sx={{ mt: 2 }}>Click the button below and keep reloading the page to check the status of the PDF and to download when complete</Typography>
+            <Typography sx={{ mt: 2 }}>Click the button below and keep reloading the page to check the status of the PDF</Typography>
             <Button
               variant='contained'
               sx={{mt: 2}}
