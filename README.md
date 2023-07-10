@@ -6,7 +6,7 @@ get antsy?
 
 [learn to fold](https://youtu.be/cVXLgpmTEUU)
 
-[and your gold](https://github.com/DovieW/microbook-maker/blob/master/2023%207%209%2023%2040%202%20Alice+In+Wonderland.pdf)
+[and your gold](https://github.com/DovieW/microbook-maker/blob/master/2023_7_9_23_40_2_Alice%20In%20Wonderland.pdf)
 
 <img src="https://github.com/DovieW/microbook-maker/blob/master/site%20image.png?raw=true" height="200px">
 
