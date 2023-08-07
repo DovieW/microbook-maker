@@ -29,7 +29,7 @@ function App() {
       const reader = new FileReader();
       reader.onload = (e) => {
         const text = (e.target?.result as string).trim();
-        const wordCount = text.split(/\s+/).length;
+        const wordCount = text.split(' ').length;
         setWordCount(wordCount);
       }
       reader.readAsText(event.target.files[0]);
