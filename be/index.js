@@ -72,6 +72,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
       let blocks = [];
       let currentBlockIndex = 0;
       let currentBlock;
+      let isCurrentPageFront = true; // tracks whether the next page to be rendered is on the front of the double sided sheet. the side with the big header
 
       function createNewPage(wordsLeft) {
         console.log(pageIndex+1);
@@ -84,24 +85,33 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
         for (let i = 0; i < 16; i++) {
           const gridItem = document.createElement('div');
           gridItem.className = 'grid-item';
-          if (i === 0) gridItem.id = 'header' + pageIndex;
+          if (i === 0 && isCurrentPageFront) { 
+            gridItem.id = 'header' + pageIndex;
+          } else if (i % 4 === 0) { // if it's the first cell in a row
+            const miniSheetNum = document.createElement('span');
+            miniSheetNum.classList.add('miniSheetNum' + pageIndex);
+            miniSheetNum.classList.add('miniSheetNum');
+            miniSheetNum.textContent = '00/00';
+            gridItem.appendChild(miniSheetNum);
+          }
           grid.appendChild(gridItem);
         }
 
         page.appendChild(grid);
         document.body.appendChild(page);
 
-        if ((pageIndex+1) % 2 === 1) {
+        if (isCurrentPageFront) {
+          isCurrentPageFront = false;
           const header = document.createElement('div');
-          const pageNumber = document.createElement('h3');
+          const sheetNum = document.createElement('h3');
           const title = document.createElement('h3');
           
           header.className = 'header';
-          pageNumber.textContent = '00/00';
-          pageNumber.id = 'pageNumber' + pageIndex;
+          sheetNum.textContent = '00/00';
+          sheetNum.id = 'sheetNum' + pageIndex;
           if (bookName) title.textContent = ' - ' + bookName;
 
-          header.appendChild(pageNumber);
+          header.appendChild(sheetNum);
           header.appendChild(title);
 
           const wordCountEl = document.createElement('h4');
@@ -109,6 +119,8 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
           header.appendChild(wordCountEl);
 
           document.querySelector('#header' + pageIndex).appendChild(header);
+        } else {
+          isCurrentPageFront = true;
         }
         
         blocks = Array.from(document.querySelectorAll('.grid-item'));
@@ -137,9 +149,21 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
       }
 
       const SHEETS_AMOUNT = Math.ceil(pageIndex / 2);
+      isCurrentPageFront = true;
       for (let i = 0; i < pageIndex; i++) {
-        if (i % 2 === 1) continue;
-        document.querySelector('#pageNumber' + i).textContent = `${Math.ceil((i+1) / 2)}/${SHEETS_AMOUNT}`;
+        const SHEET_NUM = `${Math.ceil((i+1) / 2)}/${SHEETS_AMOUNT}`;
+        let miniSheetNums = document.querySelectorAll('.miniSheetNum' + i);
+
+        for(let i = 0; i < miniSheetNums.length; i++) {
+          miniSheetNums[i].textContent = SHEET_NUM;
+        }
+
+        if (isCurrentPageFront) {
+          isCurrentPageFront = false;
+          document.querySelector('#sheetNum' + i).textContent = SHEET_NUM;
+        } else {
+          isCurrentPageFront = true;
+        }
       }
     }, text, bookName);
 
