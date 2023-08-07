@@ -28,9 +28,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 
   const {bookName, wordCount, fontSize} = req.query;
   let estimatedNumberOfPages = 0;
-  if (wordCount) {
-    estimatedNumberOfPages = Math.ceil(wordCount / 9700);
-  }
+  estimatedNumberOfPages = Math.ceil(wordCount / 9700);
 
   function writeToInProgress(text) {
     console.log(`${text}`);
@@ -40,7 +38,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 
   setImmediate(async () => {
     try {
-      await run(req, id, bookName, fontSize, wordCount);
+      await run(req, id, bookName, fontSize);
     } catch (error) {
       console.error(error);
       writeToInProgress('ERROR: ' + error.toString());
@@ -48,7 +46,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
   });
 
 
-  async function run(req, id, bookName, fontSize, wordCount) {
+  async function run(req, id, bookName, fontSize) {
     const browser = await puppeteer.launch();
     const page = await browser.newPage();
     const inProgressPath = path.join(__dirname, 'generated', `IN_PROGRESS_${id}_${bookName}.txt`);
@@ -68,47 +66,19 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 
     writeToInProgress(`Creating: ${bookName}`);
 
-    await page.evaluate((text, bookName, wordCount) => {
-      pageIndex = 0;
-      frontOrBackText = ':';
-      // document.querySelector('#title').textContent = bookName;
-      // if (bookName !== '') document.querySelector('#dash').textContent = ' - ';
-
+    await page.evaluate((text, bookName) => {
+      let pageIndex = 0;
       const words = text.split(' ');
-
+      let blocks = [];
       let currentBlockIndex = 0;
       let currentBlock;
 
-      function createNewPage() {
-        console.log(pageIndex);
+      function createNewPage(wordsLeft) {
+        console.log(pageIndex+1);
         const page = document.createElement('div');
-        const header = document.createElement('div');
-        const pageNumber = document.createElement('h3');
-        const frontOrBack = document.createElement('h3');
-        const dash = document.createElement('h3');
-        const title = document.createElement('h3');
-
         page.className = 'page';
-        header.className = 'header';
-        pageNumber.id = 'pageNumber' + pageIndex;
-        frontOrBackText = frontOrBackText === '.' ? ':' : '.';
-        frontOrBack.textContent = frontOrBackText;
-        title.textContent = bookName;
-        dash.textContent = ' - ';
 
-        header.appendChild(pageNumber);
-        header.appendChild(frontOrBack);
-        if (bookName !== '') header.appendChild(dash);
-        header.appendChild(title);
-
-        // add word count to first page
-        if (pageIndex === 0) {
-          const wordCountEl = document.createElement('h4');
-          wordCountEl.textContent = ' ' + Intl.NumberFormat().format(wordCount) + ' words';
-          wordCountEl.style.color = 'grey';
-          header.appendChild(wordCountEl);
-        }
-
+        // create grid cells
         const grid = document.createElement('div');
         grid.className = 'grid-container';
         for (let i = 0; i < 16; i++) {
@@ -120,25 +90,45 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 
         page.appendChild(grid);
         document.body.appendChild(page);
-        document.querySelector('#header' + pageIndex).appendChild(header);
+
+        if ((pageIndex+1) % 2 === 1) {
+          const header = document.createElement('div');
+          const pageNumber = document.createElement('h3');
+          const title = document.createElement('h3');
+          
+          header.className = 'header';
+          pageNumber.textContent = '00/00';
+          pageNumber.id = 'pageNumber' + pageIndex;
+          if (bookName) title.textContent = ' - ' + bookName;
+
+          header.appendChild(pageNumber);
+          header.appendChild(title);
+
+          const wordCountEl = document.createElement('h4');
+          wordCountEl.textContent = ' [ ' + Intl.NumberFormat().format(wordsLeft) + ' words ]';
+          header.appendChild(wordCountEl);
+
+          document.querySelector('#header' + pageIndex).appendChild(header);
+        }
+        
         blocks = Array.from(document.querySelectorAll('.grid-item'));
 
         pageIndex++;
       }
-      createNewPage();
+      createNewPage(words.length);
 
       currentBlock = blocks[currentBlockIndex];
       for (let i = 0; i < words.length; i++) {
         currentBlock.innerHTML += ' ' + words[i];
 
+        // If the word made the block overflow, remove it from the block
         if (currentBlock.scrollHeight > currentBlock.clientHeight) {
-          // If the word made the block to overflow, remove it from the block
           currentBlock.innerHTML = currentBlock.innerHTML.slice(0, currentBlock.innerHTML.length - words[i].length);
 
           // Move to the next block
-          currentBlockIndex += 1;
+          currentBlockIndex++;
           if (currentBlockIndex >= blocks.length) {
-            createNewPage(); // Create a new page if all blocks are filled
+            createNewPage(words.length - i); // Create a new page if all blocks are filled
             currentBlockIndex = blocks.length - 16; // Reset the block index to the first block of the new page
           }
           currentBlock = blocks[currentBlockIndex];
@@ -148,9 +138,10 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 
       const SHEETS_AMOUNT = Math.ceil(pageIndex / 2);
       for (let i = 0; i < pageIndex; i++) {
+        if (i % 2 === 1) continue;
         document.querySelector('#pageNumber' + i).textContent = `${Math.ceil((i+1) / 2)}/${SHEETS_AMOUNT}`;
       }
-    }, text, bookName, wordCount);
+    }, text, bookName);
 
     writeToInProgress('Finished creating pages. Writing to file...');
 

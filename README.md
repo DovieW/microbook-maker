@@ -11,3 +11,5 @@ get antsy?
 <img src="https://github.com/DovieW/microbook-maker/blob/master/site%20image.png?raw=true" height="200px">
 
 Docker image not working
+
+Don't expose to the intershmutz!
