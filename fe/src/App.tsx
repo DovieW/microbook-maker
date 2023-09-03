@@ -16,7 +16,7 @@ function App() {
   const [disableUpload, setDisableUpload] = useState(true);
   const [bookName, setBookName] = useState('');
   const [wordCount, setWordCount] = useState(0);
-  const [fontSize, setFontSize] = useState('5');
+  const [fontSize, setFontSize] = useState('6');
   const [loading, setLoading] = useState(false);
   const [id, setId] = useState<string|null>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
