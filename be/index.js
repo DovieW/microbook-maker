@@ -44,7 +44,9 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
   });
 
   async function run(req, id, bookName, fontSize) {
-    const browser = await puppeteer.launch();
+    const browser = await puppeteer.launch({
+      protocolTimeout: 1000000
+    });
     const page = await browser.newPage();
     const inProgressPath = path.join(__dirname, 'generated', `IN_PROGRESS_${id}.txt`);
 
