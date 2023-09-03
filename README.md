@@ -2,14 +2,10 @@ bored in shul?
 
 get antsy?
 
-[grab a txt](https://raw.githubusercontent.com/DovieW/microbook-maker/master/alice_in_wonderland.txt)
+[grab a txt](https://raw.githubusercontent.com/DovieW/microbook-maker/master/The%20Prince%20and%20the%20Pauper.txt)
 
 [learn to fold](https://youtu.be/cVXLgpmTEUU)
 
-[and your gold](https://github.com/DovieW/microbook-maker/blob/master/2023_8_6_22_34_4_Alice%20In%20Wonderland.pdf)
+[and your gold](https://github.com/DovieW/microbook-maker/blob/master/The%20Prince%20and%20the%20Pauper_6.pdf)
 
-<img src="https://github.com/DovieW/microbook-maker/blob/master/site%20image.png?raw=true" height="200px">
-
-Docker image not working
-
-Don't expose to the intershmutz!
+<img src="https://raw.githubusercontent.com/DovieW/microbook-maker/master/ui%20sample.png" height="200px">
