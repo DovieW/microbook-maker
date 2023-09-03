@@ -85,6 +85,25 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
         for (let i = 0; i < 16; i++) {
           const gridItem = document.createElement('div');
           gridItem.className = 'grid-item';
+
+          // Determine padding classes for Improved Padding
+          let paddingClass = '';
+          // Rows
+          if (i < 4) { // Row 1 (bottom padding)
+            paddingClass += 'pad-bottom ';
+          } else if (i >= 4 && i < 12) { // Rows 2 and 3 (top and bottom padding)
+            paddingClass += 'pad-top pad-bottom ';
+          } else { // Row 4 (top padding)
+            paddingClass += 'pad-top ';
+          }
+          // Columns
+          if (i % 4 === 1) { // Second cell from the left in each row, right padding for crease
+            paddingClass += 'pad-right';
+          } else if (i % 4 === 2) { // Third cell from the left in each row, left padding for crease
+            paddingClass += 'pad-left';
+          }
+          gridItem.className += ` ${paddingClass}`;
+
           if (i === 0 && isCurrentPageFront) { 
             gridItem.id = 'header' + pageIndex;
           } else if (i % 4 === 0) { // if it's the first cell in a row
