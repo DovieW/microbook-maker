@@ -44,10 +44,17 @@ function App() {
   const [fileName, setFileName] = useState('');
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files.length > 0) {
+    const files = event.target.files
+    if (files && files.length > 0) {
+      const file = files[0];
+      if (!file.name.endsWith('.txt')) {
+        alert("Invalid file type. Please select a .txt file.");
+        return;
+      }
+
       setDisableUpload(false);
-      setBookName(event.target.files[0].name.split('.')[0]);
-      setFileName(event.target.files[0].name);
+      setBookName(file.name.split('.')[0]);
+      setFileName(file.name);
       
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -56,7 +63,7 @@ function App() {
         setWordCount(wordSplit);
         setPapersCount(calculatePapers(wordSplit, fontSize));
       }
-      reader.readAsText(event.target.files[0]);
+      reader.readAsText(file);
     }
   }
 
@@ -162,12 +169,12 @@ function App() {
             />
           </Box>
           <Box mt={2}>
-            <input 
-              type='file' 
+            <input
+              type='file'
               style={{ display: 'none' }}
-              onChange={handleFileChange} 
+              onChange={handleFileChange}
               ref={uploadRef} 
-              accept='.txt' 
+              accept='.txt'
               id='contained-button-file'
             />
             <Tooltip
@@ -178,7 +185,7 @@ function App() {
             >
               <label htmlFor='contained-button-file'>
                 <Button
-                variant='contained' 
+                variant='contained'
                 component='span'
                 disableElevation
                 >
