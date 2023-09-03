@@ -19,8 +19,8 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 const serveIndex = require('serve-index');
 
-app.use('/generated', express.static(path.join(__dirname, 'generated')), serveIndex(path.join(__dirname, 'generated'), {'icons': true}));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')), serveIndex(path.join(__dirname, 'uploads'), {'icons': true}));
+// app.use('/generated', express.static(path.join(__dirname, 'generated')), serveIndex(path.join(__dirname, 'generated'), {'icons': true}));
+// app.use('/uploads', express.static(path.join(__dirname, 'uploads')), serveIndex(path.join(__dirname, 'uploads'), {'icons': true}));
 
 app.post('/api/upload', upload.single('file'), (req, res) => {
   const date = new Date();
