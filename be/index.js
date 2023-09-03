@@ -43,7 +43,6 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
     }
   });
 
-
   async function run(req, id, bookName, fontSize) {
     const browser = await puppeteer.launch();
     const page = await browser.newPage();
@@ -56,7 +55,6 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
     // await page.setViewport({ width: 816, height: 1056 });
 
     let text = fs.readFileSync(req.file.path, 'utf8');
-    // let text = req.file.buffer.toString('utf8');
     
     await page.goto(`file://${__dirname}/page.html`);
     
@@ -146,6 +144,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
       }
       createNewPage(words.length);
 
+      // Populate grid items
       currentBlock = blocks[currentBlockIndex];
       for (let i = 0; i < words.length; i++) {
         currentBlock.innerHTML += ' ' + words[i];
@@ -165,6 +164,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
         }
       }
 
+      // Populate headers
       const SHEETS_AMOUNT = Math.ceil(pageIndex / 2);
       isCurrentPageFront = true;
       for (let i = 0; i < pageIndex; i++) {
@@ -182,6 +182,20 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
           isCurrentPageFront = true;
         }
       }
+
+      // remove empty grid items on final page
+      const allGridItems = document.querySelectorAll('.grid-item');
+      const last16GridItems = Array.from(allGridItems).slice(-15);
+      last16GridItems.forEach((block, index) => {
+        const cloneBlock = block.cloneNode(true);
+        const spanElement = cloneBlock.querySelector('.miniSheetNum');
+        if (spanElement) {
+          spanElement.remove();
+        }
+        if (cloneBlock.textContent.trim() === '') {
+          block.remove();
+        }
+      });
     }, text, bookName);
 
     writeToInProgress('Finished creating pages. Writing to file...');
