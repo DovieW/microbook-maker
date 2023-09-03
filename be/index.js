@@ -26,7 +26,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
   const date = new Date();
   const id = `${date.getFullYear()}_${date.getMonth() + 1}_${date.getDate()}_${date.getHours()}_${date.getMinutes()}_${date.getSeconds()}`;
 
-  const {bookName, wordCount, fontSize, papersCount} = req.query;
+  const {bookName, fontSize, papersCount} = req.query;
 
   function writeToInProgress(text) {
     console.log(`${text}`);
