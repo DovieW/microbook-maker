@@ -26,9 +26,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
   const date = new Date();
   const id = `${date.getFullYear()}_${date.getMonth() + 1}_${date.getDate()}_${date.getHours()}_${date.getMinutes()}_${date.getSeconds()}`;
 
-  const {bookName, wordCount, fontSize} = req.query;
-  let estimatedNumberOfPages = 0;
-  estimatedNumberOfPages = Math.ceil(wordCount / 9700);
+  const {bookName, wordCount, fontSize, papersCount} = req.query;
 
   function writeToInProgress(text) {
     console.log(`${text}`);
@@ -52,7 +50,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
     const inProgressPath = path.join(__dirname, 'generated', `IN_PROGRESS_${id}_${bookName}.txt`);
 
     page.on('console', pageIndex => {
-      writeToInProgress(`Creating page ${pageIndex.text()} of ${estimatedNumberOfPages}-ish. It should take around ${Number.parseFloat(((estimatedNumberOfPages - Number(pageIndex.text())) * 5) / 60).toFixed(1)}-ish minutes.`);
+      writeToInProgress(`Creating sheet ${pageIndex.text() / 2} of ${papersCount}-ish.`);
     });
 
     // await page.setViewport({ width: 816, height: 1056 });

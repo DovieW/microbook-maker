@@ -12,10 +12,31 @@ import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 
+type PaperCountsType = {
+  [key: string]: number;
+};
+
+const paperCounts: PaperCountsType = {
+  "4": 38266,
+  "5": 24427,
+  "6": 16850,
+  "7": 12278,
+  "8": 9113,
+  "9": 7070,
+  "10": 5584
+};
+
+const calculatePapers = (wordCount: number, fontSize: string): number => {
+  const wordsPerPaper = paperCounts[fontSize];
+  if (!wordsPerPaper) return 0;
+  return Math.ceil(wordCount / wordsPerPaper);
+};
+
 function App() {
   const [disableUpload, setDisableUpload] = useState(true);
   const [bookName, setBookName] = useState('');
   const [wordCount, setWordCount] = useState(0);
+  const [papersCount, setPapersCount] = useState(0);
   const [fontSize, setFontSize] = useState('6');
   const [loading, setLoading] = useState(false);
   const [id, setId] = useState<string|null>(null);
@@ -29,8 +50,9 @@ function App() {
       const reader = new FileReader();
       reader.onload = (e) => {
         const text = (e.target?.result as string).trim();
-        const wordCount = text.split(' ').length;
-        setWordCount(wordCount);
+        const wordSplit = text.split(' ').length;
+        setWordCount(wordSplit);
+        setPapersCount(calculatePapers(wordSplit, fontSize));
       }
       reader.readAsText(event.target.files[0]);
     }
@@ -48,7 +70,8 @@ function App() {
         const params = new URLSearchParams({
           bookName: bookName,
           fontSize: fontSize,
-          wordCount: wordCount.toString()
+          wordCount: wordCount.toString(),
+          papersCount: papersCount.toString()
         });
         const response = await fetch(`/api/upload?${params.toString()}`, {
           method: 'POST',
@@ -117,8 +140,13 @@ function App() {
               value={fontSize}
               onChange={e => {
                 setFontSize(e.target.value);
-                if (+e.target.value < 4) setDisableUpload(true);
-                else if (uploadRef?.current?.files?.length) setDisableUpload(false);
+                if (+e.target.value < 4 || +e.target.value > 10) {
+                  setPapersCount(0);
+                  setDisableUpload(true);
+                } else if (uploadRef?.current?.files?.length) {
+                  setDisableUpload(false);
+                  setPapersCount(calculatePapers(wordCount, e.target.value));
+                }
               }}
               label='Font Size'
               type='number'
@@ -152,6 +180,9 @@ function App() {
           </Box>
           <Typography variant='caption' gutterBottom>
             {new Intl.NumberFormat().format(wordCount)} Words
+          </Typography>
+          <Typography variant='caption' gutterBottom>
+            {new Intl.NumberFormat().format(papersCount)} Sheets
           </Typography>
           <Box mt={2}>
             <Button 
