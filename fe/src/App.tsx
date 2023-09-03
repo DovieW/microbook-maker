@@ -41,11 +41,13 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [id, setId] = useState<string|null>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
+  const [fileName, setFileName] = useState('');
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files.length > 0) {
       setDisableUpload(false);
       setBookName(event.target.files[0].name.split('.')[0]);
+      setFileName(event.target.files[0].name);
       
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -168,15 +170,22 @@ function App() {
               accept='.txt' 
               id='contained-button-file'
             />
-            <label htmlFor='contained-button-file'>
-              <Button
-               variant='contained' 
-               component='span'
-               disableElevation
-              >
-                Select file
-              </Button>
-            </label>
+            <Tooltip
+              enterDelay={400}
+              enterNextDelay={400}
+              placement="top"
+              title={fileName}
+            >
+              <label htmlFor='contained-button-file'>
+                <Button
+                variant='contained' 
+                component='span'
+                disableElevation
+                >
+                  Select file
+                </Button>
+              </label>
+            </Tooltip>
           </Box>
           <Typography variant='caption' gutterBottom>
             {new Intl.NumberFormat().format(wordCount)} Words
