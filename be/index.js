@@ -23,14 +23,14 @@ const serveIndex = require('serve-index');
 // app.use('/uploads', express.static(path.join(__dirname, 'uploads')), serveIndex(path.join(__dirname, 'uploads'), {'icons': true}));
 
 app.post('/api/upload', upload.single('file'), (req, res) => {
-  const date = new Date();
-  const id = `${date.getFullYear()}_${date.getMonth() + 1}_${date.getDate()}_${date.getHours()}_${date.getMinutes()}_${date.getSeconds()}`;
-
   const {bookName, fontSize, papersCount} = req.query;
+
+  const date = new Date();
+  const id = `${date.getFullYear()}_${date.getMonth() + 1}_${date.getDate()}_${date.getHours()}_${date.getMinutes()}_${date.getSeconds()}_${bookName}_${fontSize}`;
 
   function writeToInProgress(text) {
     console.log(`${text}`);
-    const inProgressPath = path.join(__dirname, 'generated', `IN_PROGRESS_${id}_${bookName}.txt`);
+    const inProgressPath = path.join(__dirname, 'generated', `IN_PROGRESS_${id}.txt`);
     fs.writeFileSync(inProgressPath, text);
   }
 
@@ -47,7 +47,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
   async function run(req, id, bookName, fontSize) {
     const browser = await puppeteer.launch();
     const page = await browser.newPage();
-    const inProgressPath = path.join(__dirname, 'generated', `IN_PROGRESS_${id}_${bookName}.txt`);
+    const inProgressPath = path.join(__dirname, 'generated', `IN_PROGRESS_${id}.txt`);
 
     page.on('console', pageIndex => {
       writeToInProgress(`Creating sheet ${pageIndex.text() / 2} of ${papersCount}-ish.`);
@@ -191,7 +191,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
     fs.writeFileSync(pageHtml, htmlContent);
 
     const pdf = await page.pdf({ format: 'Letter' });
-    const pdfOutput = path.join(__dirname, 'generated', `${id}_${bookName}_${fontSize}.pdf`);
+    const pdfOutput = path.join(__dirname, 'generated', `${id}.pdf`);
     fs.writeFileSync(pdfOutput, pdf);
 
     await browser.close();
@@ -206,12 +206,12 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 });
 
 app.get('/api/download/', (req, res) => {
-  const { id, bookName } = req.query;
-  const pdfOutput = path.join(__dirname, 'generated', `${id}_${bookName}.pdf`);
-  const inProgressPath = path.join(__dirname, 'generated', `IN_PROGRESS_${id}_${bookName}.txt`);
+  const { id } = req.query;
+  const pdfOutput = path.join(__dirname, 'generated', `${id}.pdf`);
+  const inProgressPath = path.join(__dirname, 'generated', `IN_PROGRESS_${id}.txt`);
 
   if (fs.existsSync(pdfOutput)) {
-    res.redirect(`/generated/${id}_${bookName}.pdf`);
+    res.redirect(`/generated/${id}.pdf`);
   } else if (fs.existsSync(inProgressPath)) {
     res.send(fs.readFileSync(inProgressPath, 'utf8'));
   } else {

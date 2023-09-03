@@ -250,7 +250,7 @@ function App() {
               disableElevation
               onClick={() => {
                 setLoading(false);
-                window.open(`/api/download?id=${id}&bookName=${bookName}`, '_blank');
+                window.open(`/api/download?id=${id}`, '_blank');
               }
             }
             >
