@@ -191,7 +191,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
     fs.writeFileSync(pageHtml, htmlContent);
 
     const pdf = await page.pdf({ format: 'Letter' });
-    const pdfOutput = path.join(__dirname, 'generated', `${id}_${bookName}.pdf`);
+    const pdfOutput = path.join(__dirname, 'generated', `${id}_${bookName}_${fontSize}.pdf`);
     fs.writeFileSync(pdfOutput, pdf);
 
     await browser.close();

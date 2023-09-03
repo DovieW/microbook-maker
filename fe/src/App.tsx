@@ -79,7 +79,7 @@ function App() {
         const params = new URLSearchParams({
           bookName: bookName,
           fontSize: fontSize,
-          papersCount: papersCount.toString()
+          papersCount: papersCount.toString(),
         });
         const response = await fetch(`/api/upload?${params.toString()}`, {
           method: 'POST',
