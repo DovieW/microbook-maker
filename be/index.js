@@ -11,7 +11,7 @@ const storage = multer.diskStorage({
   },
   filename: function(req, file, cb) {
     const date = new Date();
-    const formattedDate = `${date.getFullYear()}_${date.getMonth() + 1}_${date.getDate()}_${date.getHours()}_${date.getMinutes()}_${date.getSeconds()}`;
+    const formattedDate = `${date.getFullYear()}${date.getMonth() + 1}${date.getDate()}${date.getHours()}${date.getMinutes()}${date.getSeconds()}`;
     const fileName = `${formattedDate}_${file.originalname}`;
     cb(null, fileName);
   }
@@ -26,7 +26,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
   const {bookName, fontSize, papersCount} = req.query;
 
   const date = new Date();
-  const id = `${date.getFullYear()}_${date.getMonth() + 1}_${date.getDate()}_${date.getHours()}_${date.getMinutes()}_${date.getSeconds()}_${bookName}_${fontSize}`;
+  const id = `${date.getFullYear()}${date.getMonth() + 1}${date.getDate()}${date.getHours()}${date.getMinutes()}${date.getSeconds()}_${bookName}_${fontSize}`;
 
   function writeToInProgress(text) {
     console.log(`${text}`);
@@ -66,10 +66,6 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 
     await page.evaluate((text, bookName) => {
       let pageIndex = 0;
-      const words = text.split(' ');
-      let blocks = [];
-      let currentBlockIndex = 0;
-      let currentBlock;
       let isCurrentPageFront = true; // tracks whether the next page to be rendered is on the front of the double sided sheet. the side with the big header
 
       function createNewPage(wordsLeft) {
@@ -144,9 +140,14 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 
         pageIndex++;
       }
-      createNewPage(words.length);
 
       // Populate grid items
+      const words = text.split(' ');
+      let blocks = [];
+      createNewPage(words.length);
+      let currentBlockIndex = 0;
+      let currentBlock;
+      let wordsInBlock = [];
       currentBlock = blocks[currentBlockIndex];
       for (let i = 0; i < words.length; i++) {
         currentBlock.innerHTML += ' ' + words[i];

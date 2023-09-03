@@ -188,17 +188,11 @@ function App() {
                 component='span'
                 disableElevation
                 >
-                  Select file
+                  Select TXT
                 </Button>
               </label>
             </Tooltip>
           </Box>
-          <Typography variant='caption' gutterBottom>
-            {new Intl.NumberFormat().format(wordCount)} Words
-          </Typography>
-          <Typography variant='caption' gutterBottom>
-            {new Intl.NumberFormat().format(papersCount)} Sheets
-          </Typography>
           <Box mt={2}>
             <Button 
               variant='contained'
@@ -215,20 +209,38 @@ function App() {
           maxWidth='sm'
           sx={{
             display: 'flex',
-            justifyContent: 'flex-end',
-            padding: 3,
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            pt: 3
           }}
         >
-          <Tooltip title='Uploads'>
-            <IconButton color='primary' onClick={() => window.open('/uploads', '_blank')}>
-              <UploadFileIcon/>
-            </IconButton>
-          </Tooltip>
-          <Tooltip title='History'>
-            <IconButton color='primary' onClick={() => window.open('/generated', '_blank')}>
-              <HistoryIcon/>
-            </IconButton>
-          </Tooltip>
+          <Typography color='primary' variant='body1' gutterBottom mb={0} sx={{ fontWeight: 'bold' }}>
+            Words: {wordCount === 0 ? '' : new Intl.NumberFormat().format(wordCount)}
+          </Typography>
+          <Box>
+            <Tooltip title='Uploads'>
+              <IconButton color='primary' onClick={() => window.open('/uploads', '_blank')}>
+                <UploadFileIcon/>
+              </IconButton>
+            </Tooltip>
+            <Tooltip title='History'>
+              <IconButton color='primary' onClick={() => window.open('/generated', '_blank')}>
+                <HistoryIcon/>
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </Container>
+        <Container
+          maxWidth='sm'
+          sx={{
+            display: 'flex',
+            justifyContent: 'flex-start',
+            alignItems: 'center'
+          }}
+        >
+          <Typography color='primary' variant='body1' gutterBottom mb={0} sx={{ fontWeight: 'bold' }}>
+            Sheets: {papersCount === 0 ? '' : new Intl.NumberFormat().format(papersCount)}
+          </Typography>
         </Container>
         <Backdrop
           open={loading}
