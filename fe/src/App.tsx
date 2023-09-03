@@ -111,12 +111,12 @@ function App() {
       <CssBaseline/>
       <Box
         sx={{
-          backgroundColor: '#000033',
+          backgroundColor: '#0d0033',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          minHeight: '100vh',
+          minHeight: '100vh'
         }}
       >
         <Container
@@ -128,7 +128,7 @@ function App() {
             alignItems: 'center',
             backgroundColor: '#dadaff',
             padding: 3,
-            borderRadius: 1,
+            borderRadius: '10px',
             boxShadow: 3,
           }}
         >
@@ -184,9 +184,11 @@ function App() {
             >
               <label htmlFor='contained-button-file'>
                 <Button
-                variant='contained'
-                component='span'
-                disableElevation
+                  variant='contained'
+                  component='span'
+                  disableElevation
+                  sx={{ borderRadius: '6px' }}
+                  size='small'
                 >
                   Select TXT
                 </Button>
@@ -194,12 +196,14 @@ function App() {
             </Tooltip>
           </Box>
           <Box mt={2}>
-            <Button 
+            <Button
               variant='contained'
+              size='large'
               disabled={disableUpload}
               onClick={uploadFile}
               disableElevation
               endIcon={<PictureAsPdfIcon/>}
+              sx={{ borderRadius: '6px' }}
             >
               Generate
             </Button>
@@ -215,7 +219,7 @@ function App() {
           }}
         >
           <Typography color='primary' variant='body1' gutterBottom mb={0} sx={{ fontWeight: 'bold' }}>
-            Words: {wordCount === 0 ? '' : new Intl.NumberFormat().format(wordCount)}
+            Words: {wordCount === 0 ? '--' : new Intl.NumberFormat().format(wordCount)}
           </Typography>
           <Box>
             <Tooltip title='Uploads'>
@@ -239,7 +243,7 @@ function App() {
           }}
         >
           <Typography color='primary' variant='body1' gutterBottom mb={0} sx={{ fontWeight: 'bold' }}>
-            Sheets: {papersCount === 0 ? '' : new Intl.NumberFormat().format(papersCount)}
+            Sheets: {papersCount === 0 ? '--' : new Intl.NumberFormat().format(papersCount)}
           </Typography>
         </Container>
         <Backdrop
