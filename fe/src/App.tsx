@@ -198,7 +198,6 @@ function App() {
           <Box mt={2}>
             <Button
               variant='contained'
-              size='large'
               disabled={disableUpload}
               onClick={uploadFile}
               disableElevation
