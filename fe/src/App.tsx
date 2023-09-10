@@ -227,7 +227,7 @@ function App() {
               </IconButton>
             </Tooltip>
             <Tooltip title='History'>
-              <IconButton color='primary' onClick={() => window.open('/generated/', '_blank')}>
+              <IconButton color='primary' onClick={() => window.open('/history/', '_blank')}>
                 <HistoryIcon/>
               </IconButton>
             </Tooltip>
