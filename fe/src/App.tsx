@@ -222,12 +222,12 @@ function App() {
           </Typography>
           <Box>
             <Tooltip title='Uploads'>
-              <IconButton color='primary' onClick={() => window.open('/uploads', '_blank')}>
+              <IconButton color='primary' onClick={() => window.open('/uploads/', '_blank')}>
                 <UploadFileIcon/>
               </IconButton>
             </Tooltip>
             <Tooltip title='History'>
-              <IconButton color='primary' onClick={() => window.open('/generated', '_blank')}>
+              <IconButton color='primary' onClick={() => window.open('/generated/', '_blank')}>
                 <HistoryIcon/>
               </IconButton>
             </Tooltip>
