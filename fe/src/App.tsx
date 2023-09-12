@@ -4,13 +4,19 @@ import TextField from '@mui/material/TextField';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Container from '@mui/material/Container';
-import {CssBaseline, Backdrop, CircularProgress} from '@mui/material';
+import {CssBaseline, Backdrop, styled} from '@mui/material';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import HistoryIcon from '@mui/icons-material/History';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
+
+const StyledIconButton = styled(IconButton)`
+  &:hover {
+    background-color: #14035591;
+  }
+`;
 
 type PaperCountsType = {
   [key: string]: number;
@@ -222,14 +228,14 @@ function App() {
           </Typography>
           <Box>
             <Tooltip title='Uploads'>
-              <IconButton color='primary' onClick={() => window.open('/uploads/', '_blank')}>
+              <StyledIconButton color='primary' onClick={() => window.open('/uploads/', '_blank')}>
                 <UploadFileIcon/>
-              </IconButton>
+              </StyledIconButton>
             </Tooltip>
             <Tooltip title='History'>
-              <IconButton color='primary' onClick={() => window.open('/history/', '_blank')}>
+              <StyledIconButton color='primary' onClick={() => window.open('/history/', '_blank')}>
                 <HistoryIcon/>
-              </IconButton>
+              </StyledIconButton>
             </Tooltip>
           </Box>
         </Container>
@@ -258,6 +264,7 @@ function App() {
             }}
           >
             <Typography sx={{ mt: 2 }}>Click the button below and keep reloading the page to check the status of the PDF</Typography>
+            <Typography sx={{ mt: 2 }}>Check the History page for running or completed jobs</Typography>
             <Button
               variant='contained'
               sx={{mt: 2}}

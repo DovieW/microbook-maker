@@ -147,7 +147,6 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
       createNewPage(words.length);
       let currentBlockIndex = 0;
       let currentBlock;
-      let wordsInBlock = [];
       currentBlock = blocks[currentBlockIndex];
       for (let i = 0; i < words.length; i++) {
         currentBlock.innerHTML += ' ' + words[i];
@@ -188,8 +187,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 
       // remove empty grid items on final page
       const allGridItems = document.querySelectorAll('.grid-item');
-      const last16GridItems = Array.from(allGridItems).slice(-15);
-      last16GridItems.forEach((block, index) => {
+      Array.from(allGridItems).slice(-15).forEach((block, index) => {
         const cloneBlock = block.cloneNode(true);
         const spanElement = cloneBlock.querySelector('.miniSheetNum');
         if (spanElement) {
