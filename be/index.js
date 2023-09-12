@@ -228,7 +228,7 @@ app.get('/api/download/', (req, res) => {
   const inProgressPath = path.join(__dirname, 'generated', `IN_PROGRESS_${id}.txt`);
 
   if (fs.existsSync(pdfOutput)) {
-    res.redirect(`/generated/${id}.pdf`);
+    res.redirect(`/history/${id}.pdf`);
   } else if (fs.existsSync(inProgressPath)) {
     res.send(fs.readFileSync(inProgressPath, 'utf8'));
   } else {
