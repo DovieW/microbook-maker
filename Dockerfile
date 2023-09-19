@@ -1,16 +1,11 @@
-# Use the latest Node image
 FROM node:latest
 
-# Expose port 80
 EXPOSE 7777/tcp
 
-# Set working directory
 WORKDIR /app
 
-# Copy all files into the image
 COPY . .
 
-# Update packages and install dependencies
 RUN apt-get update && \
     apt-get install -y nginx \
     libx11-xcb1 \
@@ -27,14 +22,10 @@ RUN apt-get update && \
     chromium \
     --no-install-recommends && \
     npm install pm2 -g && \
-    cp nginx.conf /etc/nginx/nginx.conf && \
-    npm install
+    cp nginx.conf /etc/nginx/nginx.conf
 
-# Switch to your backend directory
 WORKDIR /app/be
 
-# Install npm packages and make entrypoint.sh executable
 RUN npm install && chmod +x /app/entrypoint.sh
 
-# Set the entrypoint
 ENTRYPOINT [ "/app/entrypoint.sh" ]

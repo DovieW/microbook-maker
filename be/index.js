@@ -17,10 +17,6 @@ const storage = multer.diskStorage({
   }
 });
 const upload = multer({ storage: storage });
-const serveIndex = require('serve-index');
-
-// app.use('/generated', express.static(path.join(__dirname, 'generated')), serveIndex(path.join(__dirname, 'generated'), {'icons': true}));
-// app.use('/uploads', express.static(path.join(__dirname, 'uploads')), serveIndex(path.join(__dirname, 'uploads'), {'icons': true}));
 
 app.post('/api/upload', upload.single('file'), (req, res) => {
   const {bookName, fontSize, papersCount} = req.query;
@@ -45,7 +41,11 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 
   async function run(req, id, bookName, fontSize) {
     const browser = await puppeteer.launch({
-      protocolTimeout: 1000000
+      executablePath: '/usr/bin/chromium',
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-extensions', '--mute-audio'],
+      protocolTimeout: 1000000,
+      headless: true,
+      devtools: false
     });
     const page = await browser.newPage();
     const inProgressPath = path.join(__dirname, 'generated', `IN_PROGRESS_${id}.txt`);

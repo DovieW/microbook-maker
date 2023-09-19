@@ -8,6 +8,9 @@ services:
     volumes:
       - mbm-generated:/app/be/generated
       - mbm-uploads:/app/be/uploads
+      # Fonts. Make sure you have Arial and Times New Roman on the host.
+      - /usr/share/fonts:/usr/share/fonts # Linux
+      # - C:\Windows\Fonts:/usr/share/fonts # Windows
 
 volumes:
   mbm-generated:
