@@ -1,5 +1,5 @@
 # MicroBook Maker
-<img src="https://raw.githubusercontent.com/DovieW/microbook-maker/master/ui%20sample.png" height="400px">
+<img src="https://raw.githubusercontent.com/DovieW/microbook-maker/master/ui%20sample.png" height="400px" align="right">
 
 bored in shul?
 
