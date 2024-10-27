@@ -75,7 +75,7 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
       let pageIndex = 0;
       let isCurrentPageFront = true; // tracks whether the next page to be rendered is on the front of the double sided sheet. the side with the big header
 
-      function createNewPage(wordsLeft, headerInfo) {
+      function createNewPage(initialWordCount, wordsLeft, headerInfo) {
         console.log(pageIndex+1);
         const page = document.createElement('div');
         page.className = 'page';
@@ -105,7 +105,7 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
           }
           gridItem.className += ` ${paddingClass}`;
 
-          if (i === 0) { // First cell on front page
+          if (i === 0 && isCurrentPageFront) { // First cell on front page
             gridItem.id = 'header' + pageIndex;
             if (pageIndex === 0) { // Add main header on first page
               let mainHeader = document.createElement('div');
@@ -114,7 +114,7 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
               mainHeader.appendChild(table);
               const mainHeaderTitleTr = document.createElement('tr');
               const mainHeaderTitleTd = document.createElement('td');
-              mainHeaderTitleTd.setAttribute('colspan', '2');1
+              mainHeaderTitleTd.setAttribute('colspan', '2');
               mainHeaderTitleTr.appendChild(mainHeaderTitleTd);
               mainHeaderTitleTd.classList.add('main-header-title');
               mainHeaderTitleTd.innerText = `${bookName}`;
@@ -130,11 +130,41 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
                   cellCount = 0;
                 }
                 let cell = document.createElement('td');
-                cell.innerHTML = `<b>${property.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}:</b> ${headerInfo[property]}`;
+                
+                let value = headerInfo[property];
+                if (property === 'wordCount') {
+                  value = `${Intl.NumberFormat().format(wordsLeft)}`;
+                }
+                cell.innerHTML = `<b>${property.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}:</b> ${value}`;
                 currentRow.appendChild(cell);
                 cellCount++;
               }
               gridItem.appendChild(mainHeader);
+            } else {
+              let mainHeader = document.createElement('div');
+              gridItem.appendChild(mainHeader);
+              mainHeader.classList.add('main-header');
+              let table = document.createElement('table');
+              mainHeader.appendChild(table);
+              const mainHeaderTitleTr = document.createElement('tr');
+              const mainHeaderTitleTd = document.createElement('td');
+              mainHeaderTitleTd.setAttribute('colspan', '2');
+              mainHeaderTitleTr.appendChild(mainHeaderTitleTd);
+              mainHeaderTitleTd.classList.add('main-header-title');
+              let sheetNumSpan = document.createElement('span');
+              sheetNumSpan.id = 'sheetNum' + pageIndex;
+              sheetNumSpan.innerText = '00/00';
+              mainHeaderTitleTd.appendChild(sheetNumSpan);
+              if (bookName) mainHeaderTitleTd.innerHTML += ` - ${bookName}`;
+              table.appendChild(mainHeaderTitleTd);
+
+              let currentRow = document.createElement('tr');
+              table.appendChild(currentRow);
+              let cell = document.createElement('td');
+              cell.setAttribute('colspan', '2');
+              const percentageCompleted = Math.round((initialWordCount - wordsLeft) / initialWordCount * 100);
+              cell.innerHTML = `${Intl.NumberFormat().format(wordsLeft)} Words - ${percentageCompleted}% Complete`;
+              currentRow.appendChild(cell);
             }
           } else if (i % 4 === 0) { // if it's the first cell in a row, add mini header
             const miniSheetNum = document.createElement('span');
@@ -148,37 +178,16 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
 
         page.appendChild(grid);
         document.body.appendChild(page);
-
-        if (isCurrentPageFront && pageIndex !== 0) {
-          const header = document.createElement('div');
-          const sheetNum = document.createElement('h3');
-          const title = document.createElement('h3');
-          
-          header.className = 'header';
-          sheetNum.textContent = '00/00';
-          sheetNum.id = 'sheetNum' + pageIndex;
-          if (bookName) title.textContent = ' - ' + bookName;
-
-          header.appendChild(sheetNum);
-          header.appendChild(title);
-
-          const wordCountEl = document.createElement('h4');
-          wordCountEl.textContent = ' [ ' + Intl.NumberFormat().format(wordsLeft) + ' words ]';
-          header.appendChild(wordCountEl);
-
-          document.querySelector('#header' + pageIndex).appendChild(header);
-        }
         isCurrentPageFront = !isCurrentPageFront;
-        
         blocks = Array.from(document.querySelectorAll('.grid-item'));
-
         pageIndex++;
       }
 
       // Populate grid items with text
       const words = text.split(' ');
+      const initialWordCount = words.length;
       let blocks = []; // Grid items
-      createNewPage(words.length, json.headerInfo); // Create first page
+      createNewPage(initialWordCount, words.length, json.headerInfo); // Create first page
       let currentBlockIndex = 0;
       let currentBlock;
       currentBlock = blocks[currentBlockIndex];
@@ -191,7 +200,7 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
           // Move to the next block
           currentBlockIndex++;
           if (currentBlockIndex >= blocks.length) { // Create a new page if all blocks are filled
-            createNewPage(words.length - i, json.headerInfo);
+            createNewPage(initialWordCount, words.length - i, json.headerInfo);
             currentBlockIndex = blocks.length - 16; // Reset the block index to the first block of the new page
           }
           currentBlock = blocks[currentBlockIndex];
