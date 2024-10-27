@@ -18,8 +18,10 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
-app.post('/api/upload', upload.single('file'), (req, res) => {
-  const {bookName, fontSize, papersCount} = req.query;
+app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
+  const json = JSON.parse(req.body.params);
+  const {bookName} = json;
+  const {fontSize, sheetsCount} = json.headerInfo;
 
   const date = new Date();
   const id = `${date.getFullYear()}${date.getMonth() + 1}${date.getDate()}${date.getHours()}${date.getMinutes()}${date.getSeconds()}_${bookName}_${fontSize}`;
@@ -32,14 +34,14 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 
   setImmediate(async () => {
     try {
-      await run(req, id, bookName, fontSize);
+      await run(json, id, bookName, fontSize);
     } catch (error) {
       console.error(error);
       writeToInProgress('ERROR: ' + error.toString());
     }
   });
 
-  async function run(req, id, bookName, fontSize) {
+  async function run(json, id, bookName, fontSize) {
     const browser = await puppeteer.launch({
       executablePath: '/usr/bin/chromium',
       args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-extensions', '--mute-audio'],
@@ -51,12 +53,17 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
     const inProgressPath = path.join(__dirname, 'generated', `IN_PROGRESS_${id}.txt`);
 
     page.on('console', pageIndex => {
-      writeToInProgress(`Creating sheet ${pageIndex.text() / 2} of ${papersCount}-ish.`);
+      const n = Number(pageIndex.text());
+      if (isNaN(n)) {
+        console.log(pageIndex.text());
+        return;
+      }
+      writeToInProgress(`Creating sheet ${n / 2} of ${sheetsCount}-ish.`);
     });
 
     // await page.setViewport({ width: 816, height: 1056 });
 
-    let text = fs.readFileSync(req.file.path, 'utf8');
+    let text = fs.readFileSync(req.files.file[0].path, 'utf8');
     
     await page.goto(`file://${__dirname}/page.html`);
     
@@ -64,11 +71,11 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 
     writeToInProgress(`Creating: ${bookName}`);
 
-    await page.evaluate((text, bookName) => {
+    await page.evaluate((json, text, bookName) => {
       let pageIndex = 0;
       let isCurrentPageFront = true; // tracks whether the next page to be rendered is on the front of the double sided sheet. the side with the big header
 
-      function createNewPage(wordsLeft) {
+      function createNewPage(wordsLeft, headerInfo) {
         console.log(pageIndex+1);
         const page = document.createElement('div');
         page.className = 'page';
@@ -98,9 +105,38 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
           }
           gridItem.className += ` ${paddingClass}`;
 
-          if (i === 0 && isCurrentPageFront) { 
+          if (i === 0) { // First cell on front page
             gridItem.id = 'header' + pageIndex;
-          } else if (i % 4 === 0) { // if it's the first cell in a row
+            if (pageIndex === 0) { // Add main header on first page
+              let mainHeader = document.createElement('div');
+              mainHeader.classList.add('main-header');
+              let table = document.createElement('table');
+              mainHeader.appendChild(table);
+              const mainHeaderTitleTr = document.createElement('tr');
+              const mainHeaderTitleTd = document.createElement('td');
+              mainHeaderTitleTd.setAttribute('colspan', '2');1
+              mainHeaderTitleTr.appendChild(mainHeaderTitleTd);
+              mainHeaderTitleTd.classList.add('main-header-title');
+              mainHeaderTitleTd.innerText = `${bookName}`;
+              table.appendChild(mainHeaderTitleTd);
+
+              let cellCount = 0;
+              let currentRow;
+              for (let property in headerInfo) {
+                if (!headerInfo[property]) continue;
+                if (cellCount === 0 || cellCount >= 2) {
+                  currentRow = document.createElement('tr');
+                  table.appendChild(currentRow);
+                  cellCount = 0;
+                }
+                let cell = document.createElement('td');
+                cell.innerHTML = `<b>${property.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}:</b> ${headerInfo[property]}`;
+                currentRow.appendChild(cell);
+                cellCount++;
+              }
+              gridItem.appendChild(mainHeader);
+            }
+          } else if (i % 4 === 0) { // if it's the first cell in a row, add mini header
             const miniSheetNum = document.createElement('span');
             miniSheetNum.classList.add('miniSheetNum' + pageIndex);
             miniSheetNum.classList.add('miniSheetNum');
@@ -113,8 +149,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
         page.appendChild(grid);
         document.body.appendChild(page);
 
-        if (isCurrentPageFront) {
-          isCurrentPageFront = false;
+        if (isCurrentPageFront && pageIndex !== 0) {
           const header = document.createElement('div');
           const sheetNum = document.createElement('h3');
           const title = document.createElement('h3');
@@ -132,33 +167,31 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
           header.appendChild(wordCountEl);
 
           document.querySelector('#header' + pageIndex).appendChild(header);
-        } else {
-          isCurrentPageFront = true;
         }
+        isCurrentPageFront = !isCurrentPageFront;
         
         blocks = Array.from(document.querySelectorAll('.grid-item'));
 
         pageIndex++;
       }
 
-      // Populate grid items
+      // Populate grid items with text
       const words = text.split(' ');
-      let blocks = [];
-      createNewPage(words.length);
+      let blocks = []; // Grid items
+      createNewPage(words.length, json.headerInfo); // Create first page
       let currentBlockIndex = 0;
       let currentBlock;
       currentBlock = blocks[currentBlockIndex];
       for (let i = 0; i < words.length; i++) {
         currentBlock.innerHTML += ' ' + words[i];
 
-        // If the word made the block overflow, remove it from the block
-        if (currentBlock.scrollHeight > currentBlock.clientHeight) {
+        if (currentBlock.scrollHeight > currentBlock.clientHeight) { // If the word made the block overflow, remove it from the block
           currentBlock.innerHTML = currentBlock.innerHTML.slice(0, currentBlock.innerHTML.length - words[i].length);
 
           // Move to the next block
           currentBlockIndex++;
-          if (currentBlockIndex >= blocks.length) {
-            createNewPage(words.length - i); // Create a new page if all blocks are filled
+          if (currentBlockIndex >= blocks.length) { // Create a new page if all blocks are filled
+            createNewPage(words.length - i, json.headerInfo);
             currentBlockIndex = blocks.length - 16; // Reset the block index to the first block of the new page
           }
           currentBlock = blocks[currentBlockIndex];
@@ -177,12 +210,10 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
           miniSheetNums[i].textContent = SHEET_NUM;
         }
 
-        if (isCurrentPageFront) {
-          isCurrentPageFront = false;
+        if (isCurrentPageFront && i !== 0) {
           document.querySelector('#sheetNum' + i).textContent = SHEET_NUM;
-        } else {
-          isCurrentPageFront = true;
         }
+        isCurrentPageFront = !isCurrentPageFront;
       }
 
       // remove empty grid items on final page
@@ -197,13 +228,12 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
           block.remove();
         }
       });
-    }, text, bookName);
+    }, json, text, bookName);
 
     writeToInProgress('Finished creating pages. Writing to file...');
 
     let htmlContent = await page.content();
-    const pageHtml = path.join(__dirname, `pageHtml.html`);
-    fs.writeFileSync(pageHtml, htmlContent);
+    fs.writeFileSync(path.join(__dirname, `output.html`), htmlContent);
 
     const pdf = await page.pdf({ format: 'Letter' });
     const pdfOutput = path.join(__dirname, 'generated', `${id}.pdf`);
@@ -211,7 +241,6 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 
     await browser.close();
 
-    // Delete the IN_PROGRESS file after PDF is created
     if (fs.existsSync(inProgressPath)) {
       fs.unlinkSync(inProgressPath);
     }

@@ -4,13 +4,14 @@ import TextField from '@mui/material/TextField';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Container from '@mui/material/Container';
-import {CssBaseline, Backdrop, styled} from '@mui/material';
+import {CssBaseline, Backdrop, styled, Divider} from '@mui/material';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import HistoryIcon from '@mui/icons-material/History';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
+import Stack from '@mui/material/Stack';
 
 const StyledIconButton = styled(IconButton)`
   &:hover {
@@ -41,8 +42,11 @@ const calculatePapers = (wordCount: number, fontSize: string): number => {
 function App() {
   const [disableUpload, setDisableUpload] = useState(true);
   const [bookName, setBookName] = useState('');
+  const [author, setAuthor] = useState('');
+  const [series, setSeries] = useState('');
+  const [year, setYear] = useState('');
   const [wordCount, setWordCount] = useState(0);
-  const [papersCount, setPapersCount] = useState(0);
+  const [sheetsCount, setSheetsCount] = useState(0);
   const [fontSize, setFontSize] = useState('6');
   const [loading, setLoading] = useState(false);
   const [id, setId] = useState<string|null>(null);
@@ -58,18 +62,50 @@ function App() {
         return;
       }
 
+      const bookNiceName = file.name.split('.')[0];
+
       setDisableUpload(false);
-      setBookName(file.name.split('.')[0]);
+      setBookName(bookNiceName);
       setFileName(file.name);
+      getBookInfo(bookNiceName);
       
       const reader = new FileReader();
       reader.onload = (e) => {
         const text = (e.target?.result as string).trim();
         const wordSplit = text.split(' ').length;
         setWordCount(wordSplit);
-        setPapersCount(calculatePapers(wordSplit, fontSize));
+        setSheetsCount(calculatePapers(wordSplit, fontSize));
       }
       reader.readAsText(file);
+    }
+  }
+
+  async function getBookInfo(bookTitle: any) {
+    const baseURL = 'https://openlibrary.org/search.json';
+    const encodedTitle = encodeURIComponent(bookTitle);
+    const url = `${baseURL}?q=${encodedTitle}`;
+
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error('Failed to fetch book information');
+        }
+
+        const data = await response.json();
+        if (data.docs && data.docs.length > 0) {
+            const book = data.docs[0];
+            const bookInfo = {
+                author: book.author_name ? book.author_name[0] : '',
+                publishYear: book.first_publish_year || '',
+            };
+
+            if (bookInfo.author) setAuthor(bookInfo.author);
+            if (bookInfo.publishYear) setYear(bookInfo.publishYear);
+        } else {
+            console.log('No book found with that title.');
+        }
+    } catch (error) {
+        console.error('Error:', error);
     }
   }
 
@@ -80,14 +116,22 @@ function App() {
   
       const formData = new FormData();
       formData.append('file', file);
+      const params = {
+        bookName: bookName,
+        headerInfo: {
+          series: series,
+          sheetsCount: sheetsCount.toString(),
+          wordCount: wordCount,
+          author: author,
+          year: year,
+          fontSize: fontSize,
+        },
+      };
+      formData.append('params', JSON.stringify(params));
   
       try {
-        const params = new URLSearchParams({
-          bookName: bookName,
-          fontSize: fontSize,
-          papersCount: papersCount.toString(),
-        });
-        const response = await fetch(`/api/upload?${params.toString()}`, {
+        
+        const response = await fetch(`/api/upload`, {
           method: 'POST',
           body: formData,
         });
@@ -128,91 +172,152 @@ function App() {
         <Container
           component='form'
           maxWidth='sm'
+          disableGutters
           sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
+            // display: 'flex',
+            // flexDirection: 'column',
+            // alignItems: 'center',
             backgroundColor: '#dadaff',
-            padding: 3,
+            p: 5,
             borderRadius: '10px',
-            boxShadow: 3,
+            // boxShadow: '0px 0px 50px 1px rgba(219, 218, 255, 0.2)',
           }}
         >
-          <Typography variant='h3' component='h1' gutterBottom fontFamily={'georgia'}>
-            MicroBook Maker
-          </Typography>
-          <Box>
-             <TextField
-              value={bookName}
-              onChange={e => setBookName(e.target.value)}
-              label='Book Name'
-              variant='outlined'
-              margin='normal'
-              fullWidth
-            />
-            <TextField
-              value={fontSize}
-              onChange={e => {
-                setFontSize(e.target.value);
-                if (+e.target.value < 4 || +e.target.value > 10) {
-                  setPapersCount(0);
-                  setDisableUpload(true);
-                } else if (uploadRef?.current?.files?.length) {
-                  setDisableUpload(false);
-                  setPapersCount(calculatePapers(wordCount, e.target.value));
-                }
-              }}
-              label='Font Size'
-              type='number'
-              variant='outlined'
-              margin='normal'
-              sx={{width: '120px'}}
-              inputProps={{
-                min: 4,
-                max: 10,
-              }}
-            />
-          </Box>
-          <Box mt={2}>
-            <input
-              type='file'
-              style={{ display: 'none' }}
-              onChange={handleFileChange}
-              ref={uploadRef} 
-              accept='.txt'
-              id='contained-button-file'
-            />
-            <Tooltip
-              enterDelay={400}
-              enterNextDelay={400}
-              placement="top"
-              title={fileName}
+          <Typography 
+              variant='h3'
+              component='h1'
+              fontFamily={'georgia'}
+              mb={2}
             >
-              <label htmlFor='contained-button-file'>
+              MicroBook Maker
+            </Typography>
+          <Stack
+            spacing={.5}
+            maxWidth='sm'
+            // divider=<Divider/>
+            // sx={{
+            //   backgroundColor: '#dadaff',
+            //   padding: 10,
+            //   borderRadius: '10px',
+            //   boxShadow: 3,
+            // }}
+          >
+            <Box> {/* BOOK NAME */}
+              <TextField
+                value={bookName}
+                onChange={e => setBookName(e.target.value)}
+                label='Book Name'
+                variant='outlined'
+                margin='normal'
+                fullWidth
+              />
+            </Box>
+            <Box> {/* SERIES NAME */}
+              <TextField
+                value={series}
+                onChange={e => setSeries(e.target.value)}
+                label='Series Name and Book Number'
+                variant='outlined'
+                margin='normal'
+                fullWidth
+              />
+            </Box>
+            <Box> {/* AUTHOR */}
+              <TextField
+                value={author}
+                onChange={e => setAuthor(e.target.value)}
+                label='Author'
+                variant='outlined'
+                margin='normal'
+                fullWidth
+              />
+            </Box>
+            <Box> {/* YEAR */}
+              <TextField
+                value={year}
+                onChange={e => setYear(e.target.value)}
+                label='Year'
+                type='number'
+                variant='outlined'
+                margin='normal'
+                sx={{width: '120px'}}
+              />
+            </Box>
+            <Box> {/* FONT SIZE */}
+              <TextField
+                value={fontSize}
+                onChange={e => {
+                  setFontSize(e.target.value);
+                  if (+e.target.value < 4 || +e.target.value > 10) {
+                    setSheetsCount(0);
+                    setDisableUpload(true);
+                  } else if (uploadRef?.current?.files?.length) {
+                    setDisableUpload(false);
+                    setSheetsCount(calculatePapers(wordCount, e.target.value));
+                  }
+                }}
+                label='Font Size'
+                type='number'
+                variant='outlined'
+                margin='normal'
+                sx={{width: '120px'}}
+                inputProps={{
+                  min: 4,
+                  max: 10,
+                }}
+              />
+            </Box>
+            <Box // BUTTONS
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-end',
+              }}
+            >
+              <Box mt={2}> {/* SELECT TXT */}
+                <input
+                  type='file'
+                  style={{ display: 'none' }}
+                  onChange={handleFileChange}
+                  ref={uploadRef} 
+                  accept='.txt'
+                  id='contained-button-file'
+                />
+                <Tooltip
+                  enterDelay={400}
+                  enterNextDelay={400}
+                  placement="top"
+                  title={fileName}
+                >
+                  <label htmlFor='contained-button-file'>
+                    <Button
+                      variant='contained'
+                      component='span'
+                      disableElevation
+                      sx={{ borderRadius: '6px' }}
+                      size='small'
+                    >
+                      Select TXT
+                    </Button>
+                  </label>
+                </Tooltip>
+              </Box>
+              <Box mt={2}> {/* GENERATE */}
                 <Button
                   variant='contained'
-                  component='span'
+                  disabled={disableUpload}
+                  onClick={uploadFile}
                   disableElevation
-                  sx={{ borderRadius: '6px' }}
-                  size='small'
+                  endIcon={<PictureAsPdfIcon/>}
+                  sx={{ 
+                    borderRadius: '6px'
+                  }}
                 >
-                  Select TXT
+                  Generate
                 </Button>
-              </label>
-            </Tooltip>
-          </Box>
-          <Box mt={2}>
-            <Button
-              variant='contained'
-              disabled={disableUpload}
-              onClick={uploadFile}
-              disableElevation
-              endIcon={<PictureAsPdfIcon/>}
-              sx={{ borderRadius: '6px' }}
-            >
-              Generate
-            </Button>
-          </Box>
+              </Box>
+            </Box>
+          </Stack>
         </Container>
         <Container
           maxWidth='sm'
@@ -248,7 +353,7 @@ function App() {
           }}
         >
           <Typography color='primary' variant='body1' gutterBottom mb={0} sx={{ fontWeight: 'bold' }}>
-            Sheets: {papersCount === 0 ? '--' : new Intl.NumberFormat().format(papersCount)}
+            Sheets: {sheetsCount === 0 ? '--' : new Intl.NumberFormat().format(sheetsCount)}
           </Typography>
         </Container>
         <Backdrop
