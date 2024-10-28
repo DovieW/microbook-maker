@@ -222,11 +222,13 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
       const SHEETS_AMOUNT = Math.ceil(pageIndex / 2);
       isCurrentPageFront = true;
       for (let i = 0; i < pageIndex; i++) {
+        const sideIndicator = isCurrentPageFront ? '' : 'b';
         const SHEET_NUM = `${Math.ceil((i+1) / 2)}/${SHEETS_AMOUNT}`;
+        const MINI_SHEET_NUM = `${Math.ceil((i+1) / 2)}${sideIndicator}/${SHEETS_AMOUNT}`;
         let miniSheetNums = document.querySelectorAll('.miniSheetNum' + i);
 
         for(let i = 0; i < miniSheetNums.length; i++) {
-          miniSheetNums[i].textContent = SHEET_NUM;
+          miniSheetNums[i].textContent = MINI_SHEET_NUM;
         }
 
         if (isCurrentPageFront && i !== 0) {
