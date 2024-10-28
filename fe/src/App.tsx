@@ -232,40 +232,49 @@ function App() {
                 fullWidth
               />
             </Box>
-            <Box> {/* YEAR */}
-              <TextField
-                value={year}
-                onChange={e => setYear(e.target.value)}
-                label='Year'
-                type='number'
-                variant='outlined'
-                margin='normal'
-                sx={{width: '120px'}}
-              />
-            </Box>
-            <Box> {/* FONT SIZE */}
-              <TextField
-                value={fontSize}
-                onChange={e => {
-                  setFontSize(e.target.value);
-                  if (+e.target.value < 4 || +e.target.value > 10) {
-                    setSheetsCount(0);
-                    setDisableUpload(true);
-                  } else if (uploadRef?.current?.files?.length) {
-                    setDisableUpload(false);
-                    setSheetsCount(calculatePapers(wordCount, e.target.value));
-                  }
+            <Box>
+              <Stack
+                direction='row'
+                spacing={2}
+                justifyContent='flex-start'
+                sx={{
+                  mt: 2
                 }}
-                label='Font Size'
-                type='number'
-                variant='outlined'
-                margin='normal'
-                sx={{width: '120px'}}
-                inputProps={{
-                  min: 4,
-                  max: 10,
-                }}
-              />
+              > {/* YEAR */}
+                <TextField
+                  value={year}
+                  onChange={e => setYear(e.target.value)}
+                  label='Year'
+                  type='number'
+                  variant='outlined'
+                  margin='normal'
+                  sx={{
+                    width: '120px'
+                  }}
+                />
+                <TextField
+                  value={fontSize}
+                  onChange={e => {
+                    setFontSize(e.target.value);
+                    if (+e.target.value < 4 || +e.target.value > 10) {
+                      setSheetsCount(0);
+                      setDisableUpload(true);
+                    } else if (uploadRef?.current?.files?.length) {
+                      setDisableUpload(false);
+                      setSheetsCount(calculatePapers(wordCount, e.target.value));
+                    }
+                  }}
+                  label='Font Size'
+                  type='number'
+                  variant='outlined'
+                  margin='normal'
+                  sx={{width: '120px'}}
+                  inputProps={{
+                    min: 4,
+                    max: 10,
+                  }}
+                />  {/* FONT SIZE */}
+              </Stack>
             </Box>
             <Box // BUTTONS
               sx={{
