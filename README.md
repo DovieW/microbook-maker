@@ -1,5 +1,5 @@
 # MicroBook Maker
-<img src="https://github.com/user-attachments/assets/8fdc832c-b2f3-4a7f-ae8d-d855bff704d9" height="400px" align="right">
+<img src="https://github.com/user-attachments/assets/8fdc832c-b2f3-4a7f-ae8d-d855bff704d9" height="460px" align="right">
 
 bored in shul?
 
@@ -9,4 +9,4 @@ get antsy?
 
 [learn to fold](https://youtu.be/cVXLgpmTEUU)
 
-[and your gold]()
+[and your gold](./0.2.0_sample.pdf)
