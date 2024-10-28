@@ -4,8 +4,6 @@ EXPOSE 7777/tcp
 
 WORKDIR /app
 
-COPY . .
-
 RUN apt-get update && \
     apt-get install -y nginx \
     libx11-xcb1 \
@@ -21,8 +19,11 @@ RUN apt-get update && \
     libgtk-3-0 \
     chromium \
     --no-install-recommends && \
-    npm install pm2 -g && \
-    cp nginx.conf /etc/nginx/nginx.conf
+    npm install pm2 -g
+
+COPY . .
+
+RUN cp nginx.conf /etc/nginx/nginx.conf
 
 WORKDIR /app/be
 
