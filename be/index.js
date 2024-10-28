@@ -75,7 +75,7 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
       let pageIndex = 0;
       let isCurrentPageFront = true; // tracks whether the next page to be rendered is on the front of the double sided sheet. the side with the big header
 
-      function createNewPage(initialWordCount, wordsLeft, headerInfo) {
+      function createNewPage(readTime, initialWordCount, wordsLeft, headerInfo) {
         console.log(pageIndex+1);
         const percentageCompleted = Math.round((initialWordCount - wordsLeft) / initialWordCount * 100);
         const page = document.createElement('div');
@@ -163,7 +163,18 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
               table.appendChild(currentRow);
               let cell = document.createElement('td');
               cell.setAttribute('colspan', '2');
-              cell.innerHTML = `${Intl.NumberFormat().format(wordsLeft)} Words - ${percentageCompleted}% Complete`;
+              const wordsPerMinute = 215;
+              const timeLeftMinutes = wordsLeft / wordsPerMinute;
+              const hoursLeft = Math.floor(timeLeftMinutes / 60);
+              const minsLeft = Math.round(timeLeftMinutes % 60);
+              let timeText = '';
+              if (hoursLeft > 0) {
+                timeText += `${hoursLeft} hour${hoursLeft > 1 ? 's' : ''}`;
+              }
+              if (minsLeft > 0) {
+                timeText += ` ${minsLeft} minute${minsLeft > 1 ? 's' : ''}`;
+              }
+              cell.innerHTML = `${Intl.NumberFormat().format(wordsLeft)} Words - ${percentageCompleted}% Complete - ${timeText}`;
               currentRow.appendChild(cell);
             }
           } else if (i % 4 === 0) { // if it's the first cell in a row, add mini header
@@ -193,7 +204,7 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
       const words = text.split(' ');
       const initialWordCount = words.length;
       let blocks = []; // Grid items
-      createNewPage(initialWordCount, words.length, json.headerInfo); // Create first page
+      createNewPage(json.headerInfo.readTime, initialWordCount, words.length, json.headerInfo); // Create first page
       let currentBlockIndex = 0;
       let currentBlock;
       currentBlock = blocks[currentBlockIndex];
@@ -210,7 +221,7 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
           // Move to the next block
           currentBlockIndex++;
           if (currentBlockIndex >= blocks.length) { // Create a new page if all blocks are filled
-            createNewPage(initialWordCount, words.length - i, json.headerInfo);
+            createNewPage(json.headerInfo.readTime, initialWordCount, words.length - i, json.headerInfo);
             currentBlockIndex = blocks.length - 16; // Reset the block index to the first block of the new page
           }
           currentBlock = blocks[currentBlockIndex];

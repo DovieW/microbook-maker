@@ -52,6 +52,7 @@ function App() {
   const [id, setId] = useState<string|null>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState('');
+  const [readTime, setReadTime] = useState('--');
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files
@@ -75,6 +76,7 @@ function App() {
         const wordSplit = text.split(' ').length;
         setWordCount(wordSplit);
         setSheetsCount(calculatePapers(wordSplit, fontSize));
+        calculateReadingTime(wordSplit);
       }
       reader.readAsText(file);
     }
@@ -109,6 +111,23 @@ function App() {
     }
   }
 
+  function calculateReadingTime(wordCount: any) {
+    const wordsPerMinute = 215;
+    
+    const timeLeftMinutes = wordCount / wordsPerMinute;
+    const hoursLeft = Math.floor(timeLeftMinutes / 60);
+    const minsLeft = Math.round(timeLeftMinutes % 60);
+    let timeText = '';
+    if (hoursLeft > 0) {
+      timeText += `${hoursLeft} hour${hoursLeft > 1 ? 's' : ''}`;
+    }
+    if (minsLeft > 0) {
+      timeText += ` ${minsLeft} minute${minsLeft > 1 ? 's' : ''}`;
+    }
+    
+    setReadTime(`${timeText}`);
+  }
+
   async function uploadFile() {
     if (uploadRef?.current?.files?.length) {
       setLoading(true);
@@ -122,6 +141,7 @@ function App() {
           series: series,
           sheetsCount: sheetsCount.toString(),
           wordCount: wordCount,
+          readTime: readTime,
           author: author,
           year: year,
           fontSize: fontSize,
@@ -363,6 +383,19 @@ function App() {
         >
           <Typography color='primary' variant='body1' gutterBottom mb={0} sx={{ fontWeight: 'bold' }}>
             Sheets: {sheetsCount === 0 ? '--' : new Intl.NumberFormat().format(sheetsCount)}
+          </Typography>
+        </Container>
+        <Container
+          maxWidth='sm'
+          sx={{
+            display: 'flex',
+            justifyContent: 'flex-start',
+            alignItems: 'center',
+            mt: 0.9
+          }}
+        >
+          <Typography color='primary' variant='body1' gutterBottom mb={0} sx={{ fontWeight: 'bold' }}>
+            Read Time: {readTime}
           </Typography>
         </Container>
         <Backdrop
