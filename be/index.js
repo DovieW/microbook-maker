@@ -77,6 +77,7 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
 
       function createNewPage(initialWordCount, wordsLeft, headerInfo) {
         console.log(pageIndex+1);
+        const percentageCompleted = Math.round((initialWordCount - wordsLeft) / initialWordCount * 100);
         const page = document.createElement('div');
         page.className = 'page';
 
@@ -162,16 +163,21 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
               table.appendChild(currentRow);
               let cell = document.createElement('td');
               cell.setAttribute('colspan', '2');
-              const percentageCompleted = Math.round((initialWordCount - wordsLeft) / initialWordCount * 100);
               cell.innerHTML = `${Intl.NumberFormat().format(wordsLeft)} Words - ${percentageCompleted}% Complete`;
               currentRow.appendChild(cell);
             }
           } else if (i % 4 === 0) { // if it's the first cell in a row, add mini header
+            const miniSheetNumContainer = document.createElement('span');
             const miniSheetNum = document.createElement('span');
+            const miniSheetNumPrecentage = document.createElement('span');
+            miniSheetNumContainer.appendChild(miniSheetNum);
+            miniSheetNumContainer.appendChild(miniSheetNumPrecentage);
+            miniSheetNumPrecentage.classList.add('miniSheetNumPrecentage');
             miniSheetNum.classList.add('miniSheetNum' + pageIndex);
-            miniSheetNum.classList.add('miniSheetNum');
+            miniSheetNumContainer.classList.add('miniSheetNum');
             miniSheetNum.textContent = '00/00';
-            gridItem.appendChild(miniSheetNum);
+            miniSheetNumPrecentage.textContent = ` 00%`;
+            gridItem.appendChild(miniSheetNumContainer);
           }
           grid.appendChild(gridItem);
         }
@@ -193,6 +199,10 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
       currentBlock = blocks[currentBlockIndex];
       for (let i = 0; i < words.length; i++) {
         currentBlock.innerHTML += ' ' + words[i];
+        const miniSheetNumPrecentage = currentBlock.querySelector(`.miniSheetNumPrecentage`);
+        if (miniSheetNumPrecentage) {
+          miniSheetNumPrecentage.textContent = ` ${Math.round((i + 1) / words.length * 100)}%`;
+        }
 
         if (currentBlock.scrollHeight > currentBlock.clientHeight) { // If the word made the block overflow, remove it from the block
           currentBlock.innerHTML = currentBlock.innerHTML.slice(0, currentBlock.innerHTML.length - words[i].length);
