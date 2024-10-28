@@ -1,5 +1,5 @@
 # MicroBook Maker
-<img src="https://raw.githubusercontent.com/DovieW/microbook-maker/master/ui%20sample.png" height="400px" align="right">
+<img src="https://github.com/user-attachments/assets/8fdc832c-b2f3-4a7f-ae8d-d855bff704d9" height="400px" align="right">
 
 bored in shul?
 
@@ -9,4 +9,4 @@ get antsy?
 
 [learn to fold](https://youtu.be/cVXLgpmTEUU)
 
-[and your gold](https://github.com/DovieW/microbook-maker/blob/master/The%20Prince%20and%20the%20Pauper_6.pdf)
+[and your gold]()
