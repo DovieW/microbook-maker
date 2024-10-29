@@ -27,4 +27,6 @@ WORKDIR /app/be
 
 RUN chmod +x /app/entrypoint.sh
 
+RUN git remote set-url origin https://github.com/DovieW/microbook-maker.git
+
 ENTRYPOINT [ "/app/entrypoint.sh" ]
