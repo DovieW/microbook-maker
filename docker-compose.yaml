@@ -4,7 +4,7 @@ services:
   microbook-maker:
     image: dovieuu/microbook-maker:latest
     ports:
-      - 7777:80
+      - 7777:7777
     volumes:
       - mbm-generated:/app/be/generated
       - mbm-uploads:/app/be/uploads
