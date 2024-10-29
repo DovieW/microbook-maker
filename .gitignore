@@ -1,7 +1,7 @@
 be/generated/*
 be/uploads/*
 fe/build/
-be/pageHtml.html
+be/output.html
 # Logs
 logs
 *.log
