@@ -23,10 +23,8 @@ RUN apt-get update && \
 
 COPY . .
 
-RUN cp nginx.conf /etc/nginx/nginx.conf
-
 WORKDIR /app/be
 
-RUN npm install && chmod +x /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
 ENTRYPOINT [ "/app/entrypoint.sh" ]
