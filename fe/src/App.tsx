@@ -4,13 +4,14 @@ import TextField from '@mui/material/TextField';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Container from '@mui/material/Container';
-import {CssBaseline, Backdrop, styled, Divider} from '@mui/material';
+import {CssBaseline, Backdrop, styled, Divider, CircularProgress} from '@mui/material';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import HistoryIcon from '@mui/icons-material/History';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import Stack from '@mui/material/Stack';
 
 const StyledIconButton = styled(IconButton)`
@@ -49,6 +50,7 @@ function App() {
   const [sheetsCount, setSheetsCount] = useState(0);
   const [fontSize, setFontSize] = useState('6');
   const [loading, setLoading] = useState(false);
+  const [bookInfoLoading, setBookInfoLoading] = useState(false);
   const [id, setId] = useState<string|null>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState('');
@@ -83,6 +85,7 @@ function App() {
   }
 
   async function getBookInfo(bookTitle: any) {
+    setBookInfoLoading(true);
     const baseURL = 'https://openlibrary.org/search.json';
     const encodedTitle = encodeURIComponent(bookTitle);
     const url = `${baseURL}?q=${encodedTitle}`;
@@ -108,6 +111,8 @@ function App() {
         }
     } catch (error) {
         console.error('Error:', error);
+    } finally {
+        setBookInfoLoading(false);
     }
   }
 
@@ -222,16 +227,41 @@ function App() {
             //   boxShadow: 3,
             // }}
           >
-            <Box> {/* BOOK NAME */}
-              <TextField
-                value={bookName}
-                onChange={e => setBookName(e.target.value)}
-                label='Book Name'
-                variant='outlined'
-                margin='normal'
-                fullWidth
-              />
-            </Box>
+            <Box sx={{ position: 'relative', ...(bookInfoLoading && { opacity: 0.5, pointerEvents: 'none' }) }}> {/* PARENT BOX START */}
+              {bookInfoLoading && (
+                <CircularProgress
+                  size={40}
+                  sx={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    marginTop: '-20px',
+                    marginLeft: '-20px',
+                  }}
+                />
+              )}
+              <Box sx={{ display: 'flex', alignItems: 'center' }}> {/* BOOK NAME */}
+                <TextField
+                  value={bookName}
+                  onChange={e => setBookName(e.target.value)}
+                  label='Book Name'
+                  variant='outlined'
+                  margin='normal'
+                  fullWidth
+                  sx={{ flexGrow: 1, mr: 1 }}
+                />
+                <Tooltip title="Reload book info">
+                  <span> {/* Span needed for tooltip when button is disabled */}
+                    <IconButton
+                      onClick={() => getBookInfo(bookName)}
+                      disabled={!bookName || bookInfoLoading}
+                      color="primary"
+                    >
+                      <RefreshIcon />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              </Box>
             <Box> {/* SERIES NAME */}
               <TextField
                 value={series}
@@ -296,6 +326,7 @@ function App() {
                 />  {/* FONT SIZE */}
               </Stack>
             </Box>
+            </Box> {/* PARENT BOX END */}
             <Box // BUTTONS
               sx={{
                 display: 'flex',
