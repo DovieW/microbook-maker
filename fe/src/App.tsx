@@ -4,10 +4,11 @@ import TextField from '@mui/material/TextField';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Container from '@mui/material/Container';
-import {CssBaseline, Backdrop, styled, Divider} from '@mui/material';
+import {CssBaseline, Backdrop, styled, Divider, CircularProgress } from '@mui/material';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import HistoryIcon from '@mui/icons-material/History';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
@@ -43,8 +44,9 @@ function App() {
   const [disableUpload, setDisableUpload] = useState(true);
   const [bookName, setBookName] = useState('');
   const [author, setAuthor] = useState('');
-  const [series, setSeries] = useState('');
   const [year, setYear] = useState('');
+  const [bookResults, setBookResults] = useState<any[]>([]);
+  const [currentResultIndex, setCurrentResultIndex] = useState<number>(0);
   const [wordCount, setWordCount] = useState(0);
   const [sheetsCount, setSheetsCount] = useState(0);
   const [fontSize, setFontSize] = useState('6');
@@ -53,6 +55,7 @@ function App() {
   const uploadRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState('');
   const [readTime, setReadTime] = useState('--');
+  const [bookInfoLoading, setBookInfoLoading] = useState<boolean>(false);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files
@@ -82,7 +85,26 @@ function App() {
     }
   }
 
+  function updateBookDisplay(index: number) {
+    if (bookResults.length > 0 && index >= 0 && index < bookResults.length) {
+      const book = bookResults[index];
+      const bookInfo = {
+        author: book.author_name ? book.author_name[0] : '',
+        publishYear: book.first_publish_year || '',
+      };
+
+      if (bookInfo.author) setAuthor(bookInfo.author);
+      else setAuthor('');
+      if (bookInfo.publishYear) setYear(bookInfo.publishYear.toString());
+      else setYear('');
+    } else {
+      setAuthor('');
+      setYear('');
+    }
+  }
+
   async function getBookInfo(bookTitle: any) {
+    setBookInfoLoading(true);
     const baseURL = 'https://openlibrary.org/search.json';
     const encodedTitle = encodeURIComponent(bookTitle);
     const url = `${baseURL}?q=${encodedTitle}`;
@@ -95,19 +117,22 @@ function App() {
 
         const data = await response.json();
         if (data.docs && data.docs.length > 0) {
-            const book = data.docs[0];
-            const bookInfo = {
-                author: book.author_name ? book.author_name[0] : '',
-                publishYear: book.first_publish_year || '',
-            };
-
-            if (bookInfo.author) setAuthor(bookInfo.author);
-            if (bookInfo.publishYear) setYear(bookInfo.publishYear);
+            setBookResults(data.docs);
+            setCurrentResultIndex(0);
+            updateBookDisplay(0); // Update display with the first result
         } else {
+            setBookResults([]);
+            setCurrentResultIndex(0);
+            updateBookDisplay(0); // Clear display if no results
             console.log('No book found with that title.');
         }
     } catch (error) {
+        setBookResults([]);
+        setCurrentResultIndex(0);
+        updateBookDisplay(0); // Clear display on error
         console.error('Error:', error);
+    } finally {
+      setBookInfoLoading(false);
     }
   }
 
@@ -138,7 +163,6 @@ function App() {
       const params = {
         bookName: bookName,
         headerInfo: {
-          series: series,
           sheetsCount: sheetsCount.toString(),
           wordCount: wordCount,
           readTime: readTime,
@@ -222,29 +246,53 @@ function App() {
             //   boxShadow: 3,
             // }}
           >
-            <Box> {/* BOOK NAME */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}> {/* BOOK NAME and Next Book Button */}
               <TextField
                 value={bookName}
-                onChange={e => setBookName(e.target.value)}
+                disabled={bookInfoLoading}
+                onChange={e => {
+                  setBookName(e.target.value);
+                  // If the user types a new book name, clear old results
+                  setBookResults([]);
+                  setCurrentResultIndex(0);
+                  setAuthor('');
+                  setYear('');
+                }}
                 label='Book Name'
                 variant='outlined'
                 margin='normal'
                 fullWidth
               />
-            </Box>
-            <Box> {/* SERIES NAME */}
-              <TextField
-                value={series}
-                onChange={e => setSeries(e.target.value)}
-                label='Series Name and Book Number'
-                variant='outlined'
-                margin='normal'
-                fullWidth
-              />
+              {bookInfoLoading && <CircularProgress size={24} sx={{ ml: 1, mr: 'auto' }} />}
+              {!bookInfoLoading && (
+                <Tooltip title="Reload book info">
+                  <IconButton
+                    onClick={() => getBookInfo(bookName)}
+                    disabled={!bookName || bookInfoLoading}
+                    sx={{ mt: 1, mb: 0.5 }}
+                  >
+                    <RefreshIcon />
+                  </IconButton>
+                </Tooltip>
+              )}
+              {bookResults.length > 1 && !bookInfoLoading && (
+                <Button
+                  variant="outlined"
+                  onClick={() => {
+                    const newIndex = (currentResultIndex + 1) % bookResults.length;
+                    setCurrentResultIndex(newIndex);
+                    updateBookDisplay(newIndex);
+                  }}
+                  sx={{ mt: 1, mb: 0.5, whiteSpace: 'nowrap' }} // Adjusted margin and prevent text wrapping
+                >
+                  Next Book
+                </Button>
+              )}
             </Box>
             <Box> {/* AUTHOR */}
               <TextField
                 value={author}
+                disabled={bookInfoLoading}
                 onChange={e => setAuthor(e.target.value)}
                 label='Author'
                 variant='outlined'
@@ -263,6 +311,7 @@ function App() {
               > {/* YEAR */}
                 <TextField
                   value={year}
+                  disabled={bookInfoLoading}
                   onChange={e => setYear(e.target.value)}
                   label='Year'
                   type='number'
