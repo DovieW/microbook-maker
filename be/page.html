@@ -67,12 +67,12 @@
       }
 
       /* Right border for all items except those in the 4th column */
-      .grid-item:nth-child(4n-2), /* 2nd column */
-      .grid-item:nth-child(4n-1), /* 3rd column */
-      .grid-item:nth-child(4n-3)  /* 1st column */
-      {
+      /* Removed hardcoded border styles - now injected dynamically */
+      /* .grid-item:nth-child(4n-2), 
+      .grid-item:nth-child(4n-1), 
+      .grid-item:nth-child(4n-3) {
           border-right: 1px dashed black;
-      }
+      } */
 
       /* Bottom border for all items except those in the 4th row */
       /* .grid-item:nth-child(-n+12) {
@@ -80,9 +80,10 @@
       } */
 
       /* Top border for all items except those in the first row */
-      .grid-item:nth-child(n+5) {
+      /* Removed hardcoded border styles - now injected dynamically */
+      /* .grid-item:nth-child(n+5) {
           border-top: 1px dashed black;
-      }
+      } */
 
       /* Improved padding */
       .pad-bottom {

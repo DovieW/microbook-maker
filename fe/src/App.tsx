@@ -4,7 +4,7 @@ import TextField from '@mui/material/TextField';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Container from '@mui/material/Container';
-import {CssBaseline, Backdrop, styled, Divider, CircularProgress} from '@mui/material';
+import {CssBaseline, Backdrop, styled, Divider, CircularProgress, Select, MenuItem, FormControl, InputLabel} from '@mui/material';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import HistoryIcon from '@mui/icons-material/History';
@@ -49,6 +49,7 @@ function App() {
   const [wordCount, setWordCount] = useState(0);
   const [sheetsCount, setSheetsCount] = useState(0);
   const [fontSize, setFontSize] = useState('6');
+  const [borderStyle, setBorderStyle] = useState('dashed');
   const [loading, setLoading] = useState(false);
   const [bookInfoLoading, setBookInfoLoading] = useState(false);
   const [id, setId] = useState<string|null>(null);
@@ -272,17 +273,7 @@ function App() {
                 fullWidth
               />
             </Box>
-            <Box> {/* AUTHOR */}
-              <TextField
-                value={author}
-                onChange={e => setAuthor(e.target.value)}
-                label='Author'
-                variant='outlined'
-                margin='normal'
-                fullWidth
-              />
-            </Box>
-            <Box>
+            <Box> {/* AUTHOR AND YEAR */}
               <Stack
                 direction='row'
                 spacing={2}
@@ -290,7 +281,15 @@ function App() {
                 sx={{
                   mt: 2
                 }}
-              > {/* YEAR */}
+              >
+                <TextField
+                  value={author}
+                  onChange={e => setAuthor(e.target.value)}
+                  label='Author'
+                  variant='outlined'
+                  margin='normal'
+                  sx={{ flexGrow: 1 }}
+                />
                 <TextField
                   value={year}
                   onChange={e => setYear(e.target.value)}
@@ -302,6 +301,17 @@ function App() {
                     width: '120px'
                   }}
                 />
+              </Stack>
+            </Box>
+            <Box> {/* FONT SIZE AND BORDER STYLE */}
+              <Stack
+                direction='row'
+                spacing={2}
+                justifyContent='flex-start'
+                sx={{
+                  mt: 2
+                }}
+              >
                 <TextField
                   value={fontSize}
                   onChange={e => {
@@ -323,7 +333,19 @@ function App() {
                     min: 4,
                     max: 10,
                   }}
-                />  {/* FONT SIZE */}
+                />
+                <FormControl variant='outlined' margin='normal' sx={{ width: '150px' }}>
+                  <InputLabel>Border Style</InputLabel>
+                  <Select
+                    value={borderStyle}
+                    onChange={e => setBorderStyle(e.target.value)}
+                    label='Border Style'
+                  >
+                    <MenuItem value="dashed">Dashed</MenuItem>
+                    <MenuItem value="solid">Solid</MenuItem>
+                    <MenuItem value="dotted">Dotted</MenuItem>
+                  </Select>
+                </FormControl>
               </Stack>
             </Box>
             </Box> {/* PARENT BOX END */}

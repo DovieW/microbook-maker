@@ -20,7 +20,7 @@ const upload = multer({ storage: storage });
 
 app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
   const json = JSON.parse(req.body.params);
-  const {bookName} = json;
+  const {bookName, borderStyle} = json;
   const {fontSize, sheetsCount} = json.headerInfo;
 
   const date = new Date();
@@ -34,14 +34,14 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
 
   setImmediate(async () => {
     try {
-      await run(json, id, bookName, fontSize);
+      await run(json, id, bookName, fontSize, borderStyle);
     } catch (error) {
       console.error(error);
       writeToInProgress('ERROR: ' + error.toString());
     }
   });
 
-  async function run(json, id, bookName, fontSize) {
+  async function run(json, id, bookName, fontSize, borderStyle) {
     const browser = await puppeteer.launch({
       executablePath: '/usr/bin/chromium',
       args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-extensions', '--mute-audio'],
@@ -68,6 +68,18 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
     await page.goto(`file://${__dirname}/page.html`);
     
     await page.addStyleTag({content: `body { font-size: ${fontSize}px; }`});
+    
+    // Add dynamic border style
+    await page.addStyleTag({content: `
+      .grid-item:nth-child(4n-2), 
+      .grid-item:nth-child(4n-1), 
+      .grid-item:nth-child(4n-3) {
+          border-right: 1px ${borderStyle || 'dashed'} black;
+      }
+      .grid-item:nth-child(n+5) {
+          border-top: 1px ${borderStyle || 'dashed'} black;
+      }
+    `});
 
     writeToInProgress(`Creating: ${bookName}`);
 
