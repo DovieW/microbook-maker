@@ -422,8 +422,11 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), async (req, res) => {
 
         if (currentBlock.scrollHeight > currentBlock.clientHeight) {
           // Remove the last addition that caused overflow
-          const lastAddition = word.includes('<') ? 
-            (word.includes('<ELEMENT_') ? elementMatch?.[0] || word : word) : word;
+          let lastAddition = word;
+          if (word.includes('<') && word.includes('<ELEMENT_')) {
+            const overflowElementMatch = word.match(/<ELEMENT_(\d+)>(.*?)<\/ELEMENT_\d+>/);
+            lastAddition = overflowElementMatch?.[0] || word;
+          }
           const lastIndex = currentBlock.innerHTML.lastIndexOf(lastAddition);
           if (lastIndex !== -1) {
             currentBlock.innerHTML = currentBlock.innerHTML.substring(0, lastIndex);
