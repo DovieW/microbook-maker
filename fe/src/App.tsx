@@ -61,8 +61,10 @@ function App() {
     const files = event.target.files
     if (files && files.length > 0) {
       const file = files[0];
-      if (!file.name.endsWith('.txt')) {
-        alert("Invalid file type. Please select a .txt file.");
+      const fileName = file.name.toLowerCase();
+      
+      if (!fileName.endsWith('.txt') && !fileName.endsWith('.epub')) {
+        alert("Invalid file type. Please select a .txt or .epub file.");
         return;
       }
 
@@ -73,15 +75,25 @@ function App() {
       setFileName(file.name);
       getBookInfo(bookNiceName);
       
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const text = (e.target?.result as string).trim();
-        const wordSplit = text.split(' ').length;
-        setWordCount(wordSplit);
-        setSheetsCount(calculatePapers(wordSplit, fontSize));
-        calculateReadingTime(wordSplit);
+      if (fileName.endsWith('.txt')) {
+        // Handle TXT files as before
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const text = (e.target?.result as string).trim();
+          const wordSplit = text.split(' ').length;
+          setWordCount(wordSplit);
+          setSheetsCount(calculatePapers(wordSplit, fontSize));
+          calculateReadingTime(wordSplit);
+        }
+        reader.readAsText(file);
+      } else if (fileName.endsWith('.epub')) {
+        // For EPUB files, we'll estimate word count based on file size
+        // The actual word count will be determined on the backend
+        const estimatedWords = Math.floor(file.size / 6); // Rough estimate: 6 bytes per word
+        setWordCount(estimatedWords);
+        setSheetsCount(calculatePapers(estimatedWords, fontSize));
+        calculateReadingTime(estimatedWords);
       }
-      reader.readAsText(file);
     }
   }
 
@@ -362,7 +374,7 @@ function App() {
                   style={{ display: 'none' }}
                   onChange={handleFileChange}
                   ref={uploadRef} 
-                  accept='.txt'
+                  accept='.txt,.epub'
                   id='contained-button-file'
                 />
                 <Tooltip
@@ -379,7 +391,7 @@ function App() {
                       sx={{ borderRadius: '6px' }}
                       size='small'
                     >
-                      Select TXT
+                      Select TXT/EPUB
                     </Button>
                   </label>
                 </Tooltip>

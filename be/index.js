@@ -5,6 +5,8 @@ const express = require('express');
 const app = express();
 const port = 3001;
 const path = require('path');
+const EpubParser = require('./epubParser');
+
 const storage = multer.diskStorage({
   destination: function(req, file, cb) {
     cb(null, 'uploads/')
@@ -18,7 +20,51 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
-app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
+// Helper function to detect file type
+function getFileType(filename) {
+  const extension = path.extname(filename).toLowerCase();
+  if (extension === '.epub') return 'epub';
+  if (extension === '.txt') return 'txt';
+  return 'unknown';
+}
+
+// Helper function to parse text files into structured content
+function parseTextFile(text) {
+  const lines = text.split('\n').filter(line => line.trim().length > 0);
+  const elements = [];
+  let totalWordCount = 0;
+
+  for (let line of lines) {
+    const trimmedLine = line.trim();
+    if (trimmedLine.length === 0) continue;
+
+    const words = trimmedLine.split(/\s+/).filter(word => word.length > 0);
+    const wordCount = words.length;
+    totalWordCount += wordCount;
+
+    // Try to detect if this might be a chapter heading (simple heuristic)
+    const isLikelyChapter = /^(chapter|ch\.?\s*\d+|part\s+\d+|\d+\.?\s*$)/i.test(trimmedLine) && wordCount <= 10;
+
+    elements.push({
+      type: isLikelyChapter ? 'heading' : 'paragraph',
+      text: trimmedLine,
+      wordCount,
+      formatting: isLikelyChapter ? { level: 1 } : {}
+    });
+  }
+
+  return {
+    content: [{
+      chapterTitle: '',
+      elements,
+      wordCount: totalWordCount
+    }],
+    totalWordCount,
+    metadata: {}
+  };
+}
+
+app.post('/api/upload', upload.fields([{name: 'file'}]), async (req, res) => {
   const json = JSON.parse(req.body.params);
   const {bookName, borderStyle} = json;
   const {fontSize, sheetsCount} = json.headerInfo;
@@ -34,14 +80,14 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
 
   setImmediate(async () => {
     try {
-      await run(json, id, bookName, fontSize, borderStyle);
+      await run(json, id, bookName, fontSize, borderStyle, req.files.file[0]);
     } catch (error) {
       console.error(error);
       writeToInProgress('ERROR: ' + error.toString());
     }
   });
 
-  async function run(json, id, bookName, fontSize, borderStyle) {
+  async function run(json, id, bookName, fontSize, borderStyle, uploadedFile) {
     const browser = await puppeteer.launch({
       executablePath: '/usr/bin/chromium',
       args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-extensions', '--mute-audio'],
@@ -61,15 +107,41 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
       writeToInProgress(`Creating sheet ${n / 2} of ${sheetsCount}-ish.`);
     });
 
-    // await page.setViewport({ width: 816, height: 1056 });
-
-    let text = fs.readFileSync(req.files.file[0].path, 'utf8');
+    let structuredContent;
+    const fileType = getFileType(uploadedFile.originalname);
     
+    writeToInProgress(`Parsing ${fileType.toUpperCase()} file: ${bookName}`);
+
+    try {
+      if (fileType === 'epub') {
+        const epubParser = new EpubParser(uploadedFile.path);
+        structuredContent = await epubParser.parse();
+        
+        // Update metadata if available from EPUB
+        if (structuredContent.metadata) {
+          if (structuredContent.metadata.title && !json.headerInfo.title) {
+            json.headerInfo.title = structuredContent.metadata.title;
+          }
+          if (structuredContent.metadata.creator && !json.headerInfo.author) {
+            json.headerInfo.author = structuredContent.metadata.creator;
+          }
+        }
+      } else if (fileType === 'txt') {
+        const text = fs.readFileSync(uploadedFile.path, 'utf8');
+        structuredContent = parseTextFile(text);
+      } else {
+        throw new Error('Unsupported file type. Please use .txt or .epub files.');
+      }
+    } catch (parseError) {
+      writeToInProgress('Error parsing file: ' + parseError.message);
+      throw parseError;
+    }
+
     await page.goto(`file://${__dirname}/page.html`);
     
     await page.addStyleTag({content: `body { font-size: ${fontSize}px; }`});
     
-    // Add dynamic border style
+    // Add enhanced styles for better formatting
     await page.addStyleTag({content: `
       .grid-item:nth-child(4n-2), 
       .grid-item:nth-child(4n-1), 
@@ -79,13 +151,39 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
       .grid-item:nth-child(n+5) {
           border-top: 1px ${borderStyle || 'dashed'} black;
       }
+      
+      .chapter-heading {
+        font-weight: bold;
+        font-size: 1.3em;
+        text-align: center;
+        margin: 0.8em 0;
+        text-decoration: underline;
+      }
+      
+      .heading-1 { font-size: 1.3em; font-weight: bold; text-align: center; margin: 0.8em 0; }
+      .heading-2 { font-size: 1.2em; font-weight: bold; margin: 0.6em 0; }
+      .heading-3 { font-size: 1.1em; font-weight: bold; margin: 0.5em 0; }
+      .heading-4, .heading-5, .heading-6 { font-weight: bold; margin: 0.4em 0; }
+      
+      .paragraph-break { margin: 0.5em 0; }
+      .blockquote { 
+        margin: 0.5em 1em; 
+        padding: 0.3em;
+        border-left: 2px solid #666;
+        font-style: italic;
+      }
+      
+      .bold { font-weight: bold; }
+      .italic { font-style: italic; }
+      .underline { text-decoration: underline; }
+      .center { text-align: center; }
     `});
 
-    writeToInProgress(`Creating: ${bookName}`);
+    writeToInProgress(`Creating enhanced PDF: ${bookName}`);
 
-    await page.evaluate((json, text, bookName) => {
+    await page.evaluate((json, structuredContent, bookName) => {
       let pageIndex = 0;
-      let isCurrentPageFront = true; // tracks whether the next page to be rendered is on the front of the double sided sheet. the side with the big header
+      let isCurrentPageFront = true;
 
       function createNewPage(readTime, initialWordCount, wordsLeft, headerInfo) {
         console.log(pageIndex+1);
@@ -102,25 +200,23 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
 
           // Determine padding classes for Improved Padding
           let paddingClass = '';
-          // Rows
-          if (i < 4) { // Row 1 (bottom padding)
+          if (i < 4) {
             paddingClass += 'pad-bottom ';
-          } else if (i >= 4 && i < 12) { // Rows 2 and 3 (top and bottom padding)
+          } else if (i >= 4 && i < 12) {
             paddingClass += 'pad-top pad-bottom ';
-          } else { // Row 4 (top padding)
+          } else {
             paddingClass += 'pad-top ';
           }
-          // Columns
-          if (i % 4 === 1) { // Second cell from the left in each row, right padding for crease
+          if (i % 4 === 1) {
             paddingClass += 'pad-right';
-          } else if (i % 4 === 2) { // Third cell from the left in each row, left padding for crease
+          } else if (i % 4 === 2) {
             paddingClass += 'pad-left';
           }
           gridItem.className += ` ${paddingClass}`;
 
-          if (i === 0 && isCurrentPageFront) { // First cell on front page
+          if (i === 0 && isCurrentPageFront) {
             gridItem.id = 'header' + pageIndex;
-            if (pageIndex === 0) { // Add main header on first page
+            if (pageIndex === 0) {
               let mainHeader = document.createElement('div');
               mainHeader.classList.add('main-header');
               let table = document.createElement('table');
@@ -189,7 +285,7 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
               cell.innerHTML = `${Intl.NumberFormat().format(wordsLeft)} Words - ${percentageCompleted}% Complete - ${timeText}`;
               currentRow.appendChild(cell);
             }
-          } else if (i % 4 === 0) { // if it's the first cell in a row, add mini header
+          } else if (i % 4 === 0) {
             const miniSheetNumContainer = document.createElement('span');
             const miniSheetNum = document.createElement('span');
             const miniSheetNumPrecentage = document.createElement('span');
@@ -212,35 +308,178 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
         pageIndex++;
       }
 
-      // Populate grid items with text
-      const words = text.split(' ');
-      const initialWordCount = words.length;
-      let blocks = []; // Grid items
-      createNewPage(json.headerInfo.readTime, initialWordCount, words.length, json.headerInfo); // Create first page
-      let currentBlockIndex = 0;
-      let currentBlock;
-      currentBlock = blocks[currentBlockIndex];
-      for (let i = 0; i < words.length; i++) {
-        currentBlock.innerHTML += ' ' + words[i];
-        const miniSheetNumPrecentage = currentBlock.querySelector(`.miniSheetNumPrecentage`);
-        if (miniSheetNumPrecentage) {
-          miniSheetNumPrecentage.textContent = ` ${Math.round((i + 1) / words.length * 100)}%`;
+      // Convert structured content to enhanced text with formatting
+      function convertToFormattedText(structuredContent) {
+        let formattedText = '';
+        let elementIndex = 0;
+        const elementMap = new Map();
+
+        for (let chapter of structuredContent.content) {
+          // Add chapter title if it exists
+          if (chapter.chapterTitle && chapter.chapterTitle.trim()) {
+            formattedText += `\n\n<CHAPTER_HEADING>${chapter.chapterTitle}</CHAPTER_HEADING>\n\n`;
+            elementMap.set(elementIndex++, { type: 'chapter_heading', text: chapter.chapterTitle });
+          }
+
+          for (let element of chapter.elements) {
+            const elementMarker = `<ELEMENT_${elementIndex}>`;
+            const elementCloser = `</ELEMENT_${elementIndex}>`;
+
+            switch (element.type) {
+              case 'heading':
+                formattedText += `\n\n${elementMarker}${element.text}${elementCloser}\n\n`;
+                break;
+              case 'paragraph':
+                formattedText += `\n${elementMarker}${element.text}${elementCloser}\n`;
+                break;
+              case 'blockquote':
+                formattedText += `\n${elementMarker}${element.text}${elementCloser}\n`;
+                break;
+              default:
+                formattedText += `${elementMarker}${element.text}${elementCloser} `;
+            }
+
+            elementMap.set(elementIndex, element);
+            elementIndex++;
+          }
         }
 
-        if (currentBlock.scrollHeight > currentBlock.clientHeight) { // If the word made the block overflow, remove it from the block
-          currentBlock.innerHTML = currentBlock.innerHTML.slice(0, currentBlock.innerHTML.length - words[i].length);
+        return { text: formattedText, elementMap };
+      }
+
+      const { text: formattedText, elementMap } = convertToFormattedText(structuredContent);
+      const words = formattedText.split(/\s+/).filter(word => word.trim().length > 0);
+      const initialWordCount = structuredContent.totalWordCount;
+      let blocks = [];
+      createNewPage(json.headerInfo.readTime, initialWordCount, initialWordCount, json.headerInfo);
+      let currentBlockIndex = 0;
+      let currentBlock = blocks[currentBlockIndex];
+      let processedWords = 0;
+
+      for (let i = 0; i < words.length; i++) {
+        let word = words[i];
+        
+        // Handle special formatting markers
+        if (word.includes('<CHAPTER_HEADING>')) {
+          const chapterText = word.replace('<CHAPTER_HEADING>', '').replace('</CHAPTER_HEADING>', '');
+          if (chapterText.trim()) {
+            // Add chapter break
+            currentBlock.innerHTML += '<br><div class="chapter-heading">' + chapterText + '</div><br>';
+          }
+          continue;
+        }
+
+        if (word.includes('<ELEMENT_')) {
+          const elementMatch = word.match(/<ELEMENT_(\d+)>(.*?)<\/ELEMENT_\d+>/);
+          if (elementMatch) {
+            const elementIndex = parseInt(elementMatch[1]);
+            const elementText = elementMatch[2];
+            const element = elementMap.get(elementIndex);
+            
+            if (element) {
+              let formattedWord = elementText;
+              let cssClasses = [];
+
+              // Apply formatting
+              if (element.type === 'heading') {
+                cssClasses.push(`heading-${element.formatting.level || 1}`);
+                formattedWord = `<br><div class="${cssClasses.join(' ')}">${elementText}</div><br>`;
+              } else if (element.type === 'paragraph') {
+                cssClasses.push('paragraph-break');
+                formattedWord = `<br><span class="${cssClasses.join(' ')}">${elementText}</span><br>`;
+              } else if (element.type === 'blockquote') {
+                formattedWord = `<br><div class="blockquote">${elementText}</div><br>`;
+              } else {
+                if (element.formatting.bold) cssClasses.push('bold');
+                if (element.formatting.italic) cssClasses.push('italic');
+                if (element.formatting.underline) cssClasses.push('underline');
+                if (element.formatting.align === 'center') cssClasses.push('center');
+                
+                if (cssClasses.length > 0) {
+                  formattedWord = `<span class="${cssClasses.join(' ')}">${elementText}</span>`;
+                }
+              }
+              
+              currentBlock.innerHTML += ' ' + formattedWord;
+              processedWords += elementText.split(/\s+/).length;
+            } else {
+              currentBlock.innerHTML += ' ' + elementText;
+              processedWords++;
+            }
+          } else {
+            currentBlock.innerHTML += ' ' + word;
+            processedWords++;
+          }
+        } else {
+          currentBlock.innerHTML += ' ' + word;
+          processedWords++;
+        }
+
+        const miniSheetNumPrecentage = currentBlock.querySelector(`.miniSheetNumPrecentage`);
+        if (miniSheetNumPrecentage) {
+          miniSheetNumPrecentage.textContent = ` ${Math.round(processedWords / initialWordCount * 100)}%`;
+        }
+
+        if (currentBlock.scrollHeight > currentBlock.clientHeight) {
+          // Remove the last addition that caused overflow
+          const lastAddition = word.includes('<') ? 
+            (word.includes('<ELEMENT_') ? elementMatch?.[0] || word : word) : word;
+          const lastIndex = currentBlock.innerHTML.lastIndexOf(lastAddition);
+          if (lastIndex !== -1) {
+            currentBlock.innerHTML = currentBlock.innerHTML.substring(0, lastIndex);
+          }
 
           // Move to the next block
           currentBlockIndex++;
-          if (currentBlockIndex >= blocks.length) { // Create a new page if all blocks are filled
-            createNewPage(json.headerInfo.readTime, initialWordCount, words.length - i, json.headerInfo);
-            currentBlockIndex = blocks.length - 16; // Reset the block index to the first block of the new page
+          if (currentBlockIndex >= blocks.length) {
+            createNewPage(json.headerInfo.readTime, initialWordCount, initialWordCount - processedWords, json.headerInfo);
+            currentBlockIndex = blocks.length - 16;
           }
           currentBlock = blocks[currentBlockIndex];
-          currentBlock.innerHTML += ' ' + words[i]; // Add the word to the new block
+          
+          // Add the word to the new block
+          if (word.includes('<ELEMENT_')) {
+            const elementMatch = word.match(/<ELEMENT_(\d+)>(.*?)<\/ELEMENT_\d+>/);
+            if (elementMatch) {
+              const elementIndex = parseInt(elementMatch[1]);
+              const elementText = elementMatch[2];
+              const element = elementMap.get(elementIndex);
+              
+              if (element) {
+                let formattedWord = elementText;
+                let cssClasses = [];
+
+                if (element.type === 'heading') {
+                  cssClasses.push(`heading-${element.formatting.level || 1}`);
+                  formattedWord = `<div class="${cssClasses.join(' ')}">${elementText}</div><br>`;
+                } else if (element.type === 'paragraph') {
+                  cssClasses.push('paragraph-break');
+                  formattedWord = `<span class="${cssClasses.join(' ')}">${elementText}</span><br>`;
+                } else {
+                  if (element.formatting.bold) cssClasses.push('bold');
+                  if (element.formatting.italic) cssClasses.push('italic');
+                  if (element.formatting.underline) cssClasses.push('underline');
+                  if (element.formatting.align === 'center') cssClasses.push('center');
+                  
+                  if (cssClasses.length > 0) {
+                    formattedWord = `<span class="${cssClasses.join(' ')}">${elementText}</span>`;
+                  }
+                }
+                
+                currentBlock.innerHTML += formattedWord;
+              } else {
+                currentBlock.innerHTML += elementText;
+              }
+            } else {
+              currentBlock.innerHTML += word;
+            }
+          } else {
+            currentBlock.innerHTML += word;
+          }
         }
       }
-      if (currentBlock) { // Ensure currentBlock is defined
+
+      if (currentBlock) {
         const endMarker = document.createElement('div');
         endMarker.innerHTML = 'THE END';
         endMarker.style.textAlign = 'center';
@@ -281,7 +520,7 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
           block.remove();
         }
       });
-    }, json, text, bookName);
+    }, json, structuredContent, bookName);
 
     writeToInProgress('Finished creating pages. Writing to file...');
 
