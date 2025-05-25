@@ -228,6 +228,15 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
           currentBlock.innerHTML += ' ' + words[i]; // Add the word to the new block
         }
       }
+      if (currentBlock) { // Ensure currentBlock is defined
+        const endMarker = document.createElement('div');
+        endMarker.innerHTML = 'THE END';
+        endMarker.style.textAlign = 'center';
+        endMarker.style.fontWeight = 'bold';
+        endMarker.style.fontSize = '1.75em';
+        endMarker.style.marginTop = '10px';
+        currentBlock.appendChild(endMarker);
+      }
 
       // Populate headers
       const SHEETS_AMOUNT = Math.ceil(pageIndex / 2);
