@@ -52,13 +52,52 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
     const page = await browser.newPage();
     const inProgressPath = path.join(__dirname, 'generated', `IN_PROGRESS_${id}.txt`);
 
+    // Time estimation variables
+    const startTime = Date.now();
+    let firstSheetTime = null;
+    let sheetTimes = [];
+
     page.on('console', pageIndex => {
       const n = Number(pageIndex.text());
       if (isNaN(n)) {
         console.log(pageIndex.text());
         return;
       }
-      writeToInProgress(`Creating sheet ${n / 2} of ${sheetsCount}-ish.`);
+      
+      const currentTime = Date.now();
+      const currentSheet = Math.ceil(n / 2);
+      
+      // Track timing for first few sheets to calculate average
+      if (currentSheet === 1 && firstSheetTime === null) {
+        firstSheetTime = currentTime - startTime;
+        sheetTimes.push(firstSheetTime);
+      } else if (currentSheet <= 3 && sheetTimes.length < currentSheet) {
+        const timeForThisSheet = currentTime - startTime - sheetTimes.reduce((sum, time) => sum + time, 0);
+        sheetTimes.push(timeForThisSheet);
+      }
+      
+      // Calculate time estimation after we have some data
+      let timeEstimateText = '';
+      if (sheetTimes.length >= 1) {
+        const averageTimePerSheet = sheetTimes.reduce((sum, time) => sum + time, 0) / sheetTimes.length;
+        const remainingSheets = sheetsCount - currentSheet;
+        const estimatedRemainingTime = remainingSheets * averageTimePerSheet;
+        
+        if (estimatedRemainingTime > 0) {
+          const remainingMinutes = Math.ceil(estimatedRemainingTime / (1000 * 60));
+          if (remainingMinutes > 60) {
+            const hours = Math.floor(remainingMinutes / 60);
+            const mins = remainingMinutes % 60;
+            timeEstimateText = ` (Est. ${hours}h ${mins}m remaining)`;
+          } else if (remainingMinutes > 1) {
+            timeEstimateText = ` (Est. ${remainingMinutes}m remaining)`;
+          } else {
+            timeEstimateText = ` (Est. <1m remaining)`;
+          }
+        }
+      }
+      
+      writeToInProgress(`Creating sheet ${currentSheet} of ${sheetsCount}-ish${timeEstimateText}`);
     });
 
     // await page.setViewport({ width: 816, height: 1056 });
