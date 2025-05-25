@@ -4,7 +4,7 @@ import TextField from '@mui/material/TextField';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Container from '@mui/material/Container';
-import {CssBaseline, Backdrop, styled, Divider, CircularProgress, Select, MenuItem, FormControl, InputLabel} from '@mui/material';
+import {CssBaseline, Backdrop, styled, CircularProgress, Select, MenuItem, FormControl, InputLabel} from '@mui/material';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import HistoryIcon from '@mui/icons-material/History';
@@ -220,13 +220,6 @@ function App() {
           <Stack
             spacing={.5}
             maxWidth='sm'
-            // divider=<Divider/>
-            // sx={{
-            //   backgroundColor: '#dadaff',
-            //   padding: 10,
-            //   borderRadius: '10px',
-            //   boxShadow: 3,
-            // }}
           >
             <Box sx={{ position: 'relative', ...(bookInfoLoading && { opacity: 0.5, pointerEvents: 'none' }) }}> {/* PARENT BOX START */}
               {bookInfoLoading && (

@@ -9,4 +9,3 @@ git reset --hard @{upstream}
 
 chmod +x /app/auto_updating_entrypoint.sh
 /app/auto_updating_entrypoint.sh
-
