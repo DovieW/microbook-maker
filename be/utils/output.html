@@ -1,0 +1,631 @@
+<!DOCTYPE html><html><head>
+    <style>
+      
+      @page {
+        size: Letter portrait;
+        margin: 0;
+      }
+      
+      body {
+        margin: 0px;
+        /* margin: -10px; */
+      }
+
+      .page {
+        page-break-after: always;
+        /* margin: 25px; */
+        width: 816px;
+        height: 1056px;
+      }
+
+      /* .header {
+        margin-left: 5px;
+        height: 1%;
+      } */
+      .header {
+        display: inline-block;
+      }
+
+      .miniSheetNum {
+        font-weight: bold;
+        text-decoration: underline;
+        /* border-left: 0.1px solid black;
+        border-right: 0.1px solid black; */
+        /* border-radius: 15%; */
+        /* height: 9px;
+        display: inline-block;
+        padding-bottom: 0px; */
+      }
+
+      .grid-container {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        grid-template-rows: repeat(4, 1fr);
+        /* gap: 10px 0px; */
+        /* height: 100%; */
+        height: 99.7%; /* dont have patience to figure out why having it any higher causes an extra page */
+      }
+
+      .grid-item {
+        line-height: 1;
+        padding: 2px;
+        box-sizing: border-box;
+        overflow: hidden;
+        font-family: Arial;
+        text-align: justify;
+      }
+
+      h3, h4 {
+        display: inline;
+        font-family: 'Times New Roman';
+      }
+
+      h3 {
+        font-size: 1.6em;
+      }
+
+      /* Right border for all items except those in the 4th column */
+      /* Removed hardcoded border styles - now injected dynamically */
+      /* .grid-item:nth-child(4n-2), 
+      .grid-item:nth-child(4n-1), 
+      .grid-item:nth-child(4n-3) {
+          border-right: 1px dashed black;
+      } */
+
+      /* Bottom border for all items except those in the 4th row */
+      /* .grid-item:nth-child(-n+12) {
+          border-bottom: 1px dashed black;
+      } */
+
+      /* Top border for all items except those in the first row */
+      /* Removed hardcoded border styles - now injected dynamically */
+      /* .grid-item:nth-child(n+5) {
+          border-top: 1px dashed black;
+      } */
+
+      /* Improved padding */
+      .pad-bottom {
+        padding-bottom: 4px;
+      }
+      .pad-top {
+        padding-top: 4px;
+      }
+      .pad-left {
+        padding-left: 4px;
+      }
+      .pad-right {
+        padding-right: 4px;
+      }
+
+      .main-header {
+        border: 1px solid black;
+        border-radius: 2%;
+        padding: 5px;
+        padding-top: 3px;
+        display: block;
+        margin-bottom: 2px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      td, th {
+        padding: 2px;
+      }
+      .main-header-title {
+        font-size: 2em;
+        font-weight: bold;
+      }
+    </style>
+  <style>body { font-size: 6px; }</style><style>
+      .grid-item:nth-child(4n-2), 
+      .grid-item:nth-child(4n-1), 
+      .grid-item:nth-child(4n-3) {
+          border-right: 1px dashed black;
+      }
+      .grid-item:nth-child(n+5) {
+          border-top: 1px dashed black;
+      }
+    </style></head>
+  <body>
+  
+<div class="page"><div class="grid-container"><div class="grid-item pad-bottom " id="header0"><div class="main-header"><table><tbody><tr><td colspan="2" class="main-header-title">The Prince and the Pauper</td></tr><tr><td><b>Sheets Count:</b> 1</td><td><b>Word Count:</b> 5,810</td></tr><tr><td><b>Read Time:</b>  27 minutes</td><td><b>Author:</b> Mark Twain</td></tr><tr><td><b>Year:</b> 1881</td><td><b>Font Size:</b> 6</td></tr></tbody></table></div> Table of Contents
+
+
+
+
+
+FROM THE PAGES OF THE PRINCE AND THE PAUPER
+
+Title Page
+
+Copyright Page
+
+MARK TWAIN
+
+THE WORLD OF MARK TWAIN AND THE PRINCE AND THE PAUPER
+
+Introduction
+
+Dedication
+
+Praise
+
+PREFACE
+
+
+
+
+
+I - The Birth of the Prince and the Pauper
+
+II - Tom’s Early Life
+
+III - Tom’s Meeting with the Prince
+
+IV - The Prince’s Troubles Begin
+
+V - Tom as a Patrician
+
+VI - Tom Receives Instructions
+
+VII - Tom’s First Royal Dinner
+
+VIII - The Question of the Seal
+
+IX - The River Pageant
+
+X - The Prince in the Toils
+
+XI - At Guildhall
+
+XII - The Prince and His Deliverer
+
+XIII - The Disappearance of the Prince
+
+XIV - ”Le Roi est Mort—Vive le Roi”
+
+XV - Tom as King
+
+XVI - The State Dinner
+
+XVII - Foo-foo the First
+
+XVIII - The Prince with the Tramps
+
+XIX - The Prince with the Peasants
+
+XX - The Prince and the Hermit
+
+XXI - Hendon to the Rescue
+
+XXII - A Victim of Treachery
+
+XXIII - The Prince a Prisoner
+
+XXIV - The Escape
+
+XXV - Hendon Hall
+
+XXVI - Disowned
+
+XXVII - In Prison
+
+XXVIII - The Sacrifice
+
+XXIX - To London
+
+XXX - Tom’s Progress
+
+XXXI - The Recognition Procession
+
+XXXII - Coronation Day
+
+XXXIII - Edward as King
+
+
+
+
+
+CONCLUSION
+
+TWAIN’S NOTES
+
+ENDNOTES
+
+INSPIRED BY THE PRINCE AND THE PAUPER
+
+COMMENTS &amp; QUESTIONS
+
+FOR FURTHER READING
+
+
+
+
+
+FROM THE PAGES OF THE PRINCE AND THE PAUPER
+
+In the ancient city of London, on a certain autumn day in the second quarter of the sixteenth century, a boy was born to a poor family of the name of Canty, who did not want him. On the same day another English child was born to a rich family of the name of Tudor, who did want him. All England wanted him too. (page 11)
+
+
+
+
+
+“When I am king, they shall not have bread and shelter only, but also teachings out of books; for a full belly is little worth where the mind is starved, and the heart.” (page 27)
+
+
+
+
+
+“And so I am become a knight of the Kingdom of Dreams and Shadows!” (page 76)
+
+
+
+
+
+“In truth, being a king is not all dreariness—it hath its compensations and conveniences.” (page 94)
+
+
+
+
+
+Pleasant thoughts came at once; life took on a cheerfuler seeming. He was free of the bonds of servitude and crime, free of the companionship of base and brutal outlaws; he was warm, he was sheltered; in a word, he was happy. (page 123)
+
+
+
+
+
+The boy was filled with generous indignation, and commanded her to go to her closet, and </div><div class="grid-item pad-bottom pad-right"> beseech God to take away the stone that was in her breast, and give her a human heart. (page 180)
+
+
+
+
+
+“What dost thou know of suffering and oppression? I and my people know, but not thou.” (page 210)
+
+
+
+
+
+Published by Barnes &amp; Noble Books
+
+122 Fifth Avenue
+
+New York, NY 10011
+
+
+
+
+
+www.barnesandnoble.com/classics
+
+
+
+
+
+The Prince and the Pauper was first published in 1881.
+
+
+
+
+
+Published in 2004 by Barnes &amp; Noble Classics with new Introduction,
+
+Notes, Biography, Chronology, Inspired by, Comments &amp; Questions,
+
+and For Further Reading.
+
+
+
+
+
+Introduction, Notes, and For Further Reading
+
+Copyright © 2004 by Robert Tine.
+
+
+
+
+
+Note on Mark Twain, The World of Mark Twain and The Prince and the Pauper,
+
+Inspired by The Prince and the Pauper, and Comments &amp; Questions
+
+Copyright © 2004 by Barnes &amp; Noble, Inc.
+
+
+
+
+
+All rights reserved. No part of this publication may be reproduced or transmitted in any form or by any means, electronic or mechanical, including photocopy, recording, or any information storage and retrieval system, without the prior written permission of the publisher.
+
+
+
+
+
+Barnes &amp; Noble Classics and the Barnes &amp; Noble Classics colophon are trademarks of Barnes &amp; Noble, Inc.
+
+
+
+
+
+The Prince and the Pauper
+
+ISBN-13: 978-1-59308-218-5 ISBN-10: 1-59308-218-5
+
+eISBN : 978-1-411-43297-0
+
+LC Control Number 2004107220
+
+
+
+
+
+Produced and published in conjunction with
+
+Fine Creative Media, Inc.
+
+322 Eighth Avenue
+
+New York, NY 10001
+
+
+
+
+
+Michael J. Fine, President and Publisher
+
+
+
+
+
+Printed in the United States of America
+
+
+
+
+
+QM
+
+5 7 9 10 8 6 4
+
+
+
+
+
+MARK TWAIN
+
+Mark Twain was born Samuel Langhorne Clemens on November 30, 1835. When Sam was four years old, his family moved to Hannibal, Missouri, a small town later immortalized in The Adventures of Tom Sawyer and Adventures of Huckleberry Finn. After the death of his father, twelve-year-old Sam quit school and supported his family by working as a delivery boy, a grocer’s clerk, and an assistant blacksmith until he was thirteen, when he became an apprentice printer. He worked for several newspapers, traveled throughout the country, and established himself as a gifted writer of humorous sketches. Abandoning journalism at points to work as a riverboat pilot, Clemens adventured up and down the Mississippi, learning the 1,200 miles of the river.
+
+During the 1860s he spent time in the West, in newspaper work and panning for gold, and traveled to Europe and the Holy Land; The Innocents Abroad (1869) and Roughing It (1872) are accounts of those experiences. In 1863 Samuel Clemens adopted a pen name, signing a sketch as “Mark Twain,” and in 1867 Mark Twain won fame with publication of a collection of humorous writings, The Celebrated Jumping Frog of Calaveras County and Other Sketches. After marrying and settling in Connecticut, Twain wrote his best-loved works: the novels about Tom Sawyer and Huckleberry Finn, and the nonfiction work Life on the Mississippi. Meanwhile, he continued to travel and had a successful </div><div class="grid-item pad-bottom pad-left"> career as a public lecturer.
+
+In his later years, Twain saw the world with increasing pessimism following the death of his wife and two of their three daughters. The tone of his later novels, including The Tragedy of Pudd‘nhead Wilson and A Connecticut Yankee in King Arthur’s Court, became cynical and dark. Having failed as a publisher and suffering losses from ill-advised investments, Twain was forced by financial necessity to maintain a heavy schedule of lecturing. Though he had left school at an early age, his genius was recognized by Yale University, the University of Missouri, and Oxford University in the form of honorary doctorate degrees. He died in his Connecticut mansion, Stormfield, on April 21, 1910.
+
+
+
+
+
+THE WORLD OF MARK TWAIN AND THE PRINCE AND THE PAUPER
+
+
+
+1835 Samuel Langhorne Clemens is born prematurely in Florida, Missouri, the fourth child of John Marshall Clemens and Jane Lampton Clemens.
+
+1839 The family moves to Hannibal, the small Missouri town on the west bank of the Mississippi River that will become the model for the setting of Tom Sawyer and Huckleberry Finn.
+
+1840 American newspapers gain increased readership as urban populations swell and printing technology improves.
+
+1847 John Clemens dies, leaving the family in financial difficulty. Sam quits school at the age of twelve.
+
+1848 Sam becomes a full-time apprentice to Joseph Ament of the Missouri Courier.
+
+1850 Sam’s brother Orion, ten years his senior, returns to Hannibal and establishes the Journal; he hires Sam as a compositor. Steamboats become the primary means of transport on the Mississippi River.
+
+1852 Sam edits the failing Journal while Orion is away. After he reads local humor published in newspapers in New England and the Southwest, Sam begins printing his own humorous sketches in the Journal. He submits “The Dandy Frightening the Squatter” to the Carpet-Bag of Boston, which publishes the sketch in the May issue.
+
+1853 Sam leaves Hannibal and begins working as an itinerant printer; he visits St. Louis, New York, and Philadelphia. His brothers Orion and Henry move to Iowa with their mother.
+
+1854 Transcendentalism flourishes in American literary culture; Henry David Thoreau publishes Walden.
+
+1855 Sam works again as a printer with Orion in Keokuk, Iowa.
+
+1856 Sam acquires a commission from Keokuk’s Daily Post to write humorous letters; he decides to travel to South America.
+
+1857 Sam takes a steamer to New Orleans, where he hopes to find a ship bound for South America. Instead, he signs on as an apprentice to river pilot Horace Bixby and spends the next two years learning how to navigate a steamship up and down the Mississippi. His experiences become material for Life on the Mississippi and his tales of Tom Sawyer and Huck Finn.
+
+1858 Sam’s brother Henry dies in a steamboat accident.
+
+1859 Samuel Clemens becomes a fully licensed river pilot.
+
+1861 The American Civil War erupts, putting an abrupt </div><div class="grid-item pad-bottom "> stop to river trade between North and South. Sam serves with a Confederate militia for two weeks before venturing to the Nevada Territory with Orion, who had been appointed by President Abraham Lincoln as secretary of the new Territory.
+
+1862 After an unsuccessful stint as a miner and prospector for gold and silver, Clemens begins reporting for the Territorial Enterprise in Virginia City, Nevada.
+
+1863 Clemens signs his name as “Mark Twain” on a humorous travel sketch printed in the Territorial Enterprise. The pseudonym, a riverboat term meaning “two fathoms deep,” connotes barely navigable water.
+
+1864 After challenging his editor to a duel, Twain is forced to leave Nevada and lands a job with a San Francisco newspaper. He meets Artemus Ward, a popular humorist, whose techniques greatly influence Twain’s writing.
+
+1865 Robert E. Lee’s army surrenders, ending the Civil War. While prospecting for gold in Calaveras County, California, Twain hears a tale he uses for a story that makes him famous; originally titled “Jim Smiley and His Jumping Frog,” it is published in New York’s Saturday Press.
+
+1866 Twain travels to Hawaii as a correspondent for the Sacramento Union; upon his return to California, he delivers his first public lecture, beginning a successful career as a humorous speaker.
+
+1867 Twain travels to New York, and then to Europe and the
+
+Holy Land aboard the steamer Quaker City; during five months abroad, he contributes to California’s largest paper, Sacramento’s Alta California, and writes several letters for the New York Tribune. He publishes a volume of stories and sketches, The Celebrated Jumping Frog of Calaveras County and Other Sketches.
+
+1868 Twain meets and falls in love with Olivia (Livy) Langdon. His overseas writings have increased his popularity; he signs his first book contract and begins The Innocents Abroad, sketches based on his trip to the Holy Land. He embarks on a lecture tour of the American Midwest.
+
+1869 Twain becomes engaged to Livy, who acts as his editor from that time on. The Innocents Abroad, published as a subscription book, is an instant success, selling nearly 100,000 copies in the first three years.
+
+1870 Twain and Livy marry. Their son, Langdon, is born; he lives only two years.
+
+1871 The Clemens move to Hartford, Connecticut.
+
+1872 Roughing It, an account of Twain’s adventures out West, is published to enormous success. The first of Twain’s three daughters, Susie, is born. Twain strikes up a lifelong friendship with the writer William Dean Howells.
+
+1873 Ever the entrepreneur, Twain receives the patent for Mark Twain’s Self-Pasting Scrapbook, an invention that is a commercial success. He publishes The Gilded Age, a collaboration with his neighbor Charles Dudley Warner that satirizes the post-Civil War era.
+
+1874 His daughter Clara is born. The family moves into a mansion in Hartford in which they will live for the next seventeen years.
+
+1876 The Adventures of Tom Sawyer is published.
+
+1877 Twain collaborates with Bret Harte—an </div><div class="grid-item pad-top pad-bottom "><span class="miniSheetNum"><span class="miniSheetNum0">1/1</span><span class="miniSheetNumPrecentage"> 38%</span></span> author known for his use of local color and humor and for his parodies of Cooper, Dickens, and Hugo—to produce the play Ah Sin.
+
+1880 Twain invests in the Paige typesetter and loses thousands of dollars. He publishes A Tramp Abroad, an account of his travels in Europe the two previous years. His daughter Jean is born.
+
+1881 The Prince and the Pauper, Twain’s first historical romance, is published.
+
+1882 Twain plans to write about the Mississippi River and makes the trip from New Orleans to Minnesota to refresh his memory.
+
+1883 The nonfiction work Life on the Mississippi is published.
+
+1884 Adventures of Huckleberry Finn, a book Twain worked on for nearly ten years, is published in England; publication in the United States is delayed until the following year because an illustration plate is judged to be obscene.
+
+1885 When Adventures of Huckleberry Finn is published in America—by Twain’s ill-fated publishing house, run by his nephew Charles Webster—controversy immediately surrounds the book. Twain also publishes the memoirs of his friend former President Ulysses S. Grant.
+
+1888 He receives an honorary Master of Arts degree from Yale University.
+
+1889 He publishes A Connecticut Yankee in King Arthur’s Court, the first of his major works to be informed by a deep pessimism. He meets Rudyard Kipling, who had come to America to meet Twain, in Livy’s hometown of Elmira, New York.
+
+1890 Twain’s mother dies.
+
+1891 Financial difficulties force the Clemens family to close their Hartford mansion; they move to Berlin, Germany.
+
+1894 Twain publishes The Tragedy of Pudd’nhead Wilson, a dark novel about the aftermath of slavery, which sells well, and Tom Sawyer Abroad, which does not. Twain’s publishing company fails and leaves him bankrupt.
+
+1895 Twain embarks on an ambitious worldwide lecture tour to restore his financial position.
+
+1896 He publishes Personal Recollections of Joan of Arc and Tom Sawyer, Detective. His daughter Susie dies of spinal meningitis.
+
+1901 Twain is awarded an honorary doctorate degree from Yale.
+
+1902 Livy falls gravely ill. Mark Twain’s Huckleberry Finn, a stage adaptation of the novel, opens to favorable reviews. Though he is credited with coauthorship, Twain has little to do with
+
+1903 the play and never sees it performed. He receives an honorary doctorate degree from the University of Missouri. Hoping to restore Livy’s health, Twain takes her to Florence, Italy.
+
+1904 Livy dies, leaving Twain devastated. He begins dictating an uneven autobiography that he never finishes.
+
+1905 Theodore Roosevelt invites Twain to the White House. Twain enjoys a gala celebrating his seventieth birthday in New York. He continues to lecture, and he addresses Congress on copyright issues.
+
+1906 Twain’s biographer Albert Bigelow Paine moves in with the family.
+
+1907 Twain travels to Oxford University to receive an honorary Doctor of Letters degree.
+
+1908 He settles in Redding, Connecticut, at Stormfield, the mansion that is his final home.
+
+1909 Twain’s daughter Clara </div><div class="grid-item pad-top pad-bottom pad-right"> marries; the author dons his Oxford robe for the ceremony. His daughter Jean dies.
+
+1910 Twain travels to Bermuda for his health. He develops heart problems and, upon his return to Stormfield, dies, leaving behind a cache of unpublished work.
+
+
+
+
+
+INTRODUCTION
+
+Samuel Langhorne Clemens was born on November 30,1835, in the tiny Missouri town of Florida. It was only some years later, when Sam was four, that the family moved to the town Sam Clemens as Mark Twain would one day make famous—Hannibal, Missouri. In the 1830s and ’40s Hannibal was not too far from being the very edge of American civilization—if it was not the frontier, it was very close to it. There was certainly nothing in this hardscrabble town on the banks of the Mississippi River that suggested it would one day produce one of the greatest American writers of all time. It is even stranger to think that a man from a rural Missouri town would one day write a novel detailing the grandeur and the squalor of Tudor England. Yet by the time Sam Clemens, from Hannibal, became Mark Twain, world-famous author and friend to the rich and powerful, he was more than ready to write such a novel. Not only that, he relished the writing of it and counted it among his finest works.
+
+Mark Twain summarized the action of The Prince and the Pauper thusly:
+
+It begins at 9am, January 27th, 1547, seventeen and a half hours before the death of Henry the Eighth and involves the swapping of clothes and places, between the prince of Wales and a pauper boy of the same age and countenance (and half as much learning and still more genius and imagination) and after that the rightful small king has a rough time among the tramps and ruffians in the country parts of Kent, while the small bogus king has a gilded and worshipped and dreary and restrained and cussed time of it on the throne ... (Twain, M. The Prince and the Pauper, introduction by V. Fischer, Berkeley, CA: The Mark Twain Project of the Bancroft Library, 1983, p. xv.)
+
+
+
+That paragraph was written sometime in the middle to late 1870s, following the publication of The Adventures of Tom Sawyer and during the writing of Adventures of Huckleberry Finn. The plot sounds like vintage Twain: a story ripe with opportunities for humor, misunderstanding, high farce, and low cunning. But while The Prince and the Pauper certainly contains elements of those characteristics, Twain’s readers were to be surprised when the book was finally published. The Prince and the Pauper would, in many ways, be unlike any book Mark Twain had published to date.
+
+Although heavily engaged in the writing of Huck Finn at the time, Twain was fascinated by the new plot of The Prince and the Pauper, and he dropped work on his magnum opus to toy with it. He even thought of writing the story as a play. Part of Twain’s obsession with The Prince and the Pauper may have stemmed from his dissatisfaction with his progress on Huck Finn. In fact, at some point, the one book must have overtaken </div><div class="grid-item pad-top pad-bottom pad-left"> the other—The Prince and the Pauper beat Huck Finn into publication by a full three years.
+
+Intrigued though Twain may have been by his ingenious plot, there was another spur that forced him to get down to the writing of The Prince and the Pauper. While living in Hartford, Connecticut, he was invited to become a member of the Monday Evening Club, an informal society of about twenty of Hartford’s leading clergymen, writers, teachers, and businessmen. This small, august group met on alternate Mondays from fall to spring to listen to papers and essays of the members’ own devising and to consume a light supper and a fair amount of beer. (When one meeting was held in the house of a member who was teetotal, the Reverend Joseph Twitchell recorded that he found the evening “rather difficult to swallow.” Doubtless, Twain did as well.) Twain enjoyed these meetings, and he presented papers, including “The Facts Concerning the Recent Carnival of Crime in Connecticut” (1876) and “What Is Happiness?” (1882), which many years later evolved into his philosophical dialogue “What Is Man?” (1906).
+
+Much as Twain enjoyed the subjects under discussion, he was even more influenced by the members of the Monday Evening Club. And much as one would expect Twain to be disdainful of clergymen—as, in the main, he was of organized religion—the fact is he rather liked ministers and priests, as long as they were not of the “Mush and Milk” variety he made such memorable fun of in The Innocents Abroad (1869). One man of the cloth, and a member of the Monday Evening Club, was a close friend of Twain’s and was to have a profound effect on him—and lead directly to the creation of The Prince and the Pauper.
+
+Edwin P. Parker (1836-1920), a Maine-born Congregationalist minister,a was a great admirer of Twain’s work, but he felt that there was more to his friend’s genius than the ability to be humorous and to satirize. He did not keep his opinions to himself:
+
+Now let me say to what I have repeatedly said of you—I know of no American writer who is capable of writing such forcible, sinewy, racy English as you. You are abundantly capable of turning out some work that shall bear the stamp of your individuality and at the same time have a sober character and a solid worth and a permanent value. It may not pay in “shekels” but it would in vast honor and give your friends vast pleasure. Am I too bold? Pardon me, but I wish I had your opportunity and your Genius (letter, December 1880; Camfield, Gregg, ed. The Oxford Companion to Mark Twain. New York: Oxford University Press, 2003, p. 378).
+
+
+
+Parker had hit one of Twain’s tender spots, for Twain, too, had worried that he had a reputation as a humorist, but not as a serious writer. So it was at the urging of both Parker and another Monday Evening Club member, Hartford mayor Henry Robinson, that Twain decided to undertake more serious work on The Prince and the Pauper, even as he wrestled with the </div><div class="grid-item pad-top pad-bottom "> difficulties he was encountering in Huck Finn.
+
+Writing Adventures of Huckleberry Finn nettled Twain greatly; he wrote to William Dean Howells (1837-1920) that he found much to dislike in it, primarily the plot, and considered “pigeon-holing it” (that is, putting it aside) or even burning the manuscript! The writing of The Prince and the Pauper seems to have presented no such problems. He began the novel in the winter of 1877 and worked hard at it, telling his older brother Orion Clemens (1825-1897) that he labored on The Prince and the Pauper “with an interest that almost amounted to intemperance.” If that was the case, it was an intemperance that paid off handsomely. The book was finished by mid-1880, and Twain was enormously pleased with the result. He was sure that he had written something of lasting value, a book that was definitely a cut above his usual output. It was an opinion confirmed for him within his own family. He wrote to an old friend, “What am I writing? A historical tale of three hundred years ago. I swear the Young Girls Club [Twain’s wife and daughters] to secrecy and read the manuscript to them half a dozen chapters at a time.” (Camfield, p. 445) The girls and his wife were enthusiastic.
+
+One of the most interesting, persistent, and specious myths of Twain lore is that his wife of some thirty-five years, Olivia Langdon Clemens, was a prude and a bluenose who restrained her husband’s more earthy tendencies, bowdlerizing his books and taking little or no pleasure in—in fact, being embarrassed by—his writing and his fame. This was not true, of course, even though the primary architect of his wife’s buttoned-up reputation was Twain himself.
+
+Olivia Langdon was born into a wealthy family in upstate New York in 1845. She was a delicate and retiring woman who spent much of her early life, a period lasting from her early teens into her twenties, as an invalid. As the cosseted daughter of rich and doting parents, “Livy” must have seemed timid and retiring next to the far more ebullient Twain. Two people could not have had less in common, but Twain was determined that she would be his wife. Olivia’s parents were avid supporters of the temperance movement, and in order to win them to his cause Twain actually took the pledge, a move that horrified his old friends. They could not know that the pledge would not last long: Within a year he was teaching Livy “to drink a bottle of beer a night.”
+
+Far from being the prim prude she was thought to be, Mrs. Sam Clemens was a great help to her husband, a sounding board for ideas, a secretary, and a first editor. Twain relied heavily on his wife and valued her opinions highly. It was due to this great love and regard that her posthumous reputation developed. Although her health had never been strong, Olivia had lived through four pregnancies and the trauma of a Clemens family bankruptcy (Twain lost a great deal of his formidable income on ill-advised ventures in the stock market and on the promotion of various inventions, which swallowed </div><div class="grid-item pad-top pad-bottom "><span class="miniSheetNum"><span class="miniSheetNum0">1/1</span><span class="miniSheetNumPrecentage"> 74%</span></span> enormous amounts of money for development and never returned a penny), but in 1902 she suffered a cataclysmic collapse in her health. A doctor advised a change to a warmer climate, and so in 1903 the Twains moved to Florence, Italy. She died there in 1904. Twain was devastated. It was his own posthumous tributes to his wife that made her reputation as moral paragon and hence a brake on Twain’s more earthy side.
+
+When The Prince and the Pauper was published in 1882, reviews were, in the main, positive, though some, to put it mildly, were not. A number of prominent critics expressed disappointment that Twain had turned to writing a historical novel to secure his reputation, rather than continuing in a modern American idiom—a sign, perhaps, that they were already taking Twain more seriously as a writer than he realized.
+
+Joseph T. Goodman, an early mentor of Twain’s and the first person to hire him to write full time—as a reporter on Goodman’s Virginia City, Nevada-based newspaper, the Territorial Enterprise—was particularly unhappy with The Prince and the Pauper and did not sugarcoat his criticism. He wrote to Twain: “What could have sent you groping among the Deluge for a topic when you would have been so much more at home in the wash of today?” (Camfield, p. 443.) Twain’s reply in defense, if there was one, is not recorded. Other annoyed critics, who were British, did not take kindly to an American’s criticism of their history, law, and institutions. To these disgruntled Brits Twain did have a reply—he noted that British reviewers “would not praise the Holy Scriptures were it discovered that they had, in fact, been written by an American.” (LeMaster, J.R., ed. The Mark Twain Encyclopedia. New York: Garland Publishing, 1993, p. 592.) More recent critics have not been kind to The Prince and the Pauper either, placing it in the second rank of Twain’s fiction, far behind Tom Sawyer and Huck Finn. Van Wyck Brooks used The Prince and the Pauper as ammunition to attack Olivia Clemens, claiming to see her preference for the book as symptomatic of her censorial and repressive influence on her husband’s work. As we know, she did not function in that manner; we can only assume that she liked the book for the same reasons her daughters did.
+
+But for the most part reviews of the book were good, though just behind the praise one could read a certain bewilderment. John T. Goodman was not the only person to think it odd that the most American of writers should write a historical novel about a foreign country. The era in which the novel takes place, the language in which it is written, and the style of the writing itself gave readers and reviewers the sense that The Prince and the Pauper was not a “Mark Twain” at all. In fact, Twain had foreseen this very problem and had briefly considered publishing the book anonymously or under a pseudonym.
+
+There are, of course, touches of the familiar Mark Twain. The book is about boys and their adventures, a theme Twain </div><div class="grid-item pad-top pad-bottom pad-right"> readers had come to expect, given that The Prince and the Pauper was published just a few years after his signal success with The Adventures of Tom Sawyer (1876). (Twain continued this theme with Adventures of Huckleberry Finn, published three years later.) Twain even indicated his intentions with the subtitle of the book: “A Tale for Young People of All Ages.”
+
+So, why the confusion on the part of the literary world? Well, for one thing, The Prince and the Pauper was a historical novel, set in a world known to no one at first hand: that of Tudor England in the erratic last days of King Henry VIII. Also, in order to write the book, Twain made a close study of the most famous historical novelist of the day, Sir Walter Scott. Yet Twain was on record making fun of the late-Victorian taste for medievalism and historical novels in general. In the book Sketches New and Old (1875) Twain makes his dislike of the genre plain, if not blunt, by titling one story “An Awful——Terrible Medieval Romance.” The omitted word can be easily guessed.
+
+The story itself—the swapping of identities between Edward Tudor, heir to the throne of England, and one of his lowliest subjects, a certain Tom Canty of Offal Court, London—was a neat conceit and one that no one would have doubted Twain would have immense fun spinning out. However, while there are moments in the book of what the critics called Twain’s “burlesque,” this apparently simple story delves deeply into the baseness of the human condition—and examines it closely at both ends of the social spectrum. It is not difficult to imagine wanton cruelty and pain meted out in the slums and low dens of Tudor London. But Twain did not spare the aristocracy; he accused them of cupidity, treachery, and outright violence. Brutality is no less brutal for having been dealt by a finely attired lord of the realm rather than by a drink-soaked mendicant clad in rags, worried that he will not come up with the two pennies required to pay his rent. One has to admit that to Twain’s contemporaries, and to readers today, The Prince and the Pauper is not a funny book.
+
+But it is an exciting one, almost a thriller. Will the deception succeed? Will Tom Canty take the throne? And will Edward Tudor, Prince of Wales (as Twain erroneously styles him), live his life in rags and squalor, raving and raging until his dying day about his own blue blood and the common, ungrateful usurper of the throne? It’s a close thing, and there are times when the reader doubts that Twain will manage to pull off a suitably happy ending.
+
+Then there is the problem with the language Twain employs. The book is filled with archaic and, in the mouths of the noble characters, flowery language. The more base characters speak a guttural if elaborate patois: “ ‘Gone stark mad as any Tom o’ Bedlam! ... But mad or no mad, I and thy Gammer Canty will soon find where the soft places in thy bones lie, or I’m no true man!’ ” (p. 28). The aristocrats are no less orotund, even when condemning one of their own to death: “ </div><div class="grid-item pad-top pad-bottom pad-left"> ‘Alack, how I have longed for this sweet hour! and lo, too late it cometh, and I am robbed of this so coveted chance. But speed ye, speed ye! let others do this happy office [that is, a beheading] sith ‘tis denied to me’ ” (p. 47). This is not the Mark Twain the reading public was used to—we are a long way from Tom, Huck, and Pudd’nhead. But Twain had always been a meticulous and discerning student of the spoken word, and absent a living example of Tudor speech, he readily admitted reading a great deal of Shakespeare to get the language down for both prince and pauper.
+
+At first, the language seems a trifle daunting, but it quickly becomes easy to read and in the end adds immeasurably to the authenticity of the book. To have had his characters speak in the manner of Victorian Londoners of his age would have undercut the profound sense of time and place Twain manages to convey so well.
+
+Having said how much The Prince and the Pauper is not a typical example of Twain’s work, it is worth taking a look at the factors that make it, in fact, a comfortable fit with the rest of the Twain canon. Like Tom Canty, the pauper of the story, Twain knew well the privations of youthful poverty. His father, John Marshall Clemens (1798-1847), was an inept businessman, perennially in debt, sometimes bringing his family to such low financial water as to force the selling of family land, and even the household furniture. At one point in Twain’s youth the family was forced to face the humiliation of having to take in boarders. True, Twain never knew the crushing poverty of the Canty clan, but he grew up knowing the cold sting of want.
+
+Tom Canty’s father is an ogre, a tyrant, a drunkard, and an abuser. Were he alive today his treatment of his family would, more than likely, land him in jail. Twain’s own father, while no monster, was cold, distant, unaffectionate, and, it seems, uninterested in any of his seven children, still less in his wife (Jane Lampton Clemens, 1803—1890), with whom he lived in a loveless marriage. As Twain admits so candidly in a fragment of an autobiography published in 1907: “I had never once seen a member of the Clemens family kiss another one—except once. When my father lay dying in our house in Hannibal he put his arm around my sister’s neck and drew her down and kissed her, saying, ‘Let me die.’ ” (Paine, A. B. Mark Twain: A Biography, Vol. I, New York: Harper &amp; Brothers, 1912, p. 73.) It is not difficult to imagine that Twain could take his own experiences of poverty and cruelty and amplify them into the truly ghastly conditions of Tom Canty’s early life.
+
+As Twain’s reputation grew he was transformed from lowly newspaper reporter into celebrated author. This celebrity allowed him to hobnob with the Great and Good (including the Russian czar, the German kaiser, and the emperor of Austria-Hungary) and to develop a keen eye for the doings of the upper classes. The courts of the nineteenth century were at least as grand, perhaps even more so, than those of Tudor England. Mark Twain </div><div class="grid-item pad-top pad-bottom "> was a proud American and a republican, and he scoffed at the very notion of aristocracy, as well as at a type of American traveler of a certain class who fawned over the titled and highborn. However, he did admit: “We are all like—on the inside ... we dearly like to be noticed by a duke.... When a returned American is playing the earls he has met I can look on silent and unexcited and never offer to call his hand, although I have three kings and a pair of emperors up my sleeve.” (Camfield, p. 376.) These crowned heads do more than just pump up an awestruck American Grand Tourist: Twain’s travels in the courts, palaces, and lavish country houses of Europe must have provided grist for his mill and found their way into the pages of The Prince and the Pauper.
+
+Ultimately, of course, the plot and the action of the novel spring from Twain’s own fabulous imagination. It is apparent in every line of the book how much he enjoyed writing it, and in later years he would rank it alongside Adventures of Huckleberry Finn and Tom Sawyer—even if others would not. Perhaps the praise Twain valued most highly came from his favorite daughter, Susie. She said, emphatically, that The Prince and the Pauper was “Unquestionably the best book he has ever written.”
+
+
+
+
+
+Robert Tine is the author of six novels, including State of Grace and Black Market. He has written for a variety of periodicals and magazines—from the New York Times to Newsweek. He was educated at various schools in six countries (the Bahamas, Wales, South Africa, Swaziland, and Argentina) and at Columbia University in New York. He lives in New York City.
+
+
+
+
+
+TO
+
+THOSE GOOD-MANNERED AND AGREEABLE CHILDREN,
+
+SUSIE AND CLARA CLEMENS,
+
+this book
+
+IS AFFECTIONATELY INSCRIBED
+
+BY THEIR FATHER.
+
+
+
+
+
+THE quality of mercy ...
+
+is twice bless’d;
+
+It blesseth him that gives, and him that takes;
+
+’Tis mightiest in the mightiest: it becomes
+
+The thronéd monarch better than his crown.
+
+
+
+Merchant of Venice
+
+
+
+
+
+PREFACE
+
+I will set down a tale as it was told to me by one who had it of his father, which latter had it of his father, this last having in like manner had it of his father—and so on, back and still back, three hundred years and more, the fathers transmitting it to the sons and so preserving it. It may be history, it may be only legend, a tradition. It may have happened, it may not have happened: but it could have happened. It may be that the wise and the learned believed it in the old days; it may be that only the unlearned and the simple loved it and credited it.
+<div style="text-align: center; font-weight: bold; font-size: 1.75em; margin-top: 10px;">THE END</div></div></div></div></body></html>

@@ -4,7 +4,16 @@ import TextField from '@mui/material/TextField';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Container from '@mui/material/Container';
-import {CssBaseline, Backdrop, styled, CircularProgress, Select, MenuItem, FormControl, InputLabel} from '@mui/material';
+import {
+  CssBaseline,
+  Backdrop,
+  styled,
+  CircularProgress,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+} from '@mui/material';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import HistoryIcon from '@mui/icons-material/History';
@@ -25,13 +34,13 @@ type PaperCountsType = {
 };
 
 const paperCounts: PaperCountsType = {
-  "4": 38266,
-  "5": 24427,
-  "6": 16850,
-  "7": 12278,
-  "8": 9113,
-  "9": 7070,
-  "10": 5584
+  '4': 38266,
+  '5': 24427,
+  '6': 16850,
+  '7': 12278,
+  '8': 9113,
+  '9': 7070,
+  '10': 5584,
 };
 
 const calculatePapers = (wordCount: number, fontSize: string): number => {
@@ -52,17 +61,17 @@ function App() {
   const [borderStyle, setBorderStyle] = useState('dashed');
   const [loading, setLoading] = useState(false);
   const [bookInfoLoading, setBookInfoLoading] = useState(false);
-  const [id, setId] = useState<string|null>(null);
+  const [id, setId] = useState<string | null>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState('');
   const [readTime, setReadTime] = useState('--');
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files
+    const files = event.target.files;
     if (files && files.length > 0) {
       const file = files[0];
       if (!file.name.endsWith('.txt')) {
-        alert("Invalid file type. Please select a .txt file.");
+        alert('Invalid file type. Please select a .txt file.');
         return;
       }
 
@@ -72,54 +81,54 @@ function App() {
       setBookName(bookNiceName);
       setFileName(file.name);
       getBookInfo(bookNiceName);
-      
+
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = e => {
         const text = (e.target?.result as string).trim();
         const wordSplit = text.split(' ').length;
         setWordCount(wordSplit);
         setSheetsCount(calculatePapers(wordSplit, fontSize));
         calculateReadingTime(wordSplit);
-      }
+      };
       reader.readAsText(file);
     }
-  }
+  };
 
-  async function getBookInfo(bookTitle: any) {
+  async function getBookInfo(bookTitle: string): Promise<void> {
     setBookInfoLoading(true);
     const baseURL = 'https://openlibrary.org/search.json';
     const encodedTitle = encodeURIComponent(bookTitle);
     const url = `${baseURL}?q=${encodedTitle}`;
 
     try {
-        const response = await fetch(url);
-        if (!response.ok) {
-            throw new Error('Failed to fetch book information');
-        }
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error('Failed to fetch book information');
+      }
 
-        const data = await response.json();
-        if (data.docs && data.docs.length > 0) {
-            const book = data.docs[0];
-            const bookInfo = {
-                author: book.author_name ? book.author_name[0] : '',
-                publishYear: book.first_publish_year || '',
-            };
+      const data = await response.json();
+      if (data.docs && data.docs.length > 0) {
+        const book = data.docs[0];
+        const bookInfo = {
+          author: book.author_name ? book.author_name[0] : '',
+          publishYear: book.first_publish_year || '',
+        };
 
-            if (bookInfo.author) setAuthor(bookInfo.author);
-            if (bookInfo.publishYear) setYear(bookInfo.publishYear);
-        } else {
-            console.log('No book found with that title.');
-        }
+        if (bookInfo.author) setAuthor(bookInfo.author);
+        if (bookInfo.publishYear) setYear(bookInfo.publishYear);
+      } else {
+        console.log('No book found with that title.');
+      }
     } catch (error) {
-        console.error('Error:', error);
+      console.error('Error:', error);
     } finally {
-        setBookInfoLoading(false);
+      setBookInfoLoading(false);
     }
   }
 
-  function calculateReadingTime(wordCount: any) {
+  function calculateReadingTime(wordCount: number): void {
     const wordsPerMinute = 215;
-    
+
     const timeLeftMinutes = wordCount / wordsPerMinute;
     const hoursLeft = Math.floor(timeLeftMinutes / 60);
     const minsLeft = Math.round(timeLeftMinutes % 60);
@@ -130,19 +139,20 @@ function App() {
     if (minsLeft > 0) {
       timeText += ` ${minsLeft} minute${minsLeft > 1 ? 's' : ''}`;
     }
-    
+
     setReadTime(`${timeText}`);
   }
 
-  async function uploadFile() {
+  async function uploadFile(): Promise<void> {
     if (uploadRef?.current?.files?.length) {
       setLoading(true);
       const file = uploadRef.current.files[0];
-  
+
       const formData = new FormData();
       formData.append('file', file);
       const params = {
         bookName: bookName,
+        borderStyle: borderStyle,
         headerInfo: {
           series: series,
           sheetsCount: sheetsCount.toString(),
@@ -154,14 +164,13 @@ function App() {
         },
       };
       formData.append('params', JSON.stringify(params));
-  
+
       try {
-        
         const response = await fetch(`/api/upload`, {
           method: 'POST',
           body: formData,
         });
-  
+
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -178,13 +187,13 @@ function App() {
     palette: {
       primary: {
         main: '#3f51b5',
-      }
-    }
+      },
+    },
   });
 
   return (
     <ThemeProvider theme={theme}>
-      <CssBaseline/>
+      <CssBaseline />
       <Box
         sx={{
           backgroundColor: '#0d0033',
@@ -192,36 +201,32 @@ function App() {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          minHeight: '100vh'
+          minHeight: '100vh',
         }}
       >
         <Container
-          component='form'
-          maxWidth='sm'
+          component="form"
+          maxWidth="sm"
           disableGutters
           sx={{
-            // display: 'flex',
-            // flexDirection: 'column',
-            // alignItems: 'center',
             backgroundColor: '#dadaff',
             p: 5,
             borderRadius: '10px',
-            // boxShadow: '0px 0px 50px 1px rgba(219, 218, 255, 0.2)',
           }}
         >
-          <Typography 
-              variant='h3'
-              component='h1'
-              fontFamily={'georgia'}
-              mb={2}
+          <Typography variant="h3" component="h1" fontFamily={'georgia'} mb={2}>
+            MicroBook Maker
+          </Typography>
+          <Stack spacing={0.5} maxWidth="sm">
+            <Box
+              sx={{
+                position: 'relative',
+                ...(bookInfoLoading && {
+                  opacity: 0.5,
+                  pointerEvents: 'none',
+                }),
+              }}
             >
-              MicroBook Maker
-            </Typography>
-          <Stack
-            spacing={.5}
-            maxWidth='sm'
-          >
-            <Box sx={{ position: 'relative', ...(bookInfoLoading && { opacity: 0.5, pointerEvents: 'none' }) }}> {/* PARENT BOX START */}
               {bookInfoLoading && (
                 <CircularProgress
                   size={40}
@@ -234,18 +239,18 @@ function App() {
                   }}
                 />
               )}
-              <Box sx={{ display: 'flex', alignItems: 'center' }}> {/* BOOK NAME */}
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
                 <TextField
                   value={bookName}
                   onChange={e => setBookName(e.target.value)}
-                  label='Book Name'
-                  variant='outlined'
-                  margin='normal'
+                  label="Book Name"
+                  variant="outlined"
+                  margin="normal"
                   fullWidth
                   sx={{ flexGrow: 1, mr: 1 }}
                 />
                 <Tooltip title="Reload book info">
-                  <span> {/* Span needed for tooltip when button is disabled */}
+                  <span>
                     <IconButton
                       onClick={() => getBookInfo(bookName)}
                       disabled={!bookName || bookInfoLoading}
@@ -256,92 +261,105 @@ function App() {
                   </span>
                 </Tooltip>
               </Box>
-            <Box> {/* SERIES NAME */}
-              <TextField
-                value={series}
-                onChange={e => setSeries(e.target.value)}
-                label='Series Name and Book Number'
-                variant='outlined'
-                margin='normal'
-                fullWidth
-              />
-            </Box>
-            <Box> {/* AUTHOR AND YEAR */}
-              <Stack
-                direction='row'
-                spacing={2}
-                justifyContent='flex-start'
-                sx={{
-                  mt: 2
-                }}
-              >
+              <Box>
+                {' '}
+                {/* SERIES NAME */}
                 <TextField
-                  value={author}
-                  onChange={e => setAuthor(e.target.value)}
-                  label='Author'
-                  variant='outlined'
-                  margin='normal'
-                  sx={{ flexGrow: 1 }}
+                  value={series}
+                  onChange={e => setSeries(e.target.value)}
+                  label="Series Name and Book Number"
+                  variant="outlined"
+                  margin="normal"
+                  fullWidth
                 />
-                <TextField
-                  value={year}
-                  onChange={e => setYear(e.target.value)}
-                  label='Year'
-                  type='number'
-                  variant='outlined'
-                  margin='normal'
+              </Box>
+              <Box>
+                {' '}
+                {/* AUTHOR AND YEAR */}
+                <Stack
+                  direction="row"
+                  spacing={2}
+                  justifyContent="flex-start"
                   sx={{
-                    width: '120px'
+                    mt: 2,
                   }}
-                />
-              </Stack>
-            </Box>
-            <Box> {/* FONT SIZE AND BORDER STYLE */}
-              <Stack
-                direction='row'
-                spacing={2}
-                justifyContent='flex-start'
-                sx={{
-                  mt: 2
-                }}
-              >
-                <TextField
-                  value={fontSize}
-                  onChange={e => {
-                    setFontSize(e.target.value);
-                    if (+e.target.value < 4 || +e.target.value > 10) {
-                      setSheetsCount(0);
-                      setDisableUpload(true);
-                    } else if (uploadRef?.current?.files?.length) {
-                      setDisableUpload(false);
-                      setSheetsCount(calculatePapers(wordCount, e.target.value));
-                    }
+                >
+                  <TextField
+                    value={author}
+                    onChange={e => setAuthor(e.target.value)}
+                    label="Author"
+                    variant="outlined"
+                    margin="normal"
+                    sx={{ flexGrow: 1 }}
+                  />
+                  <TextField
+                    value={year}
+                    onChange={e => setYear(e.target.value)}
+                    label="Year"
+                    type="number"
+                    variant="outlined"
+                    margin="normal"
+                    sx={{
+                      width: '120px',
+                    }}
+                  />
+                </Stack>
+              </Box>
+              <Box>
+                {' '}
+                {/* FONT SIZE AND BORDER STYLE */}
+                <Stack
+                  direction="row"
+                  spacing={2}
+                  justifyContent="flex-start"
+                  sx={{
+                    mt: 2,
                   }}
-                  label='Font Size'
-                  type='number'
-                  variant='outlined'
-                  margin='normal'
-                  sx={{width: '120px'}}
-                  inputProps={{
-                    min: 4,
-                    max: 10,
-                  }}
-                />
-                <FormControl variant='outlined' margin='normal' sx={{ width: '150px' }}>
-                  <InputLabel>Border Style</InputLabel>
-                  <Select
-                    value={borderStyle}
-                    onChange={e => setBorderStyle(e.target.value)}
-                    label='Border Style'
+                >
+                  <TextField
+                    value={fontSize}
+                    onChange={e => {
+                      setFontSize(e.target.value);
+                      if (+e.target.value < 4 || +e.target.value > 10) {
+                        setSheetsCount(0);
+                        setDisableUpload(true);
+                      } else if (uploadRef?.current?.files?.length) {
+                        setDisableUpload(false);
+                        setSheetsCount(
+                          calculatePapers(wordCount, e.target.value)
+                        );
+                      }
+                    }}
+                    label="Font Size"
+                    type="number"
+                    variant="outlined"
+                    margin="normal"
+                    sx={{ width: '120px' }}
+                    inputProps={{
+                      min: 4,
+                      max: 10,
+                    }}
+                  />
+                  <FormControl
+                    variant="outlined"
+                    margin="normal"
+                    sx={{ width: '150px' }}
                   >
-                    <MenuItem value="dashed">Dashed</MenuItem>
-                    <MenuItem value="solid">Solid</MenuItem>
-                    <MenuItem value="dotted">Dotted</MenuItem>
-                  </Select>
-                </FormControl>
-              </Stack>
-            </Box>
-            </Box> {/* PARENT BOX END */}
+                    <InputLabel>Border Style</InputLabel>
+                    <Select
+                      value={borderStyle}
+                      onChange={e => setBorderStyle(e.target.value)}
+                      label="Border Style"
+                    >
+                      <MenuItem value="dashed">Dashed</MenuItem>
+                      <MenuItem value="solid">Solid</MenuItem>
+                      <MenuItem value="dotted">Dotted</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Stack>
+              </Box>
+            </Box>{' '}
+            {/* PARENT BOX END */}
             <Box // BUTTONS
               sx={{
                 display: 'flex',
@@ -349,14 +367,16 @@ function App() {
                 alignItems: 'flex-end',
               }}
             >
-              <Box mt={2}> {/* SELECT TXT */}
+              <Box mt={2}>
+                {' '}
+                {/* SELECT TXT */}
                 <input
-                  type='file'
+                  type="file"
                   style={{ display: 'none' }}
                   onChange={handleFileChange}
-                  ref={uploadRef} 
-                  accept='.txt'
-                  id='contained-button-file'
+                  ref={uploadRef}
+                  accept=".txt"
+                  id="contained-button-file"
                 />
                 <Tooltip
                   enterDelay={400}
@@ -364,28 +384,30 @@ function App() {
                   placement="top"
                   title={fileName}
                 >
-                  <label htmlFor='contained-button-file'>
+                  <label htmlFor="contained-button-file">
                     <Button
-                      variant='contained'
-                      component='span'
+                      variant="contained"
+                      component="span"
                       disableElevation
                       sx={{ borderRadius: '6px' }}
-                      size='small'
+                      size="small"
                     >
                       Select TXT
                     </Button>
                   </label>
                 </Tooltip>
               </Box>
-              <Box mt={2}> {/* GENERATE */}
+              <Box mt={2}>
+                {' '}
+                {/* GENERATE */}
                 <Button
-                  variant='contained'
+                  variant="contained"
                   disabled={disableUpload}
                   onClick={uploadFile}
                   disableElevation
-                  endIcon={<PictureAsPdfIcon/>}
-                  sx={{ 
-                    borderRadius: '6px'
+                  endIcon={<PictureAsPdfIcon />}
+                  sx={{
+                    borderRadius: '6px',
                   }}
                 >
                   Generate
@@ -395,58 +417,86 @@ function App() {
           </Stack>
         </Container>
         <Container
-          maxWidth='sm'
+          maxWidth="sm"
           sx={{
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            pt: 3
+            pt: 3,
           }}
         >
-          <Typography color='primary' variant='body1' gutterBottom mb={0} sx={{ fontWeight: 'bold' }}>
-            Words: {wordCount === 0 ? '--' : new Intl.NumberFormat().format(wordCount)}
+          <Typography
+            color="primary"
+            variant="body1"
+            gutterBottom
+            mb={0}
+            sx={{ fontWeight: 'bold' }}
+          >
+            Words:{' '}
+            {wordCount === 0 ? '--' : new Intl.NumberFormat().format(wordCount)}
           </Typography>
           <Box>
-            <Tooltip title='Uploads'>
-              <StyledIconButton color='primary' onClick={() => window.open('/uploads/', '_blank')}>
-                <UploadFileIcon/>
+            <Tooltip title="Uploads">
+              <StyledIconButton
+                color="primary"
+                onClick={() => window.open('/uploads/', '_blank')}
+              >
+                <UploadFileIcon />
               </StyledIconButton>
             </Tooltip>
-            <Tooltip title='History'>
-              <StyledIconButton color='primary' onClick={() => window.open('/history/', '_blank')}>
-                <HistoryIcon/>
+            <Tooltip title="History">
+              <StyledIconButton
+                color="primary"
+                onClick={() => window.open('/history/', '_blank')}
+              >
+                <HistoryIcon />
               </StyledIconButton>
             </Tooltip>
           </Box>
         </Container>
         <Container
-          maxWidth='sm'
-          sx={{
-            display: 'flex',
-            justifyContent: 'flex-start',
-            alignItems: 'center'
-          }}
-        >
-          <Typography color='primary' variant='body1' gutterBottom mb={0} sx={{ fontWeight: 'bold' }}>
-            Sheets: {sheetsCount === 0 ? '--' : new Intl.NumberFormat().format(sheetsCount)}
-          </Typography>
-        </Container>
-        <Container
-          maxWidth='sm'
+          maxWidth="sm"
           sx={{
             display: 'flex',
             justifyContent: 'flex-start',
             alignItems: 'center',
-            mt: 0.9
           }}
         >
-          <Typography color='primary' variant='body1' gutterBottom mb={0} sx={{ fontWeight: 'bold' }}>
+          <Typography
+            color="primary"
+            variant="body1"
+            gutterBottom
+            mb={0}
+            sx={{ fontWeight: 'bold' }}
+          >
+            Sheets:{' '}
+            {sheetsCount === 0
+              ? '--'
+              : new Intl.NumberFormat().format(sheetsCount)}
+          </Typography>
+        </Container>
+        <Container
+          maxWidth="sm"
+          sx={{
+            display: 'flex',
+            justifyContent: 'flex-start',
+            alignItems: 'center',
+            mt: 0.9,
+          }}
+        >
+          <Typography
+            color="primary"
+            variant="body1"
+            gutterBottom
+            mb={0}
+            sx={{ fontWeight: 'bold' }}
+          >
             Read Time: {readTime}
           </Typography>
         </Container>
         <Backdrop
           open={loading}
-          sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }}
+          sx={{ color: '#fff', zIndex: theme => theme.zIndex.drawer + 1 }}
         >
           <Box
             sx={{
@@ -456,18 +506,22 @@ function App() {
               justifyContent: 'center',
             }}
           >
-            <Typography sx={{ mt: 2 }}>Click the button below and keep reloading the page to check the status of the PDF</Typography>
-            <Typography sx={{ mt: 2 }}>Check the History page for running or completed jobs</Typography>
+            <Typography sx={{ mt: 2 }}>
+              Click the button below and keep reloading the page to check the
+              status of the PDF
+            </Typography>
+            <Typography sx={{ mt: 2 }}>
+              Check the History page for running or completed jobs
+            </Typography>
             <Button
-              variant='contained'
-              sx={{mt: 2}}
-              component='span'
+              variant="contained"
+              sx={{ mt: 2 }}
+              component="span"
               disableElevation
               onClick={() => {
                 setLoading(false);
                 window.open(`/api/download?id=${id}`, '_blank');
-              }
-            }
+              }}
             >
               Check PDF
             </Button>

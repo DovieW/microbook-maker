@@ -1,0 +1,9 @@
+{
+  "files.watcherExclude": {
+    "**/node_modules/**": true
+  },
+  "search.exclude": {
+    "**/package-lock.json": true,
+    "The Prince and the Pauper.txt": true
+  }
+}
