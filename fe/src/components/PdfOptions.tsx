@@ -8,26 +8,20 @@ import {
   FormControl,
   InputLabel,
 } from '@mui/material';
+import { useAppContext } from '../context/AppContext';
+import { useFileHandling } from '../hooks/useFileHandling';
 
-interface PdfOptionsProps {
-  fontSize: string;
-  setFontSize: (value: string) => void;
-  borderStyle: string;
-  setBorderStyle: (value: string) => void;
-  onFontSizeChange: (fontSize: string) => void;
-}
+const PdfOptions: React.FC = () => {
+  const {
+    pdfOptions,
+    setBorderStyle,
+  } = useAppContext();
 
-const PdfOptions: React.FC<PdfOptionsProps> = ({
-  fontSize,
-  setFontSize,
-  borderStyle,
-  setBorderStyle,
-  onFontSizeChange,
-}) => {
-  const handleFontSizeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const { handleFontSizeChange } = useFileHandling();
+
+  const handleFontSizeInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newFontSize = e.target.value;
-    setFontSize(newFontSize);
-    onFontSizeChange(newFontSize);
+    handleFontSizeChange(newFontSize);
   };
 
   return (
@@ -43,8 +37,8 @@ const PdfOptions: React.FC<PdfOptionsProps> = ({
         }}
       >
         <TextField
-          value={fontSize}
-          onChange={handleFontSizeChange}
+          value={pdfOptions.fontSize}
+          onChange={handleFontSizeInputChange}
           label="Font Size"
           type="number"
           variant="outlined"
@@ -62,7 +56,7 @@ const PdfOptions: React.FC<PdfOptionsProps> = ({
         >
           <InputLabel>Border Style</InputLabel>
           <Select
-            value={borderStyle}
+            value={pdfOptions.borderStyle}
             onChange={e => setBorderStyle(e.target.value)}
             label="Border Style"
           >

@@ -8,43 +8,29 @@ import {
   Tooltip,
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import { useAppContext } from '../context/AppContext';
 
-interface BookInfoFormProps {
-  bookName: string;
-  setBookName: (value: string) => void;
-  author: string;
-  setAuthor: (value: string) => void;
-  series: string;
-  setSeries: (value: string) => void;
-  year: string;
-  setYear: (value: string) => void;
-  bookInfoLoading: boolean;
-  onRefreshBookInfo: (bookTitle: string) => void;
-}
-
-const BookInfoForm: React.FC<BookInfoFormProps> = ({
-  bookName,
-  setBookName,
-  author,
-  setAuthor,
-  series,
-  setSeries,
-  year,
-  setYear,
-  bookInfoLoading,
-  onRefreshBookInfo,
-}) => {
+const BookInfoForm: React.FC = () => {
+  const {
+    bookInfo,
+    setBookName,
+    setAuthor,
+    setSeries,
+    setYear,
+    generationState,
+    fetchBookInfo,
+  } = useAppContext();
   return (
     <Box
       sx={{
         position: 'relative',
-        ...(bookInfoLoading && {
+        ...(generationState.bookInfoLoading && {
           opacity: 0.5,
           pointerEvents: 'none',
         }),
       }}
     >
-      {bookInfoLoading && (
+      {generationState.bookInfoLoading && (
         <CircularProgress
           size={40}
           sx={{
@@ -58,7 +44,7 @@ const BookInfoForm: React.FC<BookInfoFormProps> = ({
       )}
       <Box sx={{ display: 'flex', alignItems: 'center' }}>
         <TextField
-          value={bookName}
+          value={bookInfo.bookName}
           onChange={e => setBookName(e.target.value)}
           label="Book Name"
           variant="outlined"
@@ -69,8 +55,8 @@ const BookInfoForm: React.FC<BookInfoFormProps> = ({
         <Tooltip title="Reload book info">
           <span>
             <IconButton
-              onClick={() => onRefreshBookInfo(bookName)}
-              disabled={!bookName || bookInfoLoading}
+              onClick={() => fetchBookInfo(bookInfo.bookName)}
+              disabled={!bookInfo.bookName || generationState.bookInfoLoading}
               color="primary"
             >
               <RefreshIcon />
@@ -82,7 +68,7 @@ const BookInfoForm: React.FC<BookInfoFormProps> = ({
         {' '}
         {/* SERIES NAME */}
         <TextField
-          value={series}
+          value={bookInfo.series}
           onChange={e => setSeries(e.target.value)}
           label="Series Name and Book Number"
           variant="outlined"
@@ -102,7 +88,7 @@ const BookInfoForm: React.FC<BookInfoFormProps> = ({
           }}
         >
           <TextField
-            value={author}
+            value={bookInfo.author}
             onChange={e => setAuthor(e.target.value)}
             label="Author"
             variant="outlined"
@@ -110,7 +96,7 @@ const BookInfoForm: React.FC<BookInfoFormProps> = ({
             sx={{ flexGrow: 1 }}
           />
           <TextField
-            value={year}
+            value={bookInfo.year}
             onChange={e => setYear(e.target.value)}
             label="Year"
             type="number"

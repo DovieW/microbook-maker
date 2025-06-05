@@ -5,26 +5,19 @@ import {
   Button,
   Typography,
 } from '@mui/material';
+import { useAppContext } from '../context/AppContext';
 
-interface GenerationStatusProps {
-  loading: boolean;
-  id: string | null;
-  onClose: () => void;
-}
+const GenerationStatus: React.FC = () => {
+  const { generationState, setLoading } = useAppContext();
 
-const GenerationStatus: React.FC<GenerationStatusProps> = ({
-  loading,
-  id,
-  onClose,
-}) => {
   const handleCheckPdf = () => {
-    onClose();
-    window.open(`/api/download?id=${id}`, '_blank');
+    setLoading(false);
+    window.open(`/api/download?id=${generationState.id}`, '_blank');
   };
 
   return (
     <Backdrop
-      open={loading}
+      open={generationState.loading}
       sx={{ color: '#fff', zIndex: theme => theme.zIndex.drawer + 1 }}
     >
       <Box

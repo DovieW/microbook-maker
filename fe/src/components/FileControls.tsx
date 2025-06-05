@@ -5,22 +5,12 @@ import {
   Tooltip,
 } from '@mui/material';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import { useAppContext } from '../context/AppContext';
+import { useFileHandling } from '../hooks/useFileHandling';
 
-interface FileControlsProps {
-  uploadRef: React.RefObject<HTMLInputElement>;
-  fileName: string;
-  disableUpload: boolean;
-  onFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  onUploadFile: () => void;
-}
-
-const FileControls: React.FC<FileControlsProps> = ({
-  uploadRef,
-  fileName,
-  disableUpload,
-  onFileChange,
-  onUploadFile,
-}) => {
+const FileControls: React.FC = () => {
+  const { fileState } = useAppContext();
+  const { uploadRef, handleFileChange, handleUploadFile } = useFileHandling();
   return (
     <Box // BUTTONS
       sx={{
@@ -35,7 +25,7 @@ const FileControls: React.FC<FileControlsProps> = ({
         <input
           type="file"
           style={{ display: 'none' }}
-          onChange={onFileChange}
+          onChange={handleFileChange}
           ref={uploadRef}
           accept=".txt"
           id="contained-button-file"
@@ -44,7 +34,7 @@ const FileControls: React.FC<FileControlsProps> = ({
           enterDelay={400}
           enterNextDelay={400}
           placement="top"
-          title={fileName}
+          title={fileState.fileName}
         >
           <label htmlFor="contained-button-file">
             <Button
@@ -64,8 +54,8 @@ const FileControls: React.FC<FileControlsProps> = ({
         {/* GENERATE */}
         <Button
           variant="contained"
-          disabled={disableUpload}
-          onClick={onUploadFile}
+          disabled={fileState.disableUpload}
+          onClick={handleUploadFile}
           disableElevation
           endIcon={<PictureAsPdfIcon />}
           sx={{
