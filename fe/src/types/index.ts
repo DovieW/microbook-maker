@@ -158,3 +158,28 @@ export interface UsePdfGeneratorReturn {
   error: Error | null;
   clearError: () => void;
 }
+
+// Job Management Types
+export interface Job {
+  id: string;
+  bookName: string;
+  fontSize: string;
+  status: 'queued' | 'in_progress' | 'completed' | 'error';
+  progress: ProgressInfo | null;
+  createdAt: string | null;
+  completedAt: string | null;
+  originalFileName: string | null;
+  uploadPath: string | null;
+}
+
+export interface JobsResponse {
+  jobs: Job[];
+}
+
+export interface UseJobManagementReturn {
+  jobs: Job[];
+  loading: boolean;
+  error: Error | null;
+  refreshJobs: () => Promise<void>;
+  clearError: () => void;
+}

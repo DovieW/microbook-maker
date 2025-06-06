@@ -469,6 +469,175 @@ app.get('/api/progress/:id', (req, res) => {
   }
 });
 
+// Get list of all jobs
+app.get('/api/jobs', (req, res) => {
+  try {
+    const generatedDir = path.join(__dirname, 'generated');
+    const uploadsDir = path.join(__dirname, 'uploads');
+
+    // Ensure directories exist
+    if (!fs.existsSync(generatedDir)) {
+      fs.mkdirSync(generatedDir, { recursive: true });
+    }
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+
+    const jobs = [];
+    const files = fs.readdirSync(generatedDir);
+    const uploadFiles = fs.readdirSync(uploadsDir);
+
+    // Create a map of upload files for quick lookup
+    const uploadFileMap = {};
+    uploadFiles.forEach(file => {
+      // Extract timestamp from upload filename (YYYYMMDDHHMMSS_originalname)
+      const match = file.match(/^(\d{14})_(.+)$/);
+      if (match) {
+        const timestamp = match[1];
+        uploadFileMap[timestamp] = {
+          originalName: match[2],
+          uploadPath: file
+        };
+      }
+    });
+
+    // Track processed job IDs to avoid duplicates
+    const processedJobs = new Set();
+
+    // Process all files in generated directory
+    files.forEach(file => {
+      let jobId = null;
+      let fileType = null;
+
+      // Identify file type and extract job ID
+      if (file.endsWith('.pdf')) {
+        jobId = file.replace('.pdf', '');
+        fileType = 'pdf';
+      } else if (file.startsWith('IN_PROGRESS_') && file.endsWith('.txt')) {
+        jobId = file.replace('IN_PROGRESS_', '').replace('.txt', '');
+        fileType = 'progress';
+      } else if (file.startsWith('PROGRESS_') && file.endsWith('.json')) {
+        jobId = file.replace('PROGRESS_', '').replace('.json', '');
+        fileType = 'structured_progress';
+      }
+
+      if (jobId && !processedJobs.has(jobId)) {
+        processedJobs.add(jobId);
+
+        // Parse job ID to extract metadata
+        const jobParts = jobId.split('_');
+        let timestamp = '';
+        let bookName = '';
+        let fontSize = '';
+
+        if (jobParts.length >= 3) {
+          timestamp = jobParts[0]; // YYYYMMDDHHMMSS
+          fontSize = jobParts[jobParts.length - 1];
+          bookName = jobParts.slice(1, -1).join('_');
+        }
+
+        // Get file stats
+        const pdfPath = path.join(generatedDir, `${jobId}.pdf`);
+        const progressPath = path.join(generatedDir, `IN_PROGRESS_${jobId}.txt`);
+        const structuredProgressPath = path.join(generatedDir, `PROGRESS_${jobId}.json`);
+
+        let status = 'unknown';
+        let progress = null;
+        let createdAt = null;
+        let completedAt = null;
+
+        // Determine status and get progress info
+        if (fs.existsSync(pdfPath)) {
+          status = 'completed';
+          const pdfStats = fs.statSync(pdfPath);
+          completedAt = pdfStats.mtime.toISOString();
+          progress = {
+            step: 'Complete',
+            percentage: 100,
+            isComplete: true,
+            isError: false
+          };
+        } else {
+          // Check for structured progress first
+          const structuredProgress = progressService.readProgress(jobId);
+          if (structuredProgress) {
+            status = structuredProgress.isError ? 'error' :
+                    structuredProgress.isComplete ? 'completed' : 'in_progress';
+            progress = structuredProgress;
+          } else if (fs.existsSync(progressPath)) {
+            status = 'in_progress';
+            const progressText = fs.readFileSync(progressPath, 'utf8');
+            if (progressText.startsWith('ERROR:')) {
+              status = 'error';
+              progress = {
+                step: 'Error',
+                percentage: 0,
+                isComplete: false,
+                isError: true,
+                errorMessage: progressText.replace('ERROR: ', '')
+              };
+            } else {
+              progress = progressService.parseLegacyProgress(progressText);
+            }
+          } else {
+            status = 'queued';
+            progress = {
+              step: 'Queued',
+              percentage: 0,
+              isComplete: false,
+              isError: false
+            };
+          }
+        }
+
+        // Parse timestamp for creation date
+        if (timestamp && timestamp.length === 14) {
+          const year = timestamp.substring(0, 4);
+          const month = timestamp.substring(4, 6);
+          const day = timestamp.substring(6, 8);
+          const hour = timestamp.substring(8, 10);
+          const minute = timestamp.substring(10, 12);
+          const second = timestamp.substring(12, 14);
+          createdAt = new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}`).toISOString();
+        }
+
+        // Get original file info if available
+        const uploadInfo = uploadFileMap[timestamp] || {};
+
+        const job = {
+          id: jobId,
+          bookName: bookName || 'Unknown',
+          fontSize: fontSize || 'Unknown',
+          status,
+          progress,
+          createdAt,
+          completedAt,
+          originalFileName: uploadInfo.originalName || null,
+          uploadPath: uploadInfo.uploadPath || null
+        };
+
+        jobs.push(job);
+      }
+    });
+
+    // Sort jobs by creation date (newest first)
+    jobs.sort((a, b) => {
+      if (!a.createdAt && !b.createdAt) return 0;
+      if (!a.createdAt) return 1;
+      if (!b.createdAt) return -1;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+
+    res.json({ jobs });
+  } catch (error) {
+    console.error('Error fetching jobs:', error);
+    res.status(500).json({
+      error: 'Failed to fetch jobs',
+      message: error.message
+    });
+  }
+});
+
 app.get('/api/download/', (req, res) => {
   const { id } = req.query;
   const pdfOutput = path.join(__dirname, 'generated', `${id}.pdf`);

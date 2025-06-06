@@ -1,0 +1,2 @@
+- Keep in mind that the developer is likely running the frontend and backend hot reloading servers through the development container at all times. This means you do not have to restart the container because it hot reloads.
+- After you test something using Logs or test files, delete them once they are not needed anymore.
