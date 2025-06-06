@@ -1,15 +1,17 @@
 import React from 'react';
 import {
-  TextField,
-  Box,
   Stack,
   Select,
   MenuItem,
-  FormControl,
   InputLabel,
 } from '@mui/material';
 import { useAppContext } from '../context/AppContext';
 import { useFileHandling } from '../hooks/useFileHandling';
+import {
+  OptionsContainer,
+  NarrowField,
+  StyledFormControl
+} from './styled';
 
 const PdfOptions: React.FC = () => {
   const {
@@ -25,34 +27,28 @@ const PdfOptions: React.FC = () => {
   };
 
   return (
-    <Box>
-      {' '}
-      {/* FONT SIZE AND BORDER STYLE */}
+    <OptionsContainer>
       <Stack
         direction="row"
         spacing={2}
         justifyContent="flex-start"
-        sx={{
-          mt: 2,
-        }}
+        sx={{ mt: 2 }}
       >
-        <TextField
+        <NarrowField
           value={pdfOptions.fontSize}
           onChange={handleFontSizeInputChange}
           label="Font Size"
           type="number"
           variant="outlined"
           margin="normal"
-          sx={{ width: '120px' }}
           inputProps={{
             min: 4,
             max: 10,
           }}
         />
-        <FormControl
+        <StyledFormControl
           variant="outlined"
           margin="normal"
-          sx={{ width: '150px' }}
         >
           <InputLabel>Border Style</InputLabel>
           <Select
@@ -64,9 +60,9 @@ const PdfOptions: React.FC = () => {
             <MenuItem value="solid">Solid</MenuItem>
             <MenuItem value="dotted">Dotted</MenuItem>
           </Select>
-        </FormControl>
+        </StyledFormControl>
       </Stack>
-    </Box>
+    </OptionsContainer>
   );
 };
 

@@ -1,25 +1,20 @@
 import React from 'react';
-import { Box, Typography, Container, CssBaseline, styled, IconButton, Tooltip, Stack } from '@mui/material';
-import { createTheme, ThemeProvider } from '@mui/material/styles';
+import { Box, Typography, CssBaseline, Tooltip, Stack } from '@mui/material';
+import { ThemeProvider } from '@mui/material/styles';
 import HistoryIcon from '@mui/icons-material/History';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { AppProvider, useAppContext } from './context/AppContext';
 import { BookInfoForm, FileControls, PdfOptions, GenerationStatus } from './components';
 import { PdfGeneratorService } from './services';
-
-const StyledIconButton = styled(IconButton)`
-  &:hover {
-    background-color: #14035591;
-  }
-`;
-
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: '#3f51b5',
-    }
-  }
-});
+import { theme } from './theme';
+import {
+  DarkBackground,
+  MainFormContainer,
+  SpaceBetweenContainer,
+  InfoDisplayContainer,
+  StyledIconButton,
+  BoldText
+} from './components/styled';
 
 // Main App Content Component
 function AppContent() {
@@ -32,52 +27,26 @@ function AppContent() {
   };
 
   return (
-    <Box
-      sx={{
-        backgroundColor: '#0d0033',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '100vh'
-      }}
-    >
-      <Container
-        component='form'
-        maxWidth='sm'
-        disableGutters
-        sx={{
-          backgroundColor: '#dadaff',
-          p: 5,
-          borderRadius: '10px',
-        }}
-      >
+    <DarkBackground>
+      <MainFormContainer>
         <Typography
           variant='h3'
           component='h1'
-          fontFamily={'georgia'}
-          mb={2}
+          sx={{ mb: 2 }}
         >
           MicroBook Maker
         </Typography>
-        <Stack spacing={.5} maxWidth='sm'>
+        <Stack spacing={0.5}>
           <BookInfoForm />
           <PdfOptions />
           <FileControls />
         </Stack>
-      </Container>
-      <Container
-        maxWidth='sm'
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          pt: 3
-        }}
-      >
-        <Typography color='primary' variant='body1' gutterBottom mb={0} sx={{ fontWeight: 'bold' }}>
+      </MainFormContainer>
+
+      <SpaceBetweenContainer maxWidth='sm'>
+        <BoldText color='primary' variant='body1'>
           Words: {fileState.wordCount === 0 ? '--' : new Intl.NumberFormat().format(fileState.wordCount)}
-        </Typography>
+        </BoldText>
         <Box>
           <Tooltip title='Uploads'>
             <StyledIconButton color='primary' onClick={() => window.open('/uploads/', '_blank')}>
@@ -90,34 +59,22 @@ function AppContent() {
             </StyledIconButton>
           </Tooltip>
         </Box>
-      </Container>
-      <Container
-        maxWidth='sm'
-        sx={{
-          display: 'flex',
-          justifyContent: 'flex-start',
-          alignItems: 'center'
-        }}
-      >
-        <Typography color='primary' variant='body1' gutterBottom mb={0} sx={{ fontWeight: 'bold' }}>
+      </SpaceBetweenContainer>
+
+      <InfoDisplayContainer maxWidth='sm'>
+        <BoldText color='primary' variant='body1'>
           Sheets: {fileState.sheetsCount === 0 ? '--' : new Intl.NumberFormat().format(fileState.sheetsCount)}
-        </Typography>
-      </Container>
-      <Container
-        maxWidth='sm'
-        sx={{
-          display: 'flex',
-          justifyContent: 'flex-start',
-          alignItems: 'center',
-          mt: 0.9
-        }}
-      >
-        <Typography color='primary' variant='body1' gutterBottom mb={0} sx={{ fontWeight: 'bold' }}>
+        </BoldText>
+      </InfoDisplayContainer>
+
+      <InfoDisplayContainer maxWidth='sm'>
+        <BoldText color='primary' variant='body1'>
           Read Time: {fileState.readTime}
-        </Typography>
-      </Container>
+        </BoldText>
+      </InfoDisplayContainer>
+
       <GenerationStatus onDownload={handleDownload} />
-    </Box>
+    </DarkBackground>
   );
 }
 

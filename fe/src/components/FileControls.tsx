@@ -1,30 +1,26 @@
 import React from 'react';
 import {
   Button,
-  Box,
   Tooltip,
 } from '@mui/material';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import { useAppContext } from '../context/AppContext';
 import { useFileHandling } from '../hooks/useFileHandling';
+import {
+  ControlsContainer,
+  ButtonContainer,
+  HiddenFileInput
+} from './styled';
 
 const FileControls: React.FC = () => {
   const { fileState } = useAppContext();
   const { uploadRef, handleFileChange, handleUploadFile } = useFileHandling();
+
   return (
-    <Box // BUTTONS
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'flex-end',
-      }}
-    >
-      <Box mt={2}>
-        {' '}
-        {/* SELECT TXT */}
-        <input
+    <ControlsContainer>
+      <ButtonContainer>
+        <HiddenFileInput
           type="file"
-          style={{ display: 'none' }}
           onChange={handleFileChange}
           ref={uploadRef}
           accept=".txt"
@@ -40,32 +36,25 @@ const FileControls: React.FC = () => {
             <Button
               variant="contained"
               component="span"
-              disableElevation
-              sx={{ borderRadius: '6px' }}
               size="small"
             >
               Select TXT
             </Button>
           </label>
         </Tooltip>
-      </Box>
-      <Box mt={2}>
-        {' '}
-        {/* GENERATE */}
+      </ButtonContainer>
+
+      <ButtonContainer>
         <Button
           variant="contained"
           disabled={fileState.disableUpload}
           onClick={handleUploadFile}
-          disableElevation
           endIcon={<PictureAsPdfIcon />}
-          sx={{
-            borderRadius: '6px',
-          }}
         >
           Generate
         </Button>
-      </Box>
-    </Box>
+      </ButtonContainer>
+    </ControlsContainer>
   );
 };
 
