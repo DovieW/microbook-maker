@@ -1,10 +1,10 @@
 
 import { useRef, useEffect, useState } from 'react';
-import { Box, Typography, CssBaseline, Tooltip, Stack, Button, Divider } from '@mui/material';
+import { Box, Typography, CssBaseline, Stack, Button } from '@mui/material';
 import { ThemeProvider } from '@mui/material/styles';
 import HistoryIcon from '@mui/icons-material/History';
-import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { AppProvider, useAppContext } from './context/AppContext';
+import { JobManagementProvider } from './context/JobManagementContext';
 import { BookInfoForm, FileControls, PdfOptions, GenerationStatus, JobManagement } from './components';
 import NotificationContainer from './components/NotificationContainer';
 import DragDropZone from './components/DragDropZone';
@@ -16,8 +16,7 @@ import { useNotifications } from './hooks/useNotifications';
 import {
   DarkBackground,
   MainFormContainer,
-  StyledIconButton,
-  BoldText
+  BoldText,
 } from './components/styled';
 
 // Main App Content Component
@@ -49,17 +48,22 @@ function AppContent() {
 
   return (
     <DarkBackground ref={dragDropRef}>
+      {/* Main Layout Container */}
       <Box sx={{
         display: 'flex',
         gap: 3,
+        alignItems: 'flex-start',
         width: '100%',
-        maxWidth: showJobs ? 1400 : 600,
-        alignItems: 'flex-start'
+        maxWidth: showJobs ? '1040px' : '600px', // 600px + 400px + 40px gap
+        justifyContent: 'center',
       }}>
-        {/* Main Form Section */}
+        {/* Main Content */}
         <Box sx={{
-          flex: showJobs ? '0 0 600px' : '1 1 auto',
-          maxWidth: showJobs ? '600px' : '100%'
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          width: '600px',
+          flex: '0 0 600px',
         }}>
           <MainFormContainer>
             <Typography
@@ -72,78 +76,81 @@ function AppContent() {
             <Stack spacing={0.5}>
               <BookInfoForm />
               <PdfOptions />
-              <FileControls />
+              <FileControls onJobStarted={() => setShowJobs(true)} />
             </Stack>
+          </MainFormContainer>
 
+          {/* Two containers side by side below the main card */}
+          <Box sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            mt: '20px',
+            px: '10px',
+            maxWidth: '600px',
+            width: '100%'
+          }}>
+            {/* Left container for stats */}
             <Box sx={{
               display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              mt: 2,
-              px: 3
+              flexDirection: 'column',
+              gap: 1,
             }}>
               <BoldText color='primary' variant='body1'>
                 Words: {fileState.wordCount > 0 ? new Intl.NumberFormat().format(fileState.wordCount) : '--'}
               </BoldText>
-              <Box>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={() => setShowJobs(!showJobs)}
-                  startIcon={<HistoryIcon />}
-                >
-                  {showJobs ? 'Hide Jobs' : 'View Jobs'}
-                </Button>
-              </Box>
+
+              <BoldText color='primary' variant='body1'>
+                Sheets: {fileState.sheetsCount > 0 ? new Intl.NumberFormat().format(fileState.sheetsCount) : '--'}
+              </BoldText>
+
+              <BoldText color='primary' variant='body1'>
+                Read Time: {fileState.readTime}
+              </BoldText>
             </Box>
-          </MainFormContainer>
+
+            {/* Right container for View Jobs button */}
+            <Box>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => setShowJobs(!showJobs)}
+                startIcon={<HistoryIcon />}
+              >
+                {showJobs ? 'Hide Jobs' : 'View Jobs'}
+              </Button>
+            </Box>
+          </Box>
         </Box>
 
-        {/* Jobs Section */}
-        {showJobs && (
+        {/* Jobs Panel - Slides out from under main card */}
+        <Box sx={{
+          width: showJobs ? '400px' : '0px',
+          flex: showJobs ? '0 0 400px' : '0 0 0px',
+          overflow: 'hidden',
+          transition: 'all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)', // Perfect easing
+          alignSelf: 'flex-start',
+        }}>
           <Box sx={{
-            flex: '1 1 auto',
-            minWidth: 0, // Allow shrinking
-            maxWidth: 800
+            width: '400px', // Fixed inner width
+            backgroundColor: '#dadaff', // Same as MainFormContainer
+            borderRadius: '10px', // Same as MainFormContainer (xlarge)
+            boxShadow: 3,
+            p: 2,
+            opacity: showJobs ? 1 : 0,
+            transition: 'opacity 0.3s ease-in-out 0.1s', // Slight delay for opacity
           }}>
             <JobManagement />
           </Box>
-        )}
+        </Box>
       </Box>
 
       <DragDropZone isDragActive={isDragActive} isDragOver={isDragOver}>
         <></>
       </DragDropZone>
 
-      <Box sx={{
-        display: 'flex',
-        justifyContent: 'flex-start',
-        alignItems: 'center',
-        mt: 0,
-        maxWidth: 600,
-        width: '100%',
-        px: 3
-      }}>
-        <BoldText color='primary' variant='body1'>
-          Sheets: {fileState.sheetsCount > 0 ? new Intl.NumberFormat().format(fileState.sheetsCount) : '--'}
-        </BoldText>
-      </Box>
-
-      <Box sx={{
-        display: 'flex',
-        justifyContent: 'flex-start',
-        alignItems: 'center',
-        mt: '8.5px',
-        maxWidth: 600,
-        width: '100%',
-        px: 3
-      }}>
-        <BoldText color='primary' variant='body1'>
-          Read Time: {fileState.readTime}
-        </BoldText>
-      </Box>
-
-      <GenerationStatus onDownload={handleDownload} />
+      {/* GenerationStatus is disabled when jobs panel is shown */}
+      <GenerationStatus onDownload={handleDownload} disabled={showJobs} />
       <NotificationContainer />
     </DarkBackground>
   );
@@ -153,10 +160,12 @@ function AppContent() {
 function App() {
   return (
     <AppProvider>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <AppContent />
-      </ThemeProvider>
+      <JobManagementProvider>
+        <ThemeProvider theme={theme}>
+          <CssBaseline />
+          <AppContent />
+        </ThemeProvider>
+      </JobManagementProvider>
     </AppProvider>
   );
 }

@@ -1,29 +1,28 @@
 import React from 'react';
 import {
-  TableRow,
-  TableCell,
-  Button,
-  Chip,
-  LinearProgress,
-  Box,
   Typography,
   IconButton,
   Tooltip,
+  Fade,
 } from '@mui/material';
 import {
-  Download as DownloadIcon,
+  PictureAsPdf as PdfIcon,
   FilePresent as FileIcon,
-  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { Job } from '../types';
 import { JobManagementService } from '../services/jobManagementService';
+import {
+  JobListItem as StyledJobListItem,
+  JobItemContent,
+  JobItemActions,
+  JobProgressBar,
+} from './styled';
 
 interface JobListItemProps {
   job: Job;
-  onRefresh?: (jobId: string) => void;
 }
 
-const JobListItem: React.FC<JobListItemProps> = ({ job, onRefresh }) => {
+const JobListItem: React.FC<JobListItemProps> = ({ job }) => {
   const handleDownload = () => {
     if (job.status === 'completed') {
       const downloadUrl = JobManagementService.getDownloadUrl(job.id);
@@ -31,151 +30,68 @@ const JobListItem: React.FC<JobListItemProps> = ({ job, onRefresh }) => {
     }
   };
 
-  const handleViewOriginal = () => {
+  const handleDownloadOriginal = () => {
     if (job.uploadPath) {
       const fileUrl = JobManagementService.getOriginalFileUrl(job.uploadPath);
       if (fileUrl) {
-        window.open(fileUrl, '_blank');
+        // Create a temporary link to trigger download
+        const link = document.createElement('a');
+        link.href = fileUrl;
+        link.download = job.originalFileName || 'uploaded-file.txt';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
       }
     }
   };
 
-  const handleRefresh = () => {
-    if (onRefresh) {
-      onRefresh(job.id);
-    }
-  };
-
-  const getStatusColor = (status: Job['status']) => {
-    switch (status) {
-      case 'completed':
-        return 'success';
-      case 'in_progress':
-        return 'primary';
-      case 'error':
-        return 'error';
-      case 'queued':
-        return 'default';
-      default:
-        return 'default';
-    }
-  };
-
-  const getStatusLabel = (status: Job['status']) => {
-    switch (status) {
-      case 'completed':
-        return 'Complete';
-      case 'in_progress':
-        return 'Processing';
-      case 'error':
-        return 'Failed';
-      case 'queued':
-        return 'Queued';
-      default:
-        return 'Unknown';
-    }
-  };
-
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return '--';
-    try {
-      return new Date(dateString).toLocaleString();
-    } catch {
-      return '--';
-    }
-  };
-
+  // Calculate progress percentage for loading bar
   const progressPercentage = job.progress?.percentage || 0;
-  const progressStep = job.progress?.step || 'Unknown';
+  const isGenerating = job.status === 'in_progress' || job.status === 'queued';
 
   return (
-    <TableRow>
-      <TableCell>
-        <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-          {job.bookName}
-        </Typography>
-        <Typography variant="caption" color="text.secondary">
-          Font: {job.fontSize}pt
-        </Typography>
-      </TableCell>
-      
-      <TableCell>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Chip
-            label={getStatusLabel(job.status)}
-            color={getStatusColor(job.status)}
-            size="small"
-          />
-          {(job.status === 'in_progress' || job.status === 'queued') && (
-            <Tooltip title="Refresh status">
-              <IconButton size="small" onClick={handleRefresh}>
-                <RefreshIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          )}
-        </Box>
-      </TableCell>
-      
-      <TableCell>
-        {job.status === 'in_progress' || job.status === 'queued' ? (
-          <Box sx={{ width: '100%' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-              <Typography variant="caption" sx={{ minWidth: 35 }}>
-                {progressPercentage}%
-              </Typography>
-            </Box>
-            <LinearProgress
-              variant="determinate"
-              value={progressPercentage}
-              sx={{ height: 6, borderRadius: 3 }}
-            />
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-              {progressStep}
-            </Typography>
-          </Box>
-        ) : job.status === 'error' ? (
-          <Typography variant="caption" color="error">
-            {job.progress?.errorMessage || 'Generation failed'}
+    <Fade in={true} timeout={300}>
+      <StyledJobListItem>
+        <JobItemContent>
+          <Typography variant="body1" sx={{ fontWeight: 'medium', mb: 0.5 }}>
+            {job.bookName}
           </Typography>
-        ) : (
-          <Typography variant="caption" color="text.secondary">
-            --
-          </Typography>
-        )}
-      </TableCell>
-      
-      <TableCell>
-        <Typography variant="caption">
-          {formatDate(job.createdAt)}
-        </Typography>
-      </TableCell>
-      
-      <TableCell>
-        <Typography variant="caption">
-          {formatDate(job.completedAt)}
-        </Typography>
-      </TableCell>
-      
-      <TableCell>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          {job.originalFileName && (
-            <Tooltip title={`View original file: ${job.originalFileName}`}>
-              <IconButton size="small" onClick={handleViewOriginal}>
+        </JobItemContent>
+
+        <JobItemActions>
+          {job.uploadPath && (
+            <Tooltip title={`Download original file: ${job.originalFileName || 'uploaded file'}`}>
+              <IconButton size="small" onClick={handleDownloadOriginal}>
                 <FileIcon fontSize="small" />
               </IconButton>
             </Tooltip>
           )}
-          
-          {job.status === 'completed' && (
-            <Tooltip title="Download PDF">
-              <IconButton size="small" onClick={handleDownload} color="primary">
-                <DownloadIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          )}
-        </Box>
-      </TableCell>
-    </TableRow>
+
+          <Tooltip title="Open PDF">
+            <IconButton
+              size="small"
+              onClick={handleDownload}
+              color="primary"
+              disabled={job.status !== 'completed'}
+              sx={{
+                opacity: job.status === 'completed' ? 1 : 0.3,
+                transition: 'opacity 0.2s ease-in-out'
+              }}
+            >
+              <PdfIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </JobItemActions>
+
+        {/* Progress bar at bottom during generation */}
+        {isGenerating && (
+          <JobProgressBar
+            variant="determinate"
+            value={progressPercentage}
+          />
+        )}
+      </StyledJobListItem>
+    </Fade>
   );
 };
 

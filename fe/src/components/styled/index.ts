@@ -184,6 +184,58 @@ export const ProgressBar = styled(LinearProgress)(({ theme }) => ({
   },
 }));
 
+// Job List Components
+export const JobListContainer = styled(Box)(({ theme }) => ({
+  width: '100%',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: theme.spacing(2),
+}));
+
+export const JobListItem = styled(Box)(({ theme }) => ({
+  backgroundColor: designTokens.colors.background.paper,
+  borderRadius: designTokens.borderRadius.medium,
+  padding: theme.spacing(2),
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  position: 'relative',
+  border: `1px solid ${theme.palette.grey[200]}`,
+  transition: 'all 0.2s ease-in-out',
+  '&:hover': {
+    boxShadow: designTokens.shadows.light,
+    borderColor: theme.palette.grey[300],
+  },
+}));
+
+export const JobItemContent = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  flexDirection: 'column',
+  flex: 1,
+}));
+
+export const JobItemActions = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  gap: theme.spacing(1),
+  alignItems: 'center',
+}));
+
+export const JobProgressBar = styled(LinearProgress)(({ theme }) => ({
+  position: 'absolute',
+  bottom: 0,
+  left: 0,
+  right: 0,
+  height: 3,
+  borderBottomLeftRadius: designTokens.borderRadius.medium,
+  borderBottomRightRadius: designTokens.borderRadius.medium,
+  backgroundColor: 'transparent',
+  '& .MuiLinearProgress-bar': {
+    borderBottomLeftRadius: designTokens.borderRadius.medium,
+    borderBottomRightRadius: designTokens.borderRadius.medium,
+    transition: 'transform 0.4s ease-in-out',
+  },
+}));
+
 export const ProgressText = styled(Typography)(({ theme }) => ({
   fontSize: '0.875rem',
   color: theme.palette.text.secondary,
@@ -262,6 +314,13 @@ export const StyledComponents = {
   ProgressContainer,
   ProgressBar,
   ProgressText,
+
+  // Job List
+  JobListContainer,
+  JobListItem,
+  JobItemContent,
+  JobItemActions,
+  JobProgressBar,
 
   // Notifications
   NotificationContainer,

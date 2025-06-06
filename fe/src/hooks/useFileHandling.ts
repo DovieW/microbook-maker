@@ -3,6 +3,7 @@ import { useAppContext } from '../context/AppContext';
 import { UploadParams } from '../types';
 import { usePdfGenerator } from './usePdfGenerator';
 import { useNotifications } from './useNotifications';
+import { useJobManagementContext } from '../context/JobManagementContext';
 
 // Module-level storage for dropped files to persist across re-renders
 let droppedFileStorage: File | null = null;
@@ -11,6 +12,7 @@ export function useFileHandling() {
   const uploadRef = useRef<HTMLInputElement>(null);
   const { generatePdf, loading: pdfGenerationLoading, error: pdfGenerationError } = usePdfGenerator();
   const { showError, showWarning } = useNotifications();
+  const { addNewJob } = useJobManagementContext();
   const {
     bookInfo,
     setBookName,
@@ -181,6 +183,9 @@ export function useFileHandling() {
         const generationId = await generatePdf(file, params);
         if (generationId) {
           setGenerationId(generationId);
+          // Immediately add the job to the job list
+          addNewJob(generationId, bookInfo.bookName, pdfOptions.fontSize);
+          // Don't set loading to false here - let the job management handle the state
         } else {
           setLoading(false);
           showError(
@@ -210,12 +215,81 @@ export function useFileHandling() {
     showError,
   ]);
 
+  const createHandleUploadFile = useCallback((onJobStarted?: () => void) => {
+    return async () => {
+      // Check for file from either file input or drag-and-drop
+      const files = uploadRef.current?.files;
+      const inputFile = files && files.length > 0 ? files[0] : null;
+      const droppedFile = droppedFileStorage;
+      const file = inputFile || droppedFile;
+
+      if (file) {
+        setLoading(true);
+        const params: UploadParams = {
+          bookName: bookInfo.bookName,
+          borderStyle: pdfOptions.borderStyle,
+          headerInfo: {
+            series: bookInfo.series,
+            sheetsCount: fileState.sheetsCount.toString(),
+            wordCount: fileState.wordCount,
+            readTime: fileState.readTime,
+            author: bookInfo.author,
+            year: bookInfo.year,
+            fontSize: pdfOptions.fontSize,
+          },
+        };
+
+        try {
+          // Reset progress before starting new generation
+          setGenerationId(null);
+          setProgress(null);
+
+          const generationId = await generatePdf(file, params);
+          if (generationId) {
+            setGenerationId(generationId);
+            // Immediately add the job to the job list
+            addNewJob(generationId, bookInfo.bookName, pdfOptions.fontSize);
+            // Notify that a job was started
+            onJobStarted?.();
+            // Don't set loading to false here - let the job management handle the state
+          } else {
+            setLoading(false);
+            showError(
+              'PDF Generation Failed',
+              'Failed to start PDF generation. Please try again.'
+            );
+          }
+        } catch (error) {
+          console.error('There was a problem with the PDF generation: ', error);
+          setLoading(false);
+          showError(
+            'PDF Generation Error',
+            error instanceof Error ? error.message : 'An unexpected error occurred during PDF generation.'
+          );
+        }
+      } else {
+        console.warn('No file available for upload - neither from input nor drag-and-drop');
+      }
+    };
+  }, [
+    bookInfo,
+    pdfOptions,
+    fileState,
+    setLoading,
+    setGenerationId,
+    setProgress,
+    generatePdf,
+    showError,
+    addNewJob,
+  ]);
+
   return {
     uploadRef,
     handleFileChange,
     handleFileDrop,
     handleFontSizeChange,
     handleUploadFile,
+    createHandleUploadFile,
     pdfGenerationLoading,
     pdfGenerationError,
   };

@@ -15,9 +15,10 @@ import {
 
 interface GenerationStatusProps {
   onDownload?: () => void;
+  disabled?: boolean;
 }
 
-const GenerationStatus: React.FC<GenerationStatusProps> = ({ onDownload }) => {
+const GenerationStatus: React.FC<GenerationStatusProps> = ({ onDownload, disabled = false }) => {
   const { generationState, setLoading, setProgress } = useAppContext();
   const { showSuccess, showError } = useNotifications();
 
@@ -30,14 +31,8 @@ const GenerationStatus: React.FC<GenerationStatusProps> = ({ onDownload }) => {
       setLoading(false);
       showSuccess(
         'PDF Generated Successfully!',
-        'Your PDF has been generated and is opening in a new tab.'
+        'Your PDF has been generated and is ready for download.'
       );
-
-      // Automatically open the PDF in a new tab
-      if (generationState.id) {
-        const downloadUrl = `/api/download?id=${generationState.id}`;
-        window.open(downloadUrl, '_blank');
-      }
     },
     onError: (error) => {
       setLoading(false);
@@ -74,6 +69,11 @@ const GenerationStatus: React.FC<GenerationStatusProps> = ({ onDownload }) => {
   const hasError = currentProgress && currentProgress.isError;
 
 
+
+  // Don't render if disabled
+  if (disabled) {
+    return null;
+  }
 
   return (
     <Backdrop
@@ -239,7 +239,7 @@ const GenerationStatus: React.FC<GenerationStatusProps> = ({ onDownload }) => {
                 textShadow: '0 1px 2px rgba(0,0,0,0.5)'
               }}
             >
-              Your PDF has been generated successfully and should be opening in a new tab.
+              Your PDF has been generated successfully and is ready for download.
             </Typography>
 
             <StatusButton

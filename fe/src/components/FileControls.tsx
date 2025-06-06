@@ -12,9 +12,15 @@ import {
   HiddenFileInput,
 } from './styled';
 
-const FileControls: React.FC = () => {
+interface FileControlsProps {
+  onJobStarted?: () => void;
+}
+
+const FileControls: React.FC<FileControlsProps> = ({ onJobStarted }) => {
   const { fileState, pdfOptions } = useAppContext();
-  const { uploadRef, handleFileChange, handleUploadFile } = useFileHandling();
+  const { uploadRef, handleFileChange, createHandleUploadFile } = useFileHandling();
+
+  const handleUploadFile = createHandleUploadFile(onJobStarted);
 
   // Check for validation issues
   const fontSize = parseFloat(pdfOptions.fontSize);
@@ -74,8 +80,6 @@ const FileControls: React.FC = () => {
             </Button>
           </span>
         </Tooltip>
-
-
       </ButtonContainer>
     </ControlsContainer>
   );

@@ -14,6 +14,22 @@ export function useJobManagement(): UseJobManagementReturn {
   const [error, setError] = useState<Error | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  const addNewJob = useCallback((jobId: string, bookName: string, fontSize: string) => {
+    const newJob: Job = {
+      id: jobId,
+      bookName,
+      fontSize,
+      status: 'queued',
+      progress: { percentage: 0, step: 'Starting generation...', isComplete: false, isError: false },
+      createdAt: new Date().toISOString(),
+      completedAt: null,
+      originalFileName: null,
+      uploadPath: null,
+    };
+
+    setJobs(prevJobs => [newJob, ...prevJobs]);
+  }, []);
+
   const refreshJobs = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -47,12 +63,6 @@ export function useJobManagement(): UseJobManagementReturn {
             if (progressResponse.status === 'completed') {
               newStatus = 'completed';
               completedAt = completedAt || new Date().toISOString();
-
-              // Auto-open PDF when completed (user preference)
-              if (job.status !== 'completed') {
-                const downloadUrl = JobManagementService.getDownloadUrl(jobId);
-                window.open(downloadUrl, '_blank');
-              }
             } else if (progressResponse.status === 'error') {
               newStatus = 'error';
             } else if (progressResponse.status === 'in_progress') {
@@ -78,13 +88,17 @@ export function useJobManagement(): UseJobManagementReturn {
     if (intervalRef.current) return; // Already polling
 
     intervalRef.current = setInterval(() => {
-      // Update progress for in-progress jobs
-      const inProgressJobs = jobs.filter(job =>
-        job.status === 'in_progress' || job.status === 'queued'
-      );
+      // Get current jobs from state to avoid stale closure
+      setJobs(currentJobs => {
+        const inProgressJobs = currentJobs.filter(job =>
+          job.status === 'in_progress' || job.status === 'queued'
+        );
 
-      inProgressJobs.forEach(job => {
-        updateJobProgress(job.id);
+        inProgressJobs.forEach(job => {
+          updateJobProgress(job.id);
+        });
+
+        return currentJobs; // Return unchanged jobs
       });
 
       // Refresh job list periodically to catch new jobs
@@ -92,7 +106,7 @@ export function useJobManagement(): UseJobManagementReturn {
         refreshJobs();
       }
     }, 2000); // Poll every 2 seconds
-  }, [jobs, updateJobProgress, refreshJobs]);
+  }, [updateJobProgress, refreshJobs]);
 
   const stopPolling = useCallback(() => {
     if (intervalRef.current) {
@@ -142,5 +156,6 @@ export function useJobManagement(): UseJobManagementReturn {
     error,
     refreshJobs,
     clearError,
+    addNewJob,
   };
 }
