@@ -12,7 +12,13 @@ const storage = multer.diskStorage({
   },
   filename: function(req, file, cb) {
     const date = new Date();
-    const formattedDate = `${date.getFullYear()}${date.getMonth() + 1}${date.getDate()}${date.getHours()}${date.getMinutes()}${date.getSeconds()}`;
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hour = String(date.getHours()).padStart(2, '0');
+    const minute = String(date.getMinutes()).padStart(2, '0');
+    const second = String(date.getSeconds()).padStart(2, '0');
+    const formattedDate = `${year}${month}${day}${hour}${minute}${second}`;
     const fileName = `${formattedDate}_${file.originalname}`;
     cb(null, fileName);
   }
@@ -25,7 +31,13 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
   const {fontSize, sheetsCount} = json.headerInfo;
 
   const date = new Date();
-  const id = `${date.getFullYear()}${date.getMonth() + 1}${date.getDate()}${date.getHours()}${date.getMinutes()}${date.getSeconds()}_${bookName}_${fontSize}`;
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hour = String(date.getHours()).padStart(2, '0');
+  const minute = String(date.getMinutes()).padStart(2, '0');
+  const second = String(date.getSeconds()).padStart(2, '0');
+  const id = `${year}${month}${day}${hour}${minute}${second}_${bookName}_${fontSize}`;
 
   function writeToInProgress(text) {
     console.log(`${text}`);
@@ -591,14 +603,44 @@ app.get('/api/jobs', (req, res) => {
         }
 
         // Parse timestamp for creation date
-        if (timestamp && timestamp.length === 14) {
-          const year = timestamp.substring(0, 4);
-          const month = timestamp.substring(4, 6);
-          const day = timestamp.substring(6, 8);
-          const hour = timestamp.substring(8, 10);
-          const minute = timestamp.substring(10, 12);
-          const second = timestamp.substring(12, 14);
-          createdAt = new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}`).toISOString();
+        if (timestamp) {
+          try {
+            if (timestamp.length === 14) {
+              // New format: YYYYMMDDHHMMSS
+              const year = parseInt(timestamp.substring(0, 4));
+              const month = parseInt(timestamp.substring(4, 6)) - 1; // JavaScript months are 0-indexed
+              const day = parseInt(timestamp.substring(6, 8));
+              const hour = parseInt(timestamp.substring(8, 10));
+              const minute = parseInt(timestamp.substring(10, 12));
+              const second = parseInt(timestamp.substring(12, 14));
+              createdAt = new Date(year, month, day, hour, minute, second).toISOString();
+            } else {
+              // Old format: variable length, parse dynamically
+              // Format was: YYYY + M + D + H + M + S (no zero padding)
+              // Try to parse by extracting year first, then parse the rest
+              const year = parseInt(timestamp.substring(0, 4));
+              const remaining = timestamp.substring(4);
+
+              // For old format, use file modification time as fallback
+              if (fs.existsSync(pdfPath)) {
+                const pdfStats = fs.statSync(pdfPath);
+                createdAt = pdfStats.mtime.toISOString();
+              } else if (fs.existsSync(progressPath)) {
+                const progressStats = fs.statSync(progressPath);
+                createdAt = progressStats.mtime.toISOString();
+              } else if (fs.existsSync(structuredProgressPath)) {
+                const structuredStats = fs.statSync(structuredProgressPath);
+                createdAt = structuredStats.mtime.toISOString();
+              }
+            }
+          } catch (error) {
+            console.warn(`Failed to parse timestamp ${timestamp}:`, error);
+            // Fallback to file modification time
+            if (fs.existsSync(pdfPath)) {
+              const pdfStats = fs.statSync(pdfPath);
+              createdAt = pdfStats.mtime.toISOString();
+            }
+          }
         }
 
         // Get original file info if available

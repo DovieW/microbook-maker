@@ -13,6 +13,16 @@ import { JobListContainer } from './styled';
 const JobManagement: React.FC = () => {
   const { jobs, loading, error, clearError } = useJobManagementContext();
 
+  // Sort jobs by creation date (newest first) to ensure consistent ordering
+  const sortedJobs = React.useMemo(() => {
+    return [...jobs].sort((a, b) => {
+      if (!a.createdAt && !b.createdAt) return 0;
+      if (!a.createdAt) return 1;
+      if (!b.createdAt) return -1;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+  }, [jobs]);
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
@@ -32,7 +42,7 @@ const JobManagement: React.FC = () => {
         </Alert>
       )}
 
-      {jobs.length === 0 ? (
+      {sortedJobs.length === 0 ? (
         <Paper sx={{ p: 4, textAlign: 'center' }}>
           <Typography variant="body1" color="text.secondary">
             No jobs found.
@@ -40,7 +50,7 @@ const JobManagement: React.FC = () => {
         </Paper>
       ) : (
         <JobListContainer>
-          {jobs.map((job) => (
+          {sortedJobs.map((job) => (
             <JobListItem
               key={job.id}
               job={job}
