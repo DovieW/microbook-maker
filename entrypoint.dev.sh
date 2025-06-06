@@ -20,7 +20,7 @@ npm install
 
 # Start backend with PM2 in watch mode for hot reload
 echo -e "\n\e[34mStarting backend with hot reload...\e[0m"
-pm2 start /app/be/index.js --name mbm --watch --ignore-watch="node_modules generated uploads output.html *.pdf"
+pm2 start /app/be/index.js --name backend --watch --ignore-watch="node_modules generated uploads output.html *.pdf"
 
 # Start frontend dev server with hot reload
 echo -e "\n\e[34mStarting frontend dev server with hot reload...\e[0m"

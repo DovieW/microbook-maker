@@ -10,6 +10,6 @@ nginx
 
 echo "Starting backend..."
 cd /app/be
-pm2 start index.js --name mbm --no-daemon
+pm2 start index.js --name backend --no-daemon
 
-pm2 logs mbm
+pm2 logs backend
