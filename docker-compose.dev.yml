@@ -12,16 +12,6 @@ services:
       # Mount entire source directories for hot reload
       - ./fe:/app/fe
       - ./be:/app/be
-      # Persistent data
-      - mbm-generated:/app/be/generated
-      - mbm-uploads:/app/be/uploads
-      # Fonts
-      - /usr/share/fonts:/usr/share/fonts # Linux
-      # - C:\Windows\Fonts:/usr/share/fonts # Windows
     environment:
       - NODE_ENV=development
       - VITE_API_URL=http://localhost:3001
-
-volumes:
-  mbm-generated:
-  mbm-uploads:

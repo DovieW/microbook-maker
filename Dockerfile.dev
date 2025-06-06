@@ -19,18 +19,17 @@ RUN apt-get update && \
     libgtk-3-0 \
     chromium \
     git \
+    fontconfig \
+    fonts-liberation \
+    fonts-dejavu-core \
     --no-install-recommends && \
     npm install pm2 -g && \
+    fc-cache -fv && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 COPY . .
 
-# Copy development nginx config and entrypoint
-COPY nginx.dev.conf ./nginx.dev.conf
-COPY entrypoint.dev.sh ./entrypoint.sh
-RUN chmod +x ./entrypoint.sh
-
 WORKDIR /app/be
 
-ENTRYPOINT [ "/app/entrypoint.sh" ]
+ENTRYPOINT [ "/app/entrypoint.dev.sh" ]

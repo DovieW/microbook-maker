@@ -31,7 +31,14 @@ RUN apk add --no-cache \
     harfbuzz \
     ca-certificates \
     ttf-freefont \
+    ttf-liberation \
+    ttf-dejavu \
+    fontconfig \
     && npm install -g pm2
+
+# Create fonts directory and refresh font cache
+RUN mkdir -p /usr/share/fonts/truetype/custom && \
+    fc-cache -fv
 
 WORKDIR /app
 

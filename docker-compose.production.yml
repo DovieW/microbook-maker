@@ -6,9 +6,6 @@ services:
     volumes:
       - mbm-generated:/app/be/generated
       - mbm-uploads:/app/be/uploads
-      # Fonts. Make sure you have Arial and Times New Roman on the host.
-      - /usr/share/fonts:/usr/share/fonts:ro # Linux (read-only)
-      # - C:\Windows\Fonts:/usr/share/fonts:ro # Windows (read-only)
     environment:
       - NODE_ENV=production
     restart: unless-stopped
