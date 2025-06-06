@@ -73,6 +73,8 @@ const GenerationStatus: React.FC<GenerationStatusProps> = ({ onDownload }) => {
   const isComplete = currentProgress && currentProgress.isComplete;
   const hasError = currentProgress && currentProgress.isError;
 
+
+
   return (
     <Backdrop
       open={generationState.loading}
@@ -334,7 +336,7 @@ const GenerationStatus: React.FC<GenerationStatusProps> = ({ onDownload }) => {
                 }
               }}
             >
-              Cancel
+              Cancel Generation
             </StatusButton>
           </>
         )}

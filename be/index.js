@@ -135,7 +135,8 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
       let isCurrentPageFront = true; // tracks whether the next page to be rendered is on the front of the double sided sheet. the side with the big header
 
       function createNewPage(readTime, initialWordCount, wordsLeft, headerInfo) {
-        console.log(pageIndex+1);
+        // Remove console.log that was causing floating "0" in UI
+        // console.log(pageIndex+1);
         const percentageCompleted = Math.round((initialWordCount - wordsLeft) / initialWordCount * 100);
         const page = document.createElement('div');
         page.className = 'page';
