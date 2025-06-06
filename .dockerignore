@@ -1,5 +1,22 @@
+# Generated and upload directories
 be/generated/*
 be/uploads/*
+
+# Development files
+.git
+.gitignore
+README.md
+*.md
+.vscode/
+.github/
+
+# Development Docker files (only exclude compose files, not build dependencies)
+docker-compose.dev.yml
+
+# Frontend build output (will be copied from builder stage)
+fe/build/
+fe/dist/
+
 # Logs
 logs
 *.log

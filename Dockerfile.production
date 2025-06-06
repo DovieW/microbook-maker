@@ -1,0 +1,56 @@
+FROM node:24-alpine AS frontend-builder
+
+WORKDIR /app/fe
+
+COPY fe/package*.json ./
+COPY fe/tsconfig*.json ./
+COPY fe/vite.config.ts ./
+
+RUN npm ci
+
+COPY fe/ ./
+
+RUN npm run build
+
+FROM node:24-alpine AS backend-builder
+
+WORKDIR /app/be
+
+COPY be/package*.json ./
+
+RUN npm ci --only=production
+
+FROM node:24-alpine AS production
+
+RUN apk add --no-cache \
+    nginx \
+    chromium \
+    nss \
+    freetype \
+    freetype-dev \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont \
+    && npm install -g pm2
+
+WORKDIR /app
+
+COPY --from=frontend-builder /app/fe/build ./fe/build
+
+COPY --from=backend-builder /app/be/node_modules ./be/node_modules
+
+COPY be/ ./be/
+
+# Copy production nginx configuration
+COPY nginx.production.conf /etc/nginx/nginx.conf
+
+COPY entrypoint.production.sh ./entrypoint.sh
+RUN chmod +x ./entrypoint.sh
+
+RUN mkdir -p ./be/generated ./be/uploads
+
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+
+EXPOSE 7777
+
+ENTRYPOINT ["./entrypoint.sh"]

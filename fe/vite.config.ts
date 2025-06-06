@@ -6,7 +6,11 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
-    open: true,
+    host: '0.0.0.0', // Allow external connections (needed for Docker)
+    open: false, // Don't auto-open browser in Docker
+    watch: {
+      usePolling: true, // Enable polling for file changes in Docker
+    },
   },
   build: {
     outDir: 'build',

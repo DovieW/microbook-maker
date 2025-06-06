@@ -1,0 +1,27 @@
+# Development docker-compose with hot reload
+services:
+  microbook-maker:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "7777:7777"  # Full application (nginx proxy) - MAIN ACCESS POINT
+      - "3000:3000"  # Vite dev server (direct access, optional)
+      - "3001:3001"  # Backend API (direct access, optional)
+    volumes:
+      # Mount entire source directories for hot reload
+      - ./fe:/app/fe
+      - ./be:/app/be
+      # Persistent data
+      - mbm-generated:/app/be/generated
+      - mbm-uploads:/app/be/uploads
+      # Fonts
+      - /usr/share/fonts:/usr/share/fonts # Linux
+      # - C:\Windows\Fonts:/usr/share/fonts # Windows
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=http://localhost:3001
+
+volumes:
+  mbm-generated:
+  mbm-uploads:
