@@ -35,7 +35,7 @@ const JobManagement: React.FC = () => {
   }
 
   return (
-    <Box sx={{ width: '100%' }}>
+    <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={clearError}>
           {error.message}
@@ -49,14 +49,41 @@ const JobManagement: React.FC = () => {
           </Typography>
         </Paper>
       ) : (
-        <JobListContainer>
-          {sortedJobs.map((job) => (
-            <JobListItem
-              key={job.id}
-              job={job}
-            />
-          ))}
-        </JobListContainer>
+        <Box sx={{
+          flex: 1,
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column'
+        }}>
+          <Box sx={{
+            flex: 1,
+            overflowY: 'auto',
+            maxHeight: '544px', // Adjusted to match main card height more precisely
+            '&::-webkit-scrollbar': {
+              width: '8px',
+            },
+            '&::-webkit-scrollbar-track': {
+              backgroundColor: 'rgba(0,0,0,0.1)',
+              borderRadius: '4px',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              backgroundColor: 'rgba(0,0,0,0.3)',
+              borderRadius: '4px',
+              '&:hover': {
+                backgroundColor: 'rgba(0,0,0,0.5)',
+              },
+            },
+          }}>
+            <JobListContainer>
+              {sortedJobs.map((job) => (
+                <JobListItem
+                  key={job.id}
+                  job={job}
+                />
+              ))}
+            </JobListContainer>
+          </Box>
+        </Box>
       )}
     </Box>
   );

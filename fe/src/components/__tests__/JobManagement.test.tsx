@@ -1,16 +1,17 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { ThemeProvider } from '@mui/material/styles';
+import { vi } from 'vitest';
 import JobManagement from '../JobManagement';
 import { theme } from '../../theme';
 import { JobManagementService } from '../../services/jobManagementService';
 
 // Mock the JobManagementService
-jest.mock('../../services/jobManagementService');
-const mockJobManagementService = JobManagementService as jest.Mocked<typeof JobManagementService>;
+vi.mock('../../services/jobManagementService');
+const mockJobManagementService = JobManagementService as any;
 
 // Mock the useJobManagement hook
-jest.mock('../../hooks/useJobManagement', () => ({
+vi.mock('../../hooks/useJobManagement', () => ({
   useJobManagement: () => ({
     jobs: [
       {
@@ -48,8 +49,8 @@ jest.mock('../../hooks/useJobManagement', () => ({
     ],
     loading: false,
     error: null,
-    refreshJobs: jest.fn(),
-    clearError: jest.fn(),
+    refreshJobs: vi.fn(),
+    clearError: vi.fn(),
   })
 }));
 
@@ -63,7 +64,7 @@ const renderWithTheme = (component: React.ReactElement) => {
 
 describe('JobManagement', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('renders job management interface', async () => {
@@ -82,6 +83,9 @@ describe('JobManagement', () => {
       expect(screen.getByText('Another Book')).toBeInTheDocument();
     });
   });
+
+  // Note: Scrolling functionality is tested manually in the browser
+  // The component now includes proper scrolling when job list exceeds container height
 
   it('shows download buttons for jobs', async () => {
     renderWithTheme(<JobManagement />);
