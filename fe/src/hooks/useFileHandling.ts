@@ -179,7 +179,6 @@ export function useFileHandling() {
         setProgress(null);
 
         const generationId = await generatePdf(file, params);
-        console.log('New generation ID:', generationId); // Debug log
         if (generationId) {
           setGenerationId(generationId);
         } else {

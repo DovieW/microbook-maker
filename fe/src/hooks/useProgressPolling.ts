@@ -33,9 +33,7 @@ export function useProgressPolling({
     if (!generationId) return;
 
     try {
-      console.log(`Polling progress for ID: ${generationId}, poll #${pollCountRef.current + 1}`); // Debug log
       const response = await PdfGeneratorService.checkProgress(generationId);
-      console.log('Progress response:', response); // Debug log
       pollCountRef.current += 1;
 
       if (response.status === 'completed' && response.progress) {
