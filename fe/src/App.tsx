@@ -11,8 +11,6 @@ import { theme } from './theme';
 import {
   DarkBackground,
   MainFormContainer,
-  SpaceBetweenContainer,
-  InfoDisplayContainer,
   StyledIconButton,
   BoldText
 } from './components/styled';
@@ -44,7 +42,15 @@ function AppContent() {
         </Stack>
       </MainFormContainer>
 
-      <SpaceBetweenContainer maxWidth='sm'>
+      <Box sx={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        mt: 2,
+        maxWidth: 600,
+        width: '100%',
+        px: 3
+      }}>
         <BoldText color='primary' variant='body1'>
           Words: {fileState.wordCount > 0 ? new Intl.NumberFormat().format(fileState.wordCount) : '--'}
         </BoldText>
@@ -60,19 +66,35 @@ function AppContent() {
             </StyledIconButton>
           </Tooltip>
         </Box>
-      </SpaceBetweenContainer>
+      </Box>
 
-      <InfoDisplayContainer maxWidth='sm'>
+      <Box sx={{
+        display: 'flex',
+        justifyContent: 'flex-start',
+        alignItems: 'center',
+        mt: 0,
+        maxWidth: 600,
+        width: '100%',
+        px: 3
+      }}>
         <BoldText color='primary' variant='body1'>
           Sheets: {fileState.sheetsCount > 0 ? new Intl.NumberFormat().format(fileState.sheetsCount) : '--'}
         </BoldText>
-      </InfoDisplayContainer>
+      </Box>
 
-      <InfoDisplayContainer maxWidth='sm'>
+      <Box sx={{
+        display: 'flex',
+        justifyContent: 'flex-start',
+        alignItems: 'center',
+        mt: '8.5px',
+        maxWidth: 600,
+        width: '100%',
+        px: 3
+      }}>
         <BoldText color='primary' variant='body1'>
           Read Time: {fileState.readTime}
         </BoldText>
-      </InfoDisplayContainer>
+      </Box>
 
       <GenerationStatus onDownload={handleDownload} />
       <NotificationContainer />

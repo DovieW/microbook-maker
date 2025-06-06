@@ -2,17 +2,14 @@ import React from 'react';
 import {
   Button,
   Tooltip,
-  Box,
 } from '@mui/material';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
-import WarningIcon from '@mui/icons-material/Warning';
 import { useAppContext } from '../context/AppContext';
 import { useFileHandling } from '../hooks/useFileHandling';
 import {
   ControlsContainer,
   ButtonContainer,
   HiddenFileInput,
-  ValidationErrorText,
 } from './styled';
 
 const FileControls: React.FC = () => {
@@ -78,14 +75,7 @@ const FileControls: React.FC = () => {
           </span>
         </Tooltip>
 
-        {disabledReason && (
-          <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-            <WarningIcon sx={{ color: 'warning.main', mr: 0.5, fontSize: '1rem' }} />
-            <ValidationErrorText>
-              {disabledReason}
-            </ValidationErrorText>
-          </Box>
-        )}
+
       </ButtonContainer>
     </ControlsContainer>
   );
