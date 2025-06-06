@@ -7,12 +7,20 @@ import {
 } from '@mui/material';
 import { useAppContext } from '../context/AppContext';
 
-const GenerationStatus: React.FC = () => {
+interface GenerationStatusProps {
+  onDownload?: () => void;
+}
+
+const GenerationStatus: React.FC<GenerationStatusProps> = ({ onDownload }) => {
   const { generationState, setLoading } = useAppContext();
 
   const handleCheckPdf = () => {
     setLoading(false);
-    window.open(`/api/download?id=${generationState.id}`, '_blank');
+    if (onDownload) {
+      onDownload();
+    } else if (generationState.id) {
+      window.open(`/api/download?id=${generationState.id}`, '_blank');
+    }
   };
 
   return (

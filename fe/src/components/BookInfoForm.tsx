@@ -17,20 +17,20 @@ const BookInfoForm: React.FC = () => {
     setAuthor,
     setSeries,
     setYear,
-    generationState,
     fetchBookInfo,
+    bookInfoLoading,
   } = useAppContext();
   return (
     <Box
       sx={{
         position: 'relative',
-        ...(generationState.bookInfoLoading && {
+        ...(bookInfoLoading && {
           opacity: 0.5,
           pointerEvents: 'none',
         }),
       }}
     >
-      {generationState.bookInfoLoading && (
+      {bookInfoLoading && (
         <CircularProgress
           size={40}
           sx={{
@@ -56,7 +56,7 @@ const BookInfoForm: React.FC = () => {
           <span>
             <IconButton
               onClick={() => fetchBookInfo(bookInfo.bookName)}
-              disabled={!bookInfo.bookName || generationState.bookInfoLoading}
+              disabled={!bookInfo.bookName || bookInfoLoading}
               color="primary"
             >
               <RefreshIcon />

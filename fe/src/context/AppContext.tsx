@@ -14,6 +14,8 @@ interface AppContextType {
   updateBookInfo: ReturnType<typeof useBookInfo>['updateBookInfo'];
   resetBookInfo: ReturnType<typeof useBookInfo>['resetBookInfo'];
   fetchBookInfo: ReturnType<typeof useBookInfo>['fetchBookInfo'];
+  bookInfoLoading: ReturnType<typeof useBookInfo>['bookInfoLoading'];
+  bookInfoError: ReturnType<typeof useBookInfo>['bookInfoError'];
 
   // PDF Options
   pdfOptions: ReturnType<typeof usePdfOptions>['pdfOptions'];
@@ -61,6 +63,8 @@ export function AppProvider({ children }: AppProviderProps) {
     updateBookInfo: bookInfoHook.updateBookInfo,
     resetBookInfo: bookInfoHook.resetBookInfo,
     fetchBookInfo: bookInfoHook.fetchBookInfo,
+    bookInfoLoading: bookInfoHook.bookInfoLoading,
+    bookInfoError: bookInfoHook.bookInfoError,
 
     // PDF Options
     pdfOptions: pdfOptionsHook.pdfOptions,

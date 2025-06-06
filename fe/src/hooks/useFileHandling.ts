@@ -1,9 +1,11 @@
 import { useRef, useCallback } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { UploadParams } from '../types';
+import { usePdfGenerator } from './usePdfGenerator';
 
 export function useFileHandling() {
   const uploadRef = useRef<HTMLInputElement>(null);
+  const { generatePdf, loading: pdfGenerationLoading, error: pdfGenerationError } = usePdfGenerator();
   const {
     bookInfo,
     setBookName,
@@ -74,9 +76,6 @@ export function useFileHandling() {
       setLoading(true);
 
       const file = files[0];
-      const formData = new FormData();
-      formData.append('file', file);
-
       const params: UploadParams = {
         bookName: bookInfo.bookName,
         borderStyle: pdfOptions.borderStyle,
@@ -91,22 +90,15 @@ export function useFileHandling() {
         },
       };
 
-      formData.append('params', JSON.stringify(params));
-
       try {
-        const response = await fetch(`/api/upload`, {
-          method: 'POST',
-          body: formData,
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+        const generationId = await generatePdf(file, params);
+        if (generationId) {
+          setGenerationId(generationId);
+        } else {
+          setLoading(false);
         }
-
-        const data = await response.json();
-        setGenerationId(data.id);
       } catch (error) {
-        console.error('There was a problem with the fetch operation: ', error);
+        console.error('There was a problem with the PDF generation: ', error);
         setLoading(false);
       }
     }
@@ -116,6 +108,7 @@ export function useFileHandling() {
     fileState,
     setLoading,
     setGenerationId,
+    generatePdf,
   ]);
 
   return {
@@ -123,5 +116,7 @@ export function useFileHandling() {
     handleFileChange,
     handleFontSizeChange,
     handleUploadFile,
+    pdfGenerationLoading,
+    pdfGenerationError,
   };
 }

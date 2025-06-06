@@ -3,44 +3,36 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@emotion/react": "^11.11.4",
-    "@emotion/styled": "^11.11.5",
-    "@fontsource/roboto": "^5.0.13",
+    "@emotion/react": "^11.11.0",
+    "@emotion/styled": "^11.11.0",
+    "@fontsource/roboto": "^5.0.1",
     "@mui/icons-material": "^6.0.0",
     "@mui/material": "^6.0.0",
-    "@mui/types": "^7.2.15",
-    "@testing-library/jest-dom": "^6.4.6",
-    "@testing-library/react": "^16.0.0",
-    "@testing-library/user-event": "^14.5.2",
-    "@types/jest": "^29.5.12",
-    "@types/node": "^20.14.10",
-    "@types/react": "^18.3.3",
-    "@types/react-dom": "^18.3.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "@mui/types": "^7.2.4",
+    "@testing-library/jest-dom": "^5.16.5",
+    "@testing-library/react": "^13.4.0",
+    "@testing-library/user-event": "^13.5.0",
+    "@types/jest": "^27.5.2",
+    "@types/node": "^16.18.31",
+    "@types/react": "^18.2.6",
+    "@types/react-dom": "^18.2.4",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
     "react-scripts": "5.0.1",
     "typescript": "^4.9.5",
-    "web-vitals": "^4.2.1",
-    "zustand": "^5.0.5"
-  },
-  "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "^5.62.0",
-    "@typescript-eslint/parser": "^5.62.0",
-    "eslint": "^8.57.0",
-    "eslint-plugin-jsx-a11y": "^6.9.0",
-    "eslint-plugin-react": "^7.34.3",
-    "eslint-plugin-react-hooks": "^4.6.2",
-    "prettier": "^3.3.2"
+    "web-vitals": "^2.1.4"
   },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject",
-    "lint": "eslint src --ext .ts,.tsx --report-unused-disable-directives --max-warnings 0",
-    "lint:fix": "eslint src --ext .ts,.tsx --fix",
-    "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,css,md}\"",
-    "format:check": "prettier --check \"src/**/*.{js,jsx,ts,tsx,json,css,md}\""
+    "eject": "react-scripts eject"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
   },
   "browserslist": {
     "production": [

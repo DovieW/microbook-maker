@@ -79,3 +79,47 @@ export type GenerationStateAction =
   | { type: 'SET_BOOK_INFO_LOADING'; payload: boolean }
   | { type: 'SET_GENERATION_ID'; payload: string | null }
   | { type: 'RESET_GENERATION_STATE' };
+
+// API Response types
+export interface OpenLibraryBook {
+  author_name?: string[];
+  first_publish_year?: number;
+  title?: string;
+}
+
+export interface OpenLibraryResponse {
+  docs: OpenLibraryBook[];
+  numFound: number;
+}
+
+export interface BookInfoResult {
+  author: string;
+  publishYear: string;
+}
+
+export interface PdfGenerationResponse {
+  id: string;
+  status?: string;
+}
+
+// API Error types
+export interface ApiErrorInterface {
+  message: string;
+  status?: number;
+  code?: string;
+}
+
+// Hook return types
+export interface UseOpenLibraryReturn {
+  fetchBookInfo: (title: string) => Promise<BookInfoResult | null>;
+  loading: boolean;
+  error: Error | null;
+  clearError: () => void;
+}
+
+export interface UsePdfGeneratorReturn {
+  generatePdf: (file: File, params: UploadParams) => Promise<string | null>;
+  loading: boolean;
+  error: Error | null;
+  clearError: () => void;
+}

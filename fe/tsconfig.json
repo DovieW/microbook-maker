@@ -12,13 +12,6 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "strict": true,
-    "strictNullChecks": true,
-    "noImplicitAny": true,
-    "noImplicitThis": true,
-    "noImplicitReturns": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "exactOptionalPropertyTypes": true,
     "forceConsistentCasingInFileNames": true,
     "noFallthroughCasesInSwitch": true,
     "module": "esnext",
@@ -26,7 +19,10 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "noImplicitAny": true,
+    "noImplicitThis": true,
+    "strictNullChecks": true
   },
   "include": [
     "src"

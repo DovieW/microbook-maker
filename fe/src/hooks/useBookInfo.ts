@@ -1,6 +1,6 @@
 import { useReducer, useCallback } from 'react';
 import { BookInfo, BookInfoAction } from '../types';
-import { getBookInfo } from '../utils';
+import { useOpenLibrary } from './useOpenLibrary';
 
 const initialBookInfo: BookInfo = {
   bookName: '',
@@ -30,6 +30,7 @@ function bookInfoReducer(state: BookInfo, action: BookInfoAction): BookInfo {
 
 export function useBookInfo() {
   const [bookInfo, dispatch] = useReducer(bookInfoReducer, initialBookInfo);
+  const { fetchBookInfo: fetchFromApi, loading: bookInfoLoading, error: bookInfoError } = useOpenLibrary();
 
   const setBookName = useCallback((bookName: string) => {
     dispatch({ type: 'SET_BOOK_NAME', payload: bookName });
@@ -56,18 +57,14 @@ export function useBookInfo() {
   }, []);
 
   const fetchBookInfo = useCallback(async (bookTitle: string) => {
-    try {
-      const info = await getBookInfo(bookTitle);
-      if (info) {
-        updateBookInfo({
-          author: info.author,
-          year: info.publishYear,
-        });
-      }
-    } catch (error) {
-      console.error('Failed to fetch book info:', error);
+    const info = await fetchFromApi(bookTitle);
+    if (info) {
+      updateBookInfo({
+        author: info.author,
+        year: info.publishYear,
+      });
     }
-  }, [updateBookInfo]);
+  }, [fetchFromApi, updateBookInfo]);
 
   return {
     bookInfo,
@@ -78,5 +75,7 @@ export function useBookInfo() {
     updateBookInfo,
     resetBookInfo,
     fetchBookInfo,
+    bookInfoLoading,
+    bookInfoError,
   };
 }

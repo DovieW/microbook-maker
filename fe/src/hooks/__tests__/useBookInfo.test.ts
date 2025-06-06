@@ -1,14 +1,22 @@
 import { renderHook, act } from '@testing-library/react';
 import { useBookInfo } from '../useBookInfo';
 
-// Mock the getBookInfo utility
-jest.mock('../../utils', () => ({
-  getBookInfo: jest.fn(),
+// Mock the useOpenLibrary hook
+jest.mock('../useOpenLibrary', () => ({
+  useOpenLibrary: jest.fn(),
 }));
 
 describe('useBookInfo', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+
+    // Default mock for useOpenLibrary
+    const mockUseOpenLibrary = require('../useOpenLibrary').useOpenLibrary;
+    mockUseOpenLibrary.mockReturnValue({
+      fetchBookInfo: jest.fn(),
+      loading: false,
+      error: null,
+    });
   });
 
   it('should initialize with empty book info', () => {
@@ -80,10 +88,16 @@ describe('useBookInfo', () => {
   });
 
   it('should fetch book info from API', async () => {
-    const mockGetBookInfo = require('../../utils').getBookInfo;
-    mockGetBookInfo.mockResolvedValue({
+    const mockFetchBookInfo = jest.fn().mockResolvedValue({
       author: 'API Author',
       publishYear: '2022',
+    });
+
+    const mockUseOpenLibrary = require('../useOpenLibrary').useOpenLibrary;
+    mockUseOpenLibrary.mockReturnValue({
+      fetchBookInfo: mockFetchBookInfo,
+      loading: false,
+      error: null,
     });
 
     const { result } = renderHook(() => useBookInfo());
@@ -92,16 +106,20 @@ describe('useBookInfo', () => {
       await result.current.fetchBookInfo('Test Book');
     });
 
-    expect(mockGetBookInfo).toHaveBeenCalledWith('Test Book');
+    expect(mockFetchBookInfo).toHaveBeenCalledWith('Test Book');
     expect(result.current.bookInfo.author).toBe('API Author');
     expect(result.current.bookInfo.year).toBe('2022');
   });
 
   it('should handle API errors gracefully', async () => {
-    const mockGetBookInfo = require('../../utils').getBookInfo;
-    mockGetBookInfo.mockRejectedValue(new Error('API Error'));
+    const mockFetchBookInfo = jest.fn().mockResolvedValue(null);
 
-    const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+    const mockUseOpenLibrary = require('../useOpenLibrary').useOpenLibrary;
+    mockUseOpenLibrary.mockReturnValue({
+      fetchBookInfo: mockFetchBookInfo,
+      loading: false,
+      error: new Error('API Error'),
+    });
 
     const { result } = renderHook(() => useBookInfo());
 
@@ -109,8 +127,9 @@ describe('useBookInfo', () => {
       await result.current.fetchBookInfo('Test Book');
     });
 
-    expect(consoleSpy).toHaveBeenCalledWith('Failed to fetch book info:', expect.any(Error));
-    
-    consoleSpy.mockRestore();
+    expect(mockFetchBookInfo).toHaveBeenCalledWith('Test Book');
+    // The book info should not be updated when there's an error
+    expect(result.current.bookInfo.author).toBe('');
+    expect(result.current.bookInfo.year).toBe('');
   });
 });

@@ -33,30 +33,4 @@ export const calculateReadingTime = (wordCount: number): string => {
   return timeText;
 };
 
-export const getBookInfo = async (bookTitle: string): Promise<{ author: string; publishYear: string } | null> => {
-  const baseURL = 'https://openlibrary.org/search.json';
-  const encodedTitle = encodeURIComponent(bookTitle);
-  const url = `${baseURL}?q=${encodedTitle}`;
 
-  try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error('Failed to fetch book information');
-    }
-
-    const data = await response.json();
-    if (data.docs && data.docs.length > 0) {
-      const book = data.docs[0];
-      return {
-        author: book.author_name ? book.author_name[0] : '',
-        publishYear: book.first_publish_year || '',
-      };
-    } else {
-      console.log('No book found with that title.');
-      return null;
-    }
-  } catch (error) {
-    console.error('Error:', error);
-    return null;
-  }
-};
