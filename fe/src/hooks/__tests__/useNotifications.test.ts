@@ -116,8 +116,8 @@ describe('useNotifications', () => {
   it('should generate unique IDs for notifications', () => {
     const { result } = renderHook(() => useNotifications());
 
-    let firstId: string;
-    let secondId: string;
+    let firstId: string = '';
+    let secondId: string = '';
 
     act(() => {
       firstId = result.current.showSuccess('First');

@@ -1,6 +1,9 @@
 import { OpenLibraryResponse, BookInfoResult } from '../types';
 import { ApiError } from './errors';
 
+// Re-export ApiError for convenience
+export { ApiError } from './errors';
+
 /**
  * Service for interacting with the OpenLibrary API
  */
