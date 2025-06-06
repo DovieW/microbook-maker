@@ -43,6 +43,8 @@ export interface GenerationState {
   loading: boolean;
   bookInfoLoading: boolean;
   id: string | null;
+  progress: ProgressInfo | null;
+  notifications: Notification[];
 }
 
 export interface AppState {
@@ -78,6 +80,10 @@ export type GenerationStateAction =
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_BOOK_INFO_LOADING'; payload: boolean }
   | { type: 'SET_GENERATION_ID'; payload: string | null }
+  | { type: 'SET_PROGRESS'; payload: ProgressInfo | null }
+  | { type: 'ADD_NOTIFICATION'; payload: Notification }
+  | { type: 'REMOVE_NOTIFICATION'; payload: string }
+  | { type: 'CLEAR_NOTIFICATIONS' }
   | { type: 'RESET_GENERATION_STATE' };
 
 // API Response types
@@ -100,6 +106,35 @@ export interface BookInfoResult {
 export interface PdfGenerationResponse {
   id: string;
   status?: string;
+}
+
+// Progress tracking types
+export interface ProgressInfo {
+  step: string;
+  percentage: number;
+  currentSheet?: number;
+  totalSheets?: number;
+  isComplete: boolean;
+  isError: boolean;
+  errorMessage?: string;
+}
+
+export interface ProgressResponse {
+  status: 'in_progress' | 'completed' | 'error' | 'not_found';
+  progress?: ProgressInfo;
+  message?: string;
+}
+
+// Notification types
+export type NotificationType = 'success' | 'error' | 'warning' | 'info';
+
+export interface Notification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  autoHide?: boolean;
+  duration?: number;
 }
 
 // API Error types

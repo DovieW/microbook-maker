@@ -1,4 +1,4 @@
-import { UploadParams, PdfGenerationResponse } from '../types';
+import { UploadParams, PdfGenerationResponse, ProgressResponse, ProgressInfo } from '../types';
 import { ApiError } from './errors';
 
 /**
@@ -64,6 +64,117 @@ export class PdfGeneratorService {
         'NETWORK_ERROR'
       );
     }
+  }
+
+  /**
+   * Checks the progress of PDF generation
+   * @param id - The generation ID
+   * @returns Promise resolving to progress information
+   * @throws ApiError if the request fails
+   */
+  static async checkProgress(id: string): Promise<ProgressResponse> {
+    if (!id) {
+      throw new ApiError('Generation ID is required', 400, 'INVALID_INPUT');
+    }
+
+    try {
+      const response = await fetch(`/api/progress/${id}`);
+
+      if (!response.ok) {
+        throw new ApiError(
+          `Failed to check progress: ${response.statusText}`,
+          response.status,
+          'PROGRESS_CHECK_ERROR'
+        );
+      }
+
+      const contentType = response.headers.get('content-type');
+
+      // Expect JSON response from the new progress endpoint
+      if (contentType?.includes('application/json')) {
+        const data = await response.json();
+        return data as ProgressResponse;
+      }
+
+      // Fallback for non-JSON responses
+      const text = await response.text();
+
+      if (text.startsWith('ERROR:')) {
+        return {
+          status: 'error',
+          message: text.replace('ERROR: ', ''),
+        };
+      }
+
+      // Parse progress text as fallback
+      const progress = this.parseProgressText(text);
+      return {
+        status: 'in_progress',
+        progress,
+      };
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+
+      throw new ApiError(
+        `Network error while checking progress: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        0,
+        'NETWORK_ERROR'
+      );
+    }
+  }
+
+  /**
+   * Parses progress text from backend into structured progress info
+   * @param text - Raw progress text from backend
+   * @returns Structured progress information
+   */
+  private static parseProgressText(text: string): ProgressInfo {
+    // Default progress info
+    let progress: ProgressInfo = {
+      step: text,
+      percentage: 0,
+      isComplete: false,
+      isError: false,
+    };
+
+    // Parse different progress messages
+    if (text.includes('Creating:')) {
+      progress.step = 'Initializing';
+      progress.percentage = 10;
+    } else if (text.includes('Creating sheet')) {
+      // Extract sheet numbers: "Creating sheet 5 of 10-ish."
+      const match = text.match(/Creating sheet (\d+(?:\.\d+)?) of (\d+)/);
+      if (match) {
+        const current = parseFloat(match[1]);
+        const total = parseInt(match[2]);
+        progress.currentSheet = Math.floor(current);
+        progress.totalSheets = total;
+        progress.percentage = Math.min(90, Math.round((current / total) * 80) + 10); // 10-90% range
+        progress.step = `Creating sheet ${Math.floor(current)} of ${total}`;
+      } else {
+        progress.step = 'Creating pages';
+        progress.percentage = 50;
+      }
+    } else if (text.includes('Finished creating pages')) {
+      progress.step = 'Generating PDF';
+      progress.percentage = 95;
+    } else if (text.includes('Writing to file')) {
+      progress.step = 'Finalizing PDF';
+      progress.percentage = 98;
+    } else {
+      // Generic progress based on keywords
+      if (text.toLowerCase().includes('start')) {
+        progress.percentage = 5;
+      } else if (text.toLowerCase().includes('process')) {
+        progress.percentage = 30;
+      } else if (text.toLowerCase().includes('finish')) {
+        progress.percentage = 90;
+      }
+    }
+
+    return progress;
   }
 
   /**

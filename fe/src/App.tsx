@@ -1,10 +1,11 @@
-import React from 'react';
+
 import { Box, Typography, CssBaseline, Tooltip, Stack } from '@mui/material';
 import { ThemeProvider } from '@mui/material/styles';
 import HistoryIcon from '@mui/icons-material/History';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { AppProvider, useAppContext } from './context/AppContext';
 import { BookInfoForm, FileControls, PdfOptions, GenerationStatus } from './components';
+import NotificationContainer from './components/NotificationContainer';
 import { PdfGeneratorService } from './services';
 import { theme } from './theme';
 import {
@@ -45,7 +46,7 @@ function AppContent() {
 
       <SpaceBetweenContainer maxWidth='sm'>
         <BoldText color='primary' variant='body1'>
-          Words: {fileState.wordCount === 0 ? '--' : new Intl.NumberFormat().format(fileState.wordCount)}
+          Words: {fileState.wordCount > 0 ? new Intl.NumberFormat().format(fileState.wordCount) : '--'}
         </BoldText>
         <Box>
           <Tooltip title='Uploads'>
@@ -63,7 +64,7 @@ function AppContent() {
 
       <InfoDisplayContainer maxWidth='sm'>
         <BoldText color='primary' variant='body1'>
-          Sheets: {fileState.sheetsCount === 0 ? '--' : new Intl.NumberFormat().format(fileState.sheetsCount)}
+          Sheets: {fileState.sheetsCount > 0 ? new Intl.NumberFormat().format(fileState.sheetsCount) : '--'}
         </BoldText>
       </InfoDisplayContainer>
 
@@ -74,6 +75,7 @@ function AppContent() {
       </InfoDisplayContainer>
 
       <GenerationStatus onDownload={handleDownload} />
+      <NotificationContainer />
     </DarkBackground>
   );
 }

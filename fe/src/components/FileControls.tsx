@@ -2,19 +2,35 @@ import React from 'react';
 import {
   Button,
   Tooltip,
+  Box,
 } from '@mui/material';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import WarningIcon from '@mui/icons-material/Warning';
 import { useAppContext } from '../context/AppContext';
 import { useFileHandling } from '../hooks/useFileHandling';
 import {
   ControlsContainer,
   ButtonContainer,
-  HiddenFileInput
+  HiddenFileInput,
+  ValidationErrorText,
 } from './styled';
 
 const FileControls: React.FC = () => {
-  const { fileState } = useAppContext();
+  const { fileState, pdfOptions } = useAppContext();
   const { uploadRef, handleFileChange, handleUploadFile } = useFileHandling();
+
+  // Check for validation issues
+  const fontSize = parseFloat(pdfOptions.fontSize);
+  const hasValidFontSize = !isNaN(fontSize) && fontSize >= 4 && fontSize <= 10;
+  const hasFile = !!fileState.fileName;
+
+  const getDisabledReason = () => {
+    if (!hasFile) return 'Please select a TXT file first';
+    if (!hasValidFontSize) return 'Please enter a valid font size (4-10)';
+    return '';
+  };
+
+  const disabledReason = getDisabledReason();
 
   return (
     <ControlsContainer>
@@ -30,7 +46,7 @@ const FileControls: React.FC = () => {
           enterDelay={400}
           enterNextDelay={400}
           placement="top"
-          title={fileState.fileName}
+          title={fileState.fileName || 'No file selected'}
         >
           <label htmlFor="contained-button-file">
             <Button
@@ -45,14 +61,31 @@ const FileControls: React.FC = () => {
       </ButtonContainer>
 
       <ButtonContainer>
-        <Button
-          variant="contained"
-          disabled={fileState.disableUpload}
-          onClick={handleUploadFile}
-          endIcon={<PictureAsPdfIcon />}
+        <Tooltip
+          title={disabledReason || 'Generate your PDF'}
+          placement="top"
+          arrow
         >
-          Generate
-        </Button>
+          <span>
+            <Button
+              variant="contained"
+              disabled={fileState.disableUpload}
+              onClick={handleUploadFile}
+              endIcon={<PictureAsPdfIcon />}
+            >
+              Generate
+            </Button>
+          </span>
+        </Tooltip>
+
+        {disabledReason && (
+          <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+            <WarningIcon sx={{ color: 'warning.main', mr: 0.5, fontSize: '1rem' }} />
+            <ValidationErrorText>
+              {disabledReason}
+            </ValidationErrorText>
+          </Box>
+        )}
       </ButtonContainer>
     </ControlsContainer>
   );

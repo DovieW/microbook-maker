@@ -5,6 +5,7 @@ const express = require('express');
 const app = express();
 const port = 3001;
 const path = require('path');
+const progressService = require('./services/progressService');
 const storage = multer.diskStorage({
   destination: function(req, file, cb) {
     cb(null, 'uploads/')
@@ -30,13 +31,24 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
     console.log(`${text}`);
     const inProgressPath = path.join(__dirname, 'generated', `IN_PROGRESS_${id}.txt`);
     fs.writeFileSync(inProgressPath, text);
+
+    // Also write structured progress
+    const structuredProgress = progressService.parseLegacyProgress(text);
+    progressService.writeProgress(id, structuredProgress);
   }
+
+  // Write initial progress
+  const estimatedSheets = Math.ceil(json.headerInfo.wordCount / 250); // Rough estimate
+  const initialProgress = progressService.createInitialProgress(bookName, estimatedSheets);
+  progressService.writeProgress(id, initialProgress);
 
   setImmediate(async () => {
     try {
       await run(json, id, bookName, fontSize, borderStyle);
     } catch (error) {
       console.error(error);
+      const errorProgress = progressService.createErrorProgress(error.toString(), 'generation');
+      progressService.writeProgress(id, errorProgress);
       writeToInProgress('ERROR: ' + error.toString());
     }
   });
@@ -49,6 +61,17 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
       headless: true,
       devtools: false
     });
+
+    // Update progress for browser launch
+    console.log('Browser launched, updating progress to 15%');
+    const browserProgress = {
+      step: 'Setting up document processing',
+      percentage: 15,
+      isComplete: false,
+      isError: false,
+      phase: 'setup'
+    };
+    progressService.writeProgress(id, browserProgress);
     const page = await browser.newPage();
     const inProgressPath = path.join(__dirname, 'generated', `IN_PROGRESS_${id}.txt`);
 
@@ -58,6 +81,9 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
         console.log(pageIndex.text());
         return;
       }
+      const currentSheet = Math.ceil(n / 2);
+      const progressInfo = progressService.createPageProgress(currentSheet, sheetsCount);
+      progressService.writeProgress(id, progressInfo);
       writeToInProgress(`Creating sheet ${n / 2} of ${sheetsCount}-ish.`);
     });
 
@@ -82,6 +108,27 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
     `});
 
     writeToInProgress(`Creating: ${bookName}`);
+
+    // Update progress for starting page creation
+    const startPageProgress = {
+      step: 'Creating document pages',
+      percentage: 25,
+      isComplete: false,
+      isError: false,
+      phase: 'page_creation'
+    };
+    progressService.writeProgress(id, startPageProgress);
+
+    // Update progress for text processing start
+    console.log('Starting text processing, updating progress to 35%');
+    const textProcessingProgress = {
+      step: 'Processing document text',
+      percentage: 35,
+      isComplete: false,
+      isError: false,
+      phase: 'text_processing'
+    };
+    progressService.writeProgress(id, textProcessingProgress);
 
     await page.evaluate((json, text, bookName) => {
       let pageIndex = 0;
@@ -227,6 +274,8 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
           miniSheetNumPrecentage.textContent = ` ${Math.round((i + 1) / words.length * 100)}%`;
         }
 
+
+
         if (currentBlock.scrollHeight > currentBlock.clientHeight) { // If the word made the block overflow, remove it from the block
           currentBlock.innerHTML = currentBlock.innerHTML.slice(0, currentBlock.innerHTML.length - words[i].length);
 
@@ -283,10 +332,51 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
       });
     }, json, text, bookName);
 
+    console.log('Page evaluation completed, updating progress to 70%');
+    // Update progress for page layout completion
+    const layoutProgress = {
+      step: 'Finalizing page layout',
+      percentage: 70,
+      isComplete: false,
+      isError: false,
+      phase: 'layout'
+    };
+    progressService.writeProgress(id, layoutProgress);
+
+    // Get the final page count and update progress
+    const pageCount = await page.evaluate(() => document.querySelectorAll('.page').length);
+    const estimatedSheets = Math.ceil(pageCount / 2);
+
+    // Update progress for page creation completion (85%)
+    const pageCompletionProgress = {
+      step: `Created ${estimatedSheets} sheets`,
+      percentage: 85,
+      currentSheet: estimatedSheets,
+      totalSheets: estimatedSheets,
+      isComplete: false,
+      isError: false,
+      phase: 'page_creation'
+    };
+    progressService.writeProgress(id, pageCompletionProgress);
+
     writeToInProgress('Finished creating pages. Writing to file...');
+
+    // Update progress for PDF generation
+    const pdfProgress = progressService.createPdfProgress();
+    progressService.writeProgress(id, pdfProgress);
 
     let htmlContent = await page.content();
     fs.writeFileSync(path.join(__dirname, `output.html`), htmlContent);
+
+    // Update progress for PDF rendering
+    const renderingProgress = {
+      step: 'Rendering PDF document',
+      percentage: 98,
+      isComplete: false,
+      isError: false,
+      phase: 'rendering'
+    };
+    progressService.writeProgress(id, renderingProgress);
 
     const pdf = await page.pdf({ format: 'Letter' });
     const pdfOutput = path.join(__dirname, 'generated', `${id}.pdf`);
@@ -294,12 +384,88 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
 
     await browser.close();
 
-    if (fs.existsSync(inProgressPath)) {
-      fs.unlinkSync(inProgressPath);
-    }
+    // Mark as complete
+    const completionProgress = progressService.createCompletionProgress();
+    progressService.writeProgress(id, completionProgress);
+
+    // Clean up progress files after a delay to allow frontend to read completion
+    setTimeout(() => {
+      progressService.cleanupProgress(id);
+      if (fs.existsSync(inProgressPath)) {
+        fs.unlinkSync(inProgressPath);
+      }
+    }, 5000); // 5 second delay
   }
   
   res.json({ message: 'PDF creation started.', id });
+});
+
+// Dedicated progress endpoint
+app.get('/api/progress/:id', (req, res) => {
+  const { id } = req.params;
+
+  const pdfOutput = path.join(__dirname, 'generated', `${id}.pdf`);
+  const inProgressPath = path.join(__dirname, 'generated', `IN_PROGRESS_${id}.txt`);
+
+  try {
+    // Check if PDF is complete
+    if (fs.existsSync(pdfOutput)) {
+      res.json({
+        status: 'completed',
+        progress: {
+          step: 'Complete',
+          percentage: 100,
+          isComplete: true,
+          isError: false,
+          phase: 'complete'
+        }
+      });
+      return;
+    }
+
+    // Check for structured progress first
+    const structuredProgress = progressService.readProgress(id);
+    if (structuredProgress) {
+      res.json({
+        status: structuredProgress.isError ? 'error' :
+                structuredProgress.isComplete ? 'completed' : 'in_progress',
+        progress: structuredProgress,
+        message: structuredProgress.isError ? structuredProgress.errorMessage : undefined
+      });
+      return;
+    }
+
+    // Fall back to legacy progress
+    if (fs.existsSync(inProgressPath)) {
+      const legacyText = fs.readFileSync(inProgressPath, 'utf8');
+
+      // If it's an error message, return structured error
+      if (legacyText.startsWith('ERROR:')) {
+        res.json({
+          status: 'error',
+          message: legacyText.replace('ERROR: ', '')
+        });
+      } else {
+        // Parse legacy progress and return structured format
+        const parsedProgress = progressService.parseLegacyProgress(legacyText);
+        res.json({
+          status: 'in_progress',
+          progress: parsedProgress
+        });
+      }
+    } else {
+      res.json({
+        status: 'not_found',
+        message: 'Generation not found or has not started yet.'
+      });
+    }
+  } catch (error) {
+    console.error(`Error checking progress for ID: ${id}`, error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Internal server error while checking progress'
+    });
+  }
 });
 
 app.get('/api/download/', (req, res) => {

@@ -1,13 +1,15 @@
 import { styled } from '@mui/material/styles';
-import { 
-  Box, 
-  Container, 
-  IconButton, 
-  TextField, 
-  Button, 
+import {
+  Box,
+  Container,
+  IconButton,
+  TextField,
+  Button,
   Typography,
   CircularProgress,
-  FormControl 
+  FormControl,
+  Alert,
+  LinearProgress
 } from '@mui/material';
 import { designTokens } from '../../theme';
 
@@ -160,6 +162,55 @@ export const OptionsContainer = styled(Box)(({ theme }) => ({
   // Container for options - can be extended as needed
 }));
 
+// Progress Components
+export const ProgressContainer = styled(Box)(({ theme }) => ({
+  width: '100%',
+  marginTop: theme.spacing(2),
+  marginBottom: theme.spacing(1),
+}));
+
+export const ProgressBar = styled(LinearProgress)(({ theme }) => ({
+  width: '100%',
+  height: 8,
+  borderRadius: 4,
+  backgroundColor: theme.palette.grey[300],
+  '& .MuiLinearProgress-bar': {
+    borderRadius: 4,
+    transition: 'transform 0.4s ease-in-out',
+  },
+  '& .MuiLinearProgress-bar1Determinate': {
+    transition: 'transform 0.4s ease-in-out',
+  },
+}));
+
+export const ProgressText = styled(Typography)(({ theme }) => ({
+  fontSize: '0.875rem',
+  color: theme.palette.text.secondary,
+  marginTop: theme.spacing(0.5),
+  textAlign: 'center',
+}));
+
+// Notification Components
+export const NotificationContainer = styled(Box)(({ theme }) => ({
+  position: 'fixed',
+  top: theme.spacing(2),
+  right: theme.spacing(2),
+  zIndex: theme.zIndex.snackbar + 1,
+  maxWidth: 400,
+}));
+
+export const StyledAlert = styled(Alert)(({ theme }) => ({
+  marginBottom: theme.spacing(1),
+  boxShadow: theme.shadows[3],
+}));
+
+export const ValidationErrorText = styled(Typography)(({ theme }) => ({
+  color: theme.palette.error.main,
+  fontSize: '0.75rem',
+  marginTop: theme.spacing(0.5),
+  marginLeft: theme.spacing(1.75),
+}));
+
 // Export all styled components as a single object for easier importing
 export const StyledComponents = {
   // Layout
@@ -205,6 +256,16 @@ export const StyledComponents = {
   
   // Utility
   OptionsContainer,
+
+  // Progress
+  ProgressContainer,
+  ProgressBar,
+  ProgressText,
+
+  // Notifications
+  NotificationContainer,
+  StyledAlert,
+  ValidationErrorText,
 };
 
 export default StyledComponents;

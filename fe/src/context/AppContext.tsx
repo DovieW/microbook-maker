@@ -38,6 +38,10 @@ interface AppContextType {
   setLoading: ReturnType<typeof useGenerationState>['setLoading'];
   setBookInfoLoading: ReturnType<typeof useGenerationState>['setBookInfoLoading'];
   setGenerationId: ReturnType<typeof useGenerationState>['setGenerationId'];
+  setProgress: ReturnType<typeof useGenerationState>['setProgress'];
+  addNotification: ReturnType<typeof useGenerationState>['addNotification'];
+  removeNotification: ReturnType<typeof useGenerationState>['removeNotification'];
+  clearNotifications: ReturnType<typeof useGenerationState>['clearNotifications'];
   resetGenerationState: ReturnType<typeof useGenerationState>['resetGenerationState'];
 }
 
@@ -87,6 +91,10 @@ export function AppProvider({ children }: AppProviderProps) {
     setLoading: generationStateHook.setLoading,
     setBookInfoLoading: generationStateHook.setBookInfoLoading,
     setGenerationId: generationStateHook.setGenerationId,
+    setProgress: generationStateHook.setProgress,
+    addNotification: generationStateHook.addNotification,
+    removeNotification: generationStateHook.removeNotification,
+    clearNotifications: generationStateHook.clearNotifications,
     resetGenerationState: generationStateHook.resetGenerationState,
   };
 
