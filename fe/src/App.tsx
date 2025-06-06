@@ -1,4 +1,5 @@
 
+import { useRef, useEffect } from 'react';
 import { Box, Typography, CssBaseline, Tooltip, Stack } from '@mui/material';
 import { ThemeProvider } from '@mui/material/styles';
 import HistoryIcon from '@mui/icons-material/History';
@@ -6,8 +7,12 @@ import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { AppProvider, useAppContext } from './context/AppContext';
 import { BookInfoForm, FileControls, PdfOptions, GenerationStatus } from './components';
 import NotificationContainer from './components/NotificationContainer';
+import DragDropZone from './components/DragDropZone';
 import { PdfGeneratorService } from './services';
 import { theme } from './theme';
+import { useFileHandling } from './hooks/useFileHandling';
+import { useDragAndDrop } from './hooks/useDragAndDrop';
+import { useNotifications } from './hooks/useNotifications';
 import {
   DarkBackground,
   MainFormContainer,
@@ -18,6 +23,22 @@ import {
 // Main App Content Component
 function AppContent() {
   const { fileState, generationState } = useAppContext();
+  const { handleFileDrop } = useFileHandling();
+  const { showError } = useNotifications();
+  const dragDropRef = useRef<HTMLDivElement>(null);
+
+  const { isDragActive, isDragOver, bindDragEvents } = useDragAndDrop({
+    onFileDrop: handleFileDrop,
+    acceptedFileTypes: ['.txt'],
+    maxFileSize: 10 * 1024 * 1024, // 10MB
+    onError: (error) => showError('Drag & Drop Error', error),
+  });
+
+  // Bind drag events to the container
+  useEffect(() => {
+    const cleanup = bindDragEvents(dragDropRef.current);
+    return cleanup;
+  }, [bindDragEvents]);
 
   const handleDownload = () => {
     if (generationState.id) {
@@ -26,7 +47,7 @@ function AppContent() {
   };
 
   return (
-    <DarkBackground>
+    <DarkBackground ref={dragDropRef}>
       <MainFormContainer>
         <Typography
           variant='h3'
@@ -41,6 +62,9 @@ function AppContent() {
           <FileControls />
         </Stack>
       </MainFormContainer>
+      <DragDropZone isDragActive={isDragActive} isDragOver={isDragOver}>
+        <></>
+      </DragDropZone>
 
       <Box sx={{
         display: 'flex',

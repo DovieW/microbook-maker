@@ -25,81 +25,77 @@ export function useFileHandling() {
     validateUpload,
   } = useAppContext();
 
-  const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (files && files.length > 0) {
-      const file = files[0];
-
-      // Validate file type
-      if (!file.name.toLowerCase().endsWith('.txt')) {
-        showError(
-          'Invalid File Type',
-          'Please select a .txt file. Other file types are not supported.'
-        );
-        event.target.value = ''; // Clear the input
-        return;
-      }
-
-      // Validate file size (e.g., max 10MB)
-      const maxSize = 10 * 1024 * 1024; // 10MB
-      if (file.size > maxSize) {
-        showError(
-          'File Too Large',
-          'Please select a file smaller than 10MB.'
-        );
-        event.target.value = ''; // Clear the input
-        return;
-      }
-
-      const bookNiceName = file.name.split('.')[0];
-
-      setDisableUpload(false);
-      setBookName(bookNiceName);
-      setFileName(file.name);
-
-      // Fetch book info asynchronously
-      setBookInfoLoading(true);
-      fetchBookInfo(bookNiceName).catch(() => {
-        showWarning(
-          'Book Info Not Found',
-          'Could not automatically fetch book information. You can enter it manually.'
-        );
-      }).finally(() => {
-        setBookInfoLoading(false);
-      });
-
-      const reader = new FileReader();
-      reader.onload = e => {
-        const text = (e.target?.result as string).trim();
-        const wordCount = text.split(' ').length;
-
-        if (wordCount === 0) {
-          showWarning(
-            'Empty File',
-            'The selected file appears to be empty. Please select a file with content.'
-          );
-          return;
-        }
-
-        if (wordCount < 100) {
-          showWarning(
-            'Short Content',
-            'The file contains very few words. The generated PDF may be very short.'
-          );
-        }
-
-        updateFileStats(wordCount, pdfOptions.fontSize);
-      };
-
-      reader.onerror = () => {
-        showError(
-          'File Read Error',
-          'Failed to read the selected file. Please try again.'
-        );
-      };
-
-      reader.readAsText(file);
+  // Extract file processing logic to reuse for both file input and drag-and-drop
+  const processFile = useCallback((file: File, clearInput?: () => void) => {
+    // Validate file type
+    if (!file.name.toLowerCase().endsWith('.txt')) {
+      showError(
+        'Invalid File Type',
+        'Please select a .txt file. Other file types are not supported.'
+      );
+      clearInput?.();
+      return;
     }
+
+    // Validate file size (e.g., max 10MB)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      showError(
+        'File Too Large',
+        'Please select a file smaller than 10MB.'
+      );
+      clearInput?.();
+      return;
+    }
+
+    const bookNiceName = file.name.split('.')[0];
+
+    setDisableUpload(false);
+    setBookName(bookNiceName);
+    setFileName(file.name);
+
+    // Fetch book info asynchronously
+    setBookInfoLoading(true);
+    fetchBookInfo(bookNiceName).catch(() => {
+      showWarning(
+        'Book Info Not Found',
+        'Could not automatically fetch book information. You can enter it manually.'
+      );
+    }).finally(() => {
+      setBookInfoLoading(false);
+    });
+
+    const reader = new FileReader();
+    reader.onload = e => {
+      const text = (e.target?.result as string).trim();
+      const wordCount = text.split(' ').length;
+
+      if (wordCount === 0) {
+        showWarning(
+          'Empty File',
+          'The selected file appears to be empty. Please select a file with content.'
+        );
+        return;
+      }
+
+      if (wordCount < 100) {
+        showWarning(
+          'Short Content',
+          'The file contains very few words. The generated PDF may be very short.'
+        );
+      }
+
+      updateFileStats(wordCount, pdfOptions.fontSize);
+    };
+
+    reader.onerror = () => {
+      showError(
+        'File Read Error',
+        'Failed to read the selected file. Please try again.'
+      );
+    };
+
+    reader.readAsText(file);
   }, [
     setDisableUpload,
     setBookName,
@@ -111,6 +107,20 @@ export function useFileHandling() {
     showError,
     showWarning,
   ]);
+
+  const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      processFile(file, () => {
+        event.target.value = ''; // Clear the input
+      });
+    }
+  }, [processFile]);
+
+  const handleFileDrop = useCallback((file: File) => {
+    processFile(file);
+  }, [processFile]);
 
   const handleFontSizeChange = useCallback((newFontSize: string) => {
     setFontSize(newFontSize);
@@ -180,6 +190,7 @@ export function useFileHandling() {
   return {
     uploadRef,
     handleFileChange,
+    handleFileDrop,
     handleFontSizeChange,
     handleUploadFile,
     pdfGenerationLoading,

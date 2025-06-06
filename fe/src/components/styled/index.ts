@@ -143,6 +143,7 @@ export const DarkBackground = styled(Box)(({ theme }) => ({
   alignItems: 'center',
   justifyContent: 'center',
   padding: theme.spacing(2),
+  position: 'relative', // Add relative positioning for absolute children
 }));
 
 // Status Components
