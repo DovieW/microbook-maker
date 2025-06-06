@@ -4,6 +4,9 @@ import { UploadParams } from '../types';
 import { usePdfGenerator } from './usePdfGenerator';
 import { useNotifications } from './useNotifications';
 
+// Module-level storage for dropped files to persist across re-renders
+let droppedFileStorage: File | null = null;
+
 export function useFileHandling() {
   const uploadRef = useRef<HTMLInputElement>(null);
   const { generatePdf, loading: pdfGenerationLoading, error: pdfGenerationError } = usePdfGenerator();
@@ -26,7 +29,7 @@ export function useFileHandling() {
   } = useAppContext();
 
   // Extract file processing logic to reuse for both file input and drag-and-drop
-  const processFile = useCallback((file: File, clearInput?: () => void) => {
+  const processFile = useCallback((file: File, clearInput?: () => void, isDropped = false) => {
     // Validate file type
     if (!file.name.toLowerCase().endsWith('.txt')) {
       showError(
@@ -49,6 +52,18 @@ export function useFileHandling() {
     }
 
     const bookNiceName = file.name.split('.')[0];
+
+    // Store the file reference for later use
+    if (isDropped) {
+      droppedFileStorage = file;
+      // Clear the file input to avoid conflicts
+      if (uploadRef.current) {
+        uploadRef.current.value = '';
+      }
+    } else {
+      // Clear dropped file when using file input
+      droppedFileStorage = null;
+    }
 
     setDisableUpload(false);
     setBookName(bookNiceName);
@@ -119,24 +134,31 @@ export function useFileHandling() {
   }, [processFile]);
 
   const handleFileDrop = useCallback((file: File) => {
-    processFile(file);
+    processFile(file, undefined, true); // Mark as dropped file
   }, [processFile]);
 
   const handleFontSizeChange = useCallback((newFontSize: string) => {
     setFontSize(newFontSize);
-    validateUpload(newFontSize, !!uploadRef?.current?.files?.length);
-    
+    // Check for file from either file input or drag-and-drop
+    const hasInputFile = !!uploadRef?.current?.files?.length;
+    const hasDroppedFile = !!droppedFileStorage;
+    const hasFile = hasInputFile || hasDroppedFile;
+    validateUpload(newFontSize, hasFile);
+
     if (fileState.wordCount > 0) {
       updateFileStats(fileState.wordCount, newFontSize);
     }
   }, [setFontSize, validateUpload, fileState.wordCount, updateFileStats]);
 
   const handleUploadFile = useCallback(async () => {
+    // Check for file from either file input or drag-and-drop
     const files = uploadRef.current?.files;
-    if (files && files.length > 0) {
-      setLoading(true);
+    const inputFile = files && files.length > 0 ? files[0] : null;
+    const droppedFile = droppedFileStorage;
+    const file = inputFile || droppedFile;
 
-      const file = files[0];
+    if (file) {
+      setLoading(true);
       const params: UploadParams = {
         bookName: bookInfo.bookName,
         borderStyle: pdfOptions.borderStyle,
@@ -175,6 +197,8 @@ export function useFileHandling() {
           error instanceof Error ? error.message : 'An unexpected error occurred during PDF generation.'
         );
       }
+    } else {
+      console.warn('No file available for upload - neither from input nor drag-and-drop');
     }
   }, [
     bookInfo,
