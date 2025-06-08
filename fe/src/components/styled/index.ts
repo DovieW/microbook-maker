@@ -183,12 +183,12 @@ export const JobListContainer = styled(Box)(({ theme }) => ({
 }));
 
 export const JobListItem = styled(Box)(({ theme }) => ({
-  backgroundColor: 'rgba(255, 255, 255, 0.85)', // Semi-transparent white - distinct but softer than pure white
+  backgroundColor: 'rgba(255, 255, 255, 0.9)', // Slightly more opaque white for better contrast
   borderRadius: designTokens.borderRadius.medium,
-  border: `1px solid rgba(218, 218, 255, 0.4)`, // Light purple border for cohesion
+  border: `1px solid rgba(203, 213, 225, 0.5)`, // Light slate border for cohesion
   cursor: 'pointer',
   overflow: 'hidden',
-  boxShadow: '0px 2px 8px rgba(13, 0, 51, 0.1)', // Subtle shadow using the dark background color
+  boxShadow: '0px 2px 8px rgba(15, 23, 42, 0.1)', // Subtle shadow using the new dark background color
 }));
 
 export const JobItemHeader = styled(Box)(({ theme }) => ({
@@ -217,8 +217,8 @@ export const JobExpandedContent = styled(Box, {
   maxHeight: expanded ? '300px' : '0px',
   overflow: 'hidden',
   transition: 'max-height 0.3s ease-in-out',
-  backgroundColor: 'rgba(218, 218, 255, 0.25)', // Light purple tint for expanded content
-  borderTop: expanded ? `1px solid rgba(218, 218, 255, 0.3)` : 'none',
+  backgroundColor: 'rgba(241, 245, 249, 0.4)', // Light slate tint for expanded content
+  borderTop: expanded ? `1px solid rgba(203, 213, 225, 0.4)` : 'none',
 }));
 
 export const JobDetailsContainer = styled(Box)(({ theme }) => ({

@@ -1,42 +1,48 @@
 import { createTheme } from '@mui/material/styles';
 
-// Design tokens for consistent styling
+// Design tokens for consistent styling - Cool Sophisticated Palette
 export const designTokens = {
   colors: {
     primary: {
-      main: '#3f51b5',
-      light: '#757de8',
-      dark: '#002984',
+      main: '#3b82f6',      // Modern blue
+      light: '#60a5fa',     // Light blue
+      dark: '#1d4ed8',      // Dark blue
       contrastText: '#ffffff',
     },
     secondary: {
-      main: '#f50057',
-      light: '#ff5983',
-      dark: '#bb002f',
+      main: '#8b5cf6',      // Violet
+      light: '#a78bfa',     // Light violet
+      dark: '#7c3aed',      // Dark violet
       contrastText: '#ffffff',
     },
     background: {
-      default: '#fafafa',
-      paper: '#ffffff',
-      dark: '#0d0033',
-      light: '#dadaff',
+      default: '#f8fafc',   // Very light slate
+      paper: '#ffffff',     // White
+      dark: '#0f172a',      // Slate dark
+      light: '#f1f5f9',     // Cool light gray
     },
     text: {
-      primary: 'rgba(0, 0, 0, 0.87)',
-      secondary: 'rgba(0, 0, 0, 0.6)',
-      disabled: 'rgba(0, 0, 0, 0.38)',
+      primary: 'rgba(15, 23, 42, 0.87)',    // Dark slate for better contrast
+      secondary: 'rgba(71, 85, 105, 0.8)',  // Slate-600 with opacity
+      disabled: 'rgba(148, 163, 184, 0.6)', // Slate-400 with opacity
+    },
+    accent: {
+      main: '#06b6d4',      // Cyan accent
+      light: '#22d3ee',     // Light cyan
+      dark: '#0891b2',      // Dark cyan
+      contrastText: '#ffffff',
     },
     grey: {
-      50: '#fafafa',
-      100: '#f5f5f5',
-      200: '#eeeeee',
-      300: '#e0e0e0',
-      400: '#bdbdbd',
-      500: '#9e9e9e',
-      600: '#757575',
-      700: '#616161',
-      800: '#424242',
-      900: '#212121',
+      50: '#f8fafc',   // slate-50
+      100: '#f1f5f9',  // slate-100
+      200: '#e2e8f0',  // slate-200
+      300: '#cbd5e1',  // slate-300
+      400: '#94a3b8',  // slate-400
+      500: '#64748b',  // slate-500
+      600: '#475569',  // slate-600
+      700: '#334155',  // slate-700
+      800: '#1e293b',  // slate-800
+      900: '#0f172a',  // slate-900
     },
   },
   spacing: {
@@ -204,7 +210,7 @@ export const theme = createTheme({
         root: {
           borderRadius: designTokens.borderRadius.medium,
           '&:hover': {
-            backgroundColor: 'rgba(63, 81, 181, 0.08)', // primary.main with 8% opacity
+            backgroundColor: 'rgba(59, 130, 246, 0.08)', // Updated to new primary color with 8% opacity
           },
         },
       },
@@ -221,7 +227,7 @@ export const theme = createTheme({
     MuiBackdrop: {
       styleOverrides: {
         root: {
-          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          backgroundColor: 'rgba(15, 23, 42, 0.7)', // Updated to use slate-900 for backdrop
         },
       },
     },
