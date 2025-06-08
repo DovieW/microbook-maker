@@ -2,6 +2,8 @@ import React from 'react';
 import {
   Button,
   Tooltip,
+  Typography,
+  Box,
 } from '@mui/material';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import { useAppContext } from '../context/AppContext';
@@ -46,12 +48,12 @@ const FileControls: React.FC<FileControlsProps> = ({ onJobStarted }) => {
           accept=".txt"
           id="contained-button-file"
         />
-        <Tooltip
-          enterDelay={400}
-          enterNextDelay={400}
-          placement="top"
-          title={fileState.fileName || 'No file selected'}
-        >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          {fileState.fileName && (
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              {fileState.fileName}
+            </Typography>
+          )}
           <label htmlFor="contained-button-file">
             <Button
               variant="contained"
@@ -61,12 +63,12 @@ const FileControls: React.FC<FileControlsProps> = ({ onJobStarted }) => {
               Select TXT
             </Button>
           </label>
-        </Tooltip>
+        </Box>
       </ButtonContainer>
 
       <ButtonContainer>
         <Tooltip
-          title={disabledReason || 'Generate your PDF'}
+          title={disabledReason}
           placement="top"
           arrow
         >
