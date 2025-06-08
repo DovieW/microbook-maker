@@ -116,11 +116,6 @@ export function useJobManagement(): UseJobManagementReturn {
 
         return currentJobs; // Return unchanged jobs
       });
-
-      // Refresh job list periodically to catch new jobs
-      if (Math.random() < 0.1) { // 10% chance each interval (every ~20 seconds on average)
-        refreshJobs();
-      }
     }, 2000); // Poll every 2 seconds
   }, [updateJobProgress, refreshJobs]);
 
