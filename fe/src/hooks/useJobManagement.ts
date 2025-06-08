@@ -13,6 +13,7 @@ export function useJobManagement(): UseJobManagementReturn {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const initialLoadRef = useRef<boolean>(false);
 
   const addNewJob = useCallback((jobId: string, bookName: string, fontSize: string, originalFileName?: string) => {
     // Extract timestamp from jobId to construct uploadPath
@@ -171,9 +172,12 @@ export function useJobManagement(): UseJobManagementReturn {
     };
   }, [stopPolling]);
 
-  // Initial load
+  // Initial load - prevent duplicate calls in StrictMode
   useEffect(() => {
-    refreshJobs();
+    if (!initialLoadRef.current) {
+      initialLoadRef.current = true;
+      refreshJobs();
+    }
   }, []);
 
   return {
