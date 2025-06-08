@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -11,7 +11,22 @@ import JobListItem from './JobListItem';
 import { JobListContainer } from './styled';
 
 const JobManagement: React.FC = () => {
-  const { jobs, loading, error, clearError } = useJobManagementContext();
+  const { jobs, loading, error, clearError, onScrollToTop } = useJobManagementContext();
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Set up scroll to top functionality
+  useEffect(() => {
+    const scrollToTop = () => {
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+        });
+      }
+    };
+
+    onScrollToTop(scrollToTop);
+  }, [onScrollToTop]);
 
   // Sort jobs by creation date (newest first) to ensure consistent ordering
   const sortedJobs = React.useMemo(() => {
@@ -55,25 +70,27 @@ const JobManagement: React.FC = () => {
           display: 'flex',
           flexDirection: 'column'
         }}>
-          <Box sx={{
-            flex: 1,
-            overflowY: 'auto',
-            maxHeight: '544px', // Adjusted to match main card height more precisely
-            '&::-webkit-scrollbar': {
-              width: '8px',
-            },
-            '&::-webkit-scrollbar-track': {
-              backgroundColor: 'rgba(0,0,0,0.1)',
-              borderRadius: '4px',
-            },
-            '&::-webkit-scrollbar-thumb': {
-              backgroundColor: 'rgba(0,0,0,0.3)',
-              borderRadius: '4px',
-              '&:hover': {
-                backgroundColor: 'rgba(0,0,0,0.5)',
+          <Box
+            ref={scrollContainerRef}
+            sx={{
+              flex: 1,
+              overflowY: 'auto',
+              maxHeight: '544px', // Adjusted to match main card height more precisely
+              '&::-webkit-scrollbar': {
+                width: '8px',
               },
-            },
-          }}>
+              '&::-webkit-scrollbar-track': {
+                backgroundColor: 'rgba(0,0,0,0.1)',
+                borderRadius: '4px',
+              },
+              '&::-webkit-scrollbar-thumb': {
+                backgroundColor: 'rgba(0,0,0,0.3)',
+                borderRadius: '4px',
+                '&:hover': {
+                  backgroundColor: 'rgba(0,0,0,0.5)',
+                },
+              },
+            }}>
             <JobListContainer>
               {sortedJobs.map((job) => (
                 <JobListItem

@@ -14,6 +14,7 @@ export function useJobManagement(): UseJobManagementReturn {
   const [error, setError] = useState<Error | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const initialLoadRef = useRef<boolean>(false);
+  const scrollToTopCallbackRef = useRef<(() => void) | null>(null);
 
   const addNewJob = useCallback((jobId: string, bookName: string, fontSize: string, originalFileName?: string, borderStyle?: string, author?: string, year?: string, series?: string) => {
     // Extract timestamp from jobId to construct uploadPath
@@ -38,6 +39,11 @@ export function useJobManagement(): UseJobManagementReturn {
     };
 
     setJobs(prevJobs => [newJob, ...prevJobs]);
+
+    // Trigger scroll to top when a new job is added
+    if (scrollToTopCallbackRef.current) {
+      scrollToTopCallbackRef.current();
+    }
   }, []);
 
   const refreshJobs = useCallback(async () => {
@@ -150,6 +156,10 @@ export function useJobManagement(): UseJobManagementReturn {
     setError(null);
   }, []);
 
+  const onScrollToTop = useCallback((callback: () => void) => {
+    scrollToTopCallbackRef.current = callback;
+  }, []);
+
   // Start polling when component mounts and jobs are loaded
   useEffect(() => {
     if (jobs.length > 0) {
@@ -192,5 +202,6 @@ export function useJobManagement(): UseJobManagementReturn {
     clearError,
     addNewJob,
     deleteJob,
+    onScrollToTop,
   };
 }

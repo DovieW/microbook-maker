@@ -188,4 +188,5 @@ export interface UseJobManagementReturn {
   clearError: () => void;
   addNewJob: (jobId: string, bookName: string, fontSize: string, originalFileName?: string, borderStyle?: string, author?: string, year?: string, series?: string) => void;
   deleteJob: (jobId: string) => Promise<void>;
+  onScrollToTop: (callback: () => void) => void;
 }
