@@ -1,4 +1,4 @@
-FROM node:24-alpine AS frontend-builder
+FROM node:24-slim AS frontend-builder
 
 WORKDIR /app/fe
 
@@ -12,7 +12,7 @@ COPY fe/ ./
 
 RUN npm run build
 
-FROM node:24-alpine AS backend-builder
+FROM node:24-slim AS backend-builder
 
 WORKDIR /app/be
 
@@ -20,21 +20,26 @@ COPY be/package*.json ./
 
 RUN npm ci --only=production
 
-FROM node:24-alpine AS production
+FROM node:24-slim AS production
 
-RUN apk add --no-cache \
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y \
     nginx \
     chromium \
-    nss \
-    freetype \
-    freetype-dev \
-    harfbuzz \
+    libnss3 \
+    libfreetype6 \
+    libfreetype6-dev \
+    libharfbuzz0b \
     ca-certificates \
-    ttf-freefont \
-    ttf-liberation \
-    ttf-dejavu \
+    fonts-freefont-ttf \
+    fonts-liberation \
+    fonts-dejavu-core \
     fontconfig \
-    && npm install -g pm2
+    --no-install-recommends \
+    && npm install -g pm2 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /usr/share/fonts/truetype/custom && \
     fc-cache -fv
