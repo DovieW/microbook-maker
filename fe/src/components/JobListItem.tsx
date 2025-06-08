@@ -36,15 +36,17 @@ interface JobListItemProps {
 const JobListItem: React.FC<JobListItemProps> = ({ job }) => {
   const [expanded, setExpanded] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [hasAutoExpanded, setHasAutoExpanded] = useState(false);
   const { deleteJob } = useJobManagementContext();
 
-  // Auto-expand when job is generating
+  // Auto-expand when job starts generating (only once)
   const isGenerating = job.status === 'in_progress' || job.status === 'queued';
   React.useEffect(() => {
-    if (isGenerating && !expanded) {
+    if (isGenerating && !hasAutoExpanded) {
       setExpanded(true);
+      setHasAutoExpanded(true);
     }
-  }, [isGenerating, expanded]);
+  }, [isGenerating, hasAutoExpanded]);
 
   const handleToggleExpanded = () => {
     setExpanded(!expanded);
