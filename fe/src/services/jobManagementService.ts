@@ -58,4 +58,41 @@ export class JobManagementService {
     if (!uploadPath) return null;
     return `/uploads/${uploadPath}`;
   }
+
+  /**
+   * Deletes a job and all associated files
+   * @param jobId - The job ID to delete
+   * @returns Promise resolving to deletion result
+   * @throws ApiError if the request fails
+   */
+  static async deleteJob(jobId: string): Promise<{ message: string; deletedFiles: string[] }> {
+    try {
+      const response = await fetch(`${this.JOBS_ENDPOINT}/${jobId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new ApiError(
+          errorData.message || `Failed to delete job: ${response.statusText}`,
+          response.status,
+          'DELETE_JOB_ERROR'
+        );
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+
+      // Handle network errors, JSON parsing errors, etc.
+      throw new ApiError(
+        `Network error while deleting job: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        0,
+        'NETWORK_ERROR'
+      );
+    }
+  }
 }

@@ -196,17 +196,22 @@ export const JobListContainer = styled(Box)(({ theme }) => ({
 export const JobListItem = styled(Box)(({ theme }) => ({
   backgroundColor: designTokens.colors.background.paper,
   borderRadius: designTokens.borderRadius.medium,
+  border: `1px solid ${theme.palette.grey[200]}`,
+  transition: 'all 0.3s ease-in-out',
+  cursor: 'pointer',
+  overflow: 'hidden',
+  '&:hover': {
+    boxShadow: designTokens.shadows.light,
+    borderColor: theme.palette.grey[300],
+  },
+}));
+
+export const JobItemHeader = styled(Box)(({ theme }) => ({
   padding: theme.spacing(2),
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
   position: 'relative',
-  border: `1px solid ${theme.palette.grey[200]}`,
-  transition: 'all 0.2s ease-in-out',
-  '&:hover': {
-    boxShadow: designTokens.shadows.light,
-    borderColor: theme.palette.grey[300],
-  },
 }));
 
 export const JobItemContent = styled(Box)(({ theme }) => ({
@@ -219,6 +224,41 @@ export const JobItemActions = styled(Box)(({ theme }) => ({
   display: 'flex',
   gap: theme.spacing(1),
   alignItems: 'center',
+}));
+
+export const JobExpandedContent = styled(Box, {
+  shouldForwardProp: (prop) => prop !== 'expanded',
+})<{ expanded: boolean }>(({ theme, expanded }) => ({
+  maxHeight: expanded ? '300px' : '0px',
+  overflow: 'hidden',
+  transition: 'max-height 0.3s ease-in-out',
+  backgroundColor: theme.palette.grey[50],
+  borderTop: expanded ? `1px solid ${theme.palette.grey[200]}` : 'none',
+}));
+
+export const JobDetailsContainer = styled(Box)(({ theme }) => ({
+  padding: theme.spacing(2),
+  display: 'flex',
+  flexDirection: 'column',
+  gap: theme.spacing(1),
+}));
+
+export const JobDetailRow = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  '&:not(:last-child)': {
+    marginBottom: theme.spacing(0.5),
+  },
+}));
+
+export const JobActionButtons = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginTop: theme.spacing(1),
+  paddingTop: theme.spacing(1),
+  borderTop: `1px solid ${theme.palette.grey[200]}`,
 }));
 
 export const JobProgressBar = styled(LinearProgress)(({ theme }) => ({
@@ -319,8 +359,13 @@ export const StyledComponents = {
   // Job List
   JobListContainer,
   JobListItem,
+  JobItemHeader,
   JobItemContent,
   JobItemActions,
+  JobExpandedContent,
+  JobDetailsContainer,
+  JobDetailRow,
+  JobActionButtons,
   JobProgressBar,
 
   // Notifications

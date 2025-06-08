@@ -5,7 +5,7 @@ import { ThemeProvider } from '@mui/material/styles';
 import HistoryIcon from '@mui/icons-material/History';
 import { AppProvider, useAppContext } from './context/AppContext';
 import { JobManagementProvider } from './context/JobManagementContext';
-import { BookInfoForm, FileControls, PdfOptions, GenerationStatus, JobManagement } from './components';
+import { BookInfoForm, FileControls, PdfOptions, JobManagement } from './components';
 import NotificationContainer from './components/NotificationContainer';
 import DragDropZone from './components/DragDropZone';
 import { PdfGeneratorService } from './services';
@@ -149,8 +149,7 @@ function AppContent() {
         <></>
       </DragDropZone>
 
-      {/* GenerationStatus is disabled when jobs panel is shown */}
-      <GenerationStatus onDownload={handleDownload} disabled={showJobs} />
+
       <NotificationContainer />
     </DarkBackground>
   );

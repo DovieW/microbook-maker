@@ -182,5 +182,6 @@ export interface UseJobManagementReturn {
   error: Error | null;
   refreshJobs: () => Promise<void>;
   clearError: () => void;
-  addNewJob: (jobId: string, bookName: string, fontSize: string) => void;
+  addNewJob: (jobId: string, bookName: string, fontSize: string, originalFileName?: string) => void;
+  deleteJob: (jobId: string) => Promise<void>;
 }

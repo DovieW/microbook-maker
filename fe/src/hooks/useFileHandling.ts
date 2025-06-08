@@ -24,8 +24,6 @@ export function useFileHandling() {
     setDisableUpload,
     setLoading,
     setBookInfoLoading,
-    setGenerationId,
-    setProgress,
     fetchBookInfo,
     validateUpload,
   } = useAppContext();
@@ -176,16 +174,11 @@ export function useFileHandling() {
       };
 
       try {
-        // Reset progress before starting new generation
-        setGenerationId(null);
-        setProgress(null);
-
         const generationId = await generatePdf(file, params);
         if (generationId) {
-          setGenerationId(generationId);
-          // Immediately add the job to the job list
-          addNewJob(generationId, bookInfo.bookName, pdfOptions.fontSize);
-          // Don't set loading to false here - let the job management handle the state
+          // Only add the job to the job list - don't use old generation state
+          addNewJob(generationId, bookInfo.bookName, pdfOptions.fontSize, file.name);
+          setLoading(false);
         } else {
           setLoading(false);
           showError(
@@ -209,10 +202,9 @@ export function useFileHandling() {
     pdfOptions,
     fileState,
     setLoading,
-    setGenerationId,
-    setProgress,
     generatePdf,
     showError,
+    addNewJob,
   ]);
 
   const createHandleUploadFile = useCallback((onJobStarted?: () => void) => {
@@ -240,18 +232,13 @@ export function useFileHandling() {
         };
 
         try {
-          // Reset progress before starting new generation
-          setGenerationId(null);
-          setProgress(null);
-
           const generationId = await generatePdf(file, params);
           if (generationId) {
-            setGenerationId(generationId);
-            // Immediately add the job to the job list
-            addNewJob(generationId, bookInfo.bookName, pdfOptions.fontSize);
+            // Only add the job to the job list - don't use old generation state
+            addNewJob(generationId, bookInfo.bookName, pdfOptions.fontSize, file.name);
+            setLoading(false);
             // Notify that a job was started
             onJobStarted?.();
-            // Don't set loading to false here - let the job management handle the state
           } else {
             setLoading(false);
             showError(
@@ -276,8 +263,6 @@ export function useFileHandling() {
     pdfOptions,
     fileState,
     setLoading,
-    setGenerationId,
-    setProgress,
     generatePdf,
     showError,
     addNewJob,

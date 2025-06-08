@@ -694,6 +694,103 @@ app.get('/api/download/', (req, res) => {
   }
 });
 
+// Delete job endpoint
+app.delete('/api/jobs/:id', (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const generatedDir = path.join(__dirname, 'generated');
+    const uploadsDir = path.join(__dirname, 'uploads');
+
+    // Files to delete
+    const pdfPath = path.join(generatedDir, `${id}.pdf`);
+    const inProgressPath = path.join(generatedDir, `IN_PROGRESS_${id}.txt`);
+    const structuredProgressPath = path.join(generatedDir, `PROGRESS_${id}.json`);
+
+    // Extract timestamp from job ID to find the original upload file
+    const jobParts = id.split('_');
+    let timestamp = '';
+    if (jobParts.length >= 3) {
+      timestamp = jobParts[0]; // YYYYMMDDHHMMSS
+    }
+
+    let deletedFiles = [];
+    let errors = [];
+
+    // Delete PDF file
+    if (fs.existsSync(pdfPath)) {
+      try {
+        fs.unlinkSync(pdfPath);
+        deletedFiles.push('PDF');
+      } catch (error) {
+        errors.push(`Failed to delete PDF: ${error.message}`);
+      }
+    }
+
+    // Delete progress files
+    if (fs.existsSync(inProgressPath)) {
+      try {
+        fs.unlinkSync(inProgressPath);
+        deletedFiles.push('progress file');
+      } catch (error) {
+        errors.push(`Failed to delete progress file: ${error.message}`);
+      }
+    }
+
+    if (fs.existsSync(structuredProgressPath)) {
+      try {
+        fs.unlinkSync(structuredProgressPath);
+        deletedFiles.push('structured progress file');
+      } catch (error) {
+        errors.push(`Failed to delete structured progress file: ${error.message}`);
+      }
+    }
+
+    // Find and delete original upload file
+    if (timestamp && fs.existsSync(uploadsDir)) {
+      try {
+        const uploadFiles = fs.readdirSync(uploadsDir);
+        const matchingUpload = uploadFiles.find(file => file.startsWith(timestamp + '_'));
+
+        if (matchingUpload) {
+          const uploadPath = path.join(uploadsDir, matchingUpload);
+          fs.unlinkSync(uploadPath);
+          deletedFiles.push('original upload');
+        }
+      } catch (error) {
+        errors.push(`Failed to delete upload file: ${error.message}`);
+      }
+    }
+
+    if (deletedFiles.length === 0 && errors.length === 0) {
+      return res.status(404).json({
+        error: 'Job not found',
+        message: `No files found for job ID: ${id}`
+      });
+    }
+
+    if (errors.length > 0) {
+      return res.status(207).json({
+        message: `Job partially deleted. Deleted: ${deletedFiles.join(', ')}`,
+        deletedFiles,
+        errors
+      });
+    }
+
+    res.json({
+      message: `Job deleted successfully. Deleted: ${deletedFiles.join(', ')}`,
+      deletedFiles
+    });
+
+  } catch (error) {
+    console.error('Error deleting job:', error);
+    res.status(500).json({
+      error: 'Failed to delete job',
+      message: error.message
+    });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Listening on port ${port}`);
 });

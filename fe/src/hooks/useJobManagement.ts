@@ -14,7 +14,12 @@ export function useJobManagement(): UseJobManagementReturn {
   const [error, setError] = useState<Error | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const addNewJob = useCallback((jobId: string, bookName: string, fontSize: string) => {
+  const addNewJob = useCallback((jobId: string, bookName: string, fontSize: string, originalFileName?: string) => {
+    // Extract timestamp from jobId to construct uploadPath
+    const jobParts = jobId.split('_');
+    const timestamp = jobParts[0]; // YYYYMMDDHHMMSS
+    const uploadPath = originalFileName ? `${timestamp}_${originalFileName}` : null;
+
     const newJob: Job = {
       id: jobId,
       bookName,
@@ -23,8 +28,8 @@ export function useJobManagement(): UseJobManagementReturn {
       progress: { percentage: 0, step: 'Starting generation...', isComplete: false, isError: false },
       createdAt: new Date().toISOString(),
       completedAt: null,
-      originalFileName: null,
-      uploadPath: null,
+      originalFileName: originalFileName || null,
+      uploadPath: uploadPath,
     };
 
     setJobs(prevJobs => [newJob, ...prevJobs]);
@@ -115,6 +120,27 @@ export function useJobManagement(): UseJobManagementReturn {
     }
   }, []);
 
+  const deleteJob = useCallback(async (jobId: string) => {
+    try {
+      await JobManagementService.deleteJob(jobId);
+
+      // Remove the job from the local state immediately
+      setJobs(prevJobs => prevJobs.filter(job => job.id !== jobId));
+
+      // Clear any errors since the operation was successful
+      setError(null);
+    } catch (err) {
+      const error = err instanceof ApiError ? err : new ApiError(
+        `Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        0,
+        'UNKNOWN_ERROR'
+      );
+      setError(error);
+      console.error('Failed to delete job:', error);
+      throw error; // Re-throw so the UI can handle it
+    }
+  }, []);
+
   const clearError = useCallback(() => {
     setError(null);
   }, []);
@@ -157,5 +183,6 @@ export function useJobManagement(): UseJobManagementReturn {
     refreshJobs,
     clearError,
     addNewJob,
+    deleteJob,
   };
 }
