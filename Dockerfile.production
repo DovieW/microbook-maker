@@ -36,7 +36,6 @@ RUN apk add --no-cache \
     fontconfig \
     && npm install -g pm2
 
-# Create fonts directory and refresh font cache
 RUN mkdir -p /usr/share/fonts/truetype/custom && \
     fc-cache -fv
 
@@ -48,7 +47,6 @@ COPY --from=backend-builder /app/be/node_modules ./be/node_modules
 
 COPY be/ ./be/
 
-# Copy production nginx configuration
 COPY nginx.production.conf /etc/nginx/nginx.conf
 
 COPY entrypoint.production.sh ./entrypoint.sh
