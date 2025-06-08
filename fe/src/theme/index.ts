@@ -1,48 +1,42 @@
 import { createTheme } from '@mui/material/styles';
 
-// Design tokens for consistent styling - Warm Modern Palette
+// Design tokens for consistent styling
 export const designTokens = {
   colors: {
     primary: {
-      main: '#6366f1',      // Modern indigo
-      light: '#818cf8',     // Light indigo
-      dark: '#4f46e5',      // Dark indigo
+      main: '#3f51b5',
+      light: '#757de8',
+      dark: '#002984',
       contrastText: '#ffffff',
     },
     secondary: {
-      main: '#f59e0b',      // Warm amber
-      light: '#fbbf24',     // Light amber
-      dark: '#d97706',      // Dark amber
+      main: '#f50057',
+      light: '#ff5983',
+      dark: '#bb002f',
       contrastText: '#ffffff',
     },
     background: {
-      default: '#fefefe',   // Very light warm white
-      paper: '#ffffff',     // Pure white
-      dark: '#1a1625',      // Warm dark purple-gray
-      light: '#f8f6f3',     // Warm off-white
+      default: '#fafafa',
+      paper: '#ffffff',
+      dark: '#0d0033',
+      light: '#dadaff',
     },
     text: {
-      primary: 'rgba(26, 22, 37, 0.87)',    // Warm dark for better contrast
-      secondary: 'rgba(75, 85, 99, 0.8)',   // Gray-600 with opacity
-      disabled: 'rgba(156, 163, 175, 0.6)', // Gray-400 with opacity
-    },
-    accent: {
-      main: '#10b981',      // Emerald green
-      light: '#34d399',     // Light emerald
-      dark: '#059669',      // Dark emerald
-      contrastText: '#ffffff',
+      primary: 'rgba(0, 0, 0, 0.87)',
+      secondary: 'rgba(0, 0, 0, 0.6)',
+      disabled: 'rgba(0, 0, 0, 0.38)',
     },
     grey: {
-      50: '#f9fafb',   // gray-50 (warm)
-      100: '#f3f4f6',  // gray-100
-      200: '#e5e7eb',  // gray-200
-      300: '#d1d5db',  // gray-300
-      400: '#9ca3af',  // gray-400
-      500: '#6b7280',  // gray-500
-      600: '#4b5563',  // gray-600
-      700: '#374151',  // gray-700
-      800: '#1f2937',  // gray-800
-      900: '#111827',  // gray-900
+      50: '#fafafa',
+      100: '#f5f5f5',
+      200: '#eeeeee',
+      300: '#e0e0e0',
+      400: '#bdbdbd',
+      500: '#9e9e9e',
+      600: '#757575',
+      700: '#616161',
+      800: '#424242',
+      900: '#212121',
     },
   },
   spacing: {
@@ -210,7 +204,7 @@ export const theme = createTheme({
         root: {
           borderRadius: designTokens.borderRadius.medium,
           '&:hover': {
-            backgroundColor: 'rgba(99, 102, 241, 0.08)', // Updated to new primary color with 8% opacity
+            backgroundColor: 'rgba(63, 81, 181, 0.08)', // primary.main with 8% opacity
           },
         },
       },
@@ -227,7 +221,7 @@ export const theme = createTheme({
     MuiBackdrop: {
       styleOverrides: {
         root: {
-          backgroundColor: 'rgba(26, 22, 37, 0.7)', // Updated to use warm dark background
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
         },
       },
     },

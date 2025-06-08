@@ -133,7 +133,7 @@ function AppContent() {
         }}>
           <Box sx={{
             width: '400px', // Fixed inner width
-            backgroundColor: '#f8f6f3', // Updated to warm off-white
+            backgroundColor: '#dadaff', // Same as MainFormContainer
             borderRadius: '10px', // Same as MainFormContainer (xlarge)
             boxShadow: 3,
             p: 2,
