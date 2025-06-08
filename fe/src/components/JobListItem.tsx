@@ -9,6 +9,7 @@ import {
 import {
   FilePresent as FileIcon,
   Delete as DeleteIcon,
+  QuestionMark as QuestionMarkIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
   PictureAsPdf as PdfIcon,
@@ -38,6 +39,7 @@ interface JobListItemProps {
 const JobListItem: React.FC<JobListItemProps> = ({ job }) => {
   const [expanded, setExpanded] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [hasAutoExpanded, setHasAutoExpanded] = useState(false);
   const [loadingFile, setLoadingFile] = useState(false);
   const { deleteJob } = useJobManagementContext();
@@ -78,20 +80,26 @@ const JobListItem: React.FC<JobListItemProps> = ({ job }) => {
 
     if (deleting) return;
 
-    const confirmDelete = window.confirm(
-      `Are you sure you want to delete "${job.bookName}"? This will permanently remove the job, PDF, and original upload file.`
-    );
+    // First click: show confirmation state
+    if (!deleteConfirm) {
+      setDeleteConfirm(true);
+      // Reset confirmation after 3 seconds if not clicked again
+      setTimeout(() => {
+        setDeleteConfirm(false);
+      }, 3000);
+      return;
+    }
 
-    if (confirmDelete) {
-      setDeleting(true);
-      try {
-        await deleteJob(job.id);
-      } catch (error) {
-        console.error('Failed to delete job:', error);
-        // Error is already handled by the hook and displayed in the UI
-      } finally {
-        setDeleting(false);
-      }
+    // Second click: actually delete
+    setDeleting(true);
+    setDeleteConfirm(false);
+    try {
+      await deleteJob(job.id);
+    } catch (error) {
+      console.error('Failed to delete job:', error);
+      // Error is already handled by the hook and displayed in the UI
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -217,14 +225,14 @@ const JobListItem: React.FC<JobListItemProps> = ({ job }) => {
             <JobActionButtons>
               {/* Left side buttons */}
               <div style={{ display: 'flex', gap: '8px' }}>
-                <Tooltip title="Delete job">
+                <Tooltip title={deleteConfirm ? "Click again to confirm deletion" : "Delete job"}>
                   <IconButton
                     size="small"
                     onClick={handleDeleteJob}
                     color="error"
                     disabled={deleting}
                   >
-                    <DeleteIcon />
+                    {deleteConfirm ? <QuestionMarkIcon /> : <DeleteIcon />}
                   </IconButton>
                 </Tooltip>
 
