@@ -38,12 +38,12 @@ export function validateFontSize(value: string): ValidationResult {
     };
   }
 
-  // if (numValue > 10) {
-  //   return {
-  //     isValid: false,
-  //     error: 'Font size must be no more than 10'
-  //   };
-  // }
+  if (numValue > 10) {
+    return {
+      isValid: false,
+      error: 'Font size must be no more than 10'
+    };
+  }
 
   // Warnings for edge cases
   // if (numValue < 5) {

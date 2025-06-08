@@ -140,16 +140,17 @@ export function useFileHandling() {
 
   const handleFontSizeChange = useCallback((newFontSize: string) => {
     setFontSize(newFontSize);
-    // Check for file from either file input or drag-and-drop
+    // Check for file from any source: file input, drag-and-drop, or loaded from job
     const hasInputFile = !!uploadRef?.current?.files?.length;
     const hasDroppedFile = !!droppedFileStorage;
-    const hasFile = hasInputFile || hasDroppedFile;
+    const hasLoadedFile = !!fileState.fileName; // File loaded from any source
+    const hasFile = hasInputFile || hasDroppedFile || hasLoadedFile;
     validateUpload(newFontSize, hasFile);
 
     if (fileState.wordCount > 0) {
       updateFileStats(fileState.wordCount, newFontSize);
     }
-  }, [setFontSize, validateUpload, fileState.wordCount, updateFileStats]);
+  }, [setFontSize, validateUpload, fileState.wordCount, fileState.fileName, updateFileStats]);
 
   const handleUploadFile = useCallback(async () => {
     // Check for file from either file input or drag-and-drop

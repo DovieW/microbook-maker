@@ -6,6 +6,7 @@ import {
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import { useAppContext } from '../context/AppContext';
 import { useFileHandling } from '../hooks/useFileHandling';
+import { validateFontSize } from '../utils/validation';
 import {
   ControlsContainer,
   ButtonContainer,
@@ -22,14 +23,14 @@ const FileControls: React.FC<FileControlsProps> = ({ onJobStarted }) => {
 
   const handleUploadFile = createHandleUploadFile(onJobStarted);
 
-  // Check for validation issues
-  const fontSize = parseFloat(pdfOptions.fontSize);
-  const hasValidFontSize = !isNaN(fontSize) && fontSize >= 4 && fontSize <= 10;
+  // Use centralized validation logic
+  const fontSizeValidation = validateFontSize(pdfOptions.fontSize);
+  const hasValidFontSize = fontSizeValidation.isValid;
   const hasFile = !!fileState.fileName;
 
   const getDisabledReason = () => {
     if (!hasFile) return 'Please select a TXT file first';
-    if (!hasValidFontSize) return 'Please enter a valid font size (4-10)';
+    if (!hasValidFontSize) return fontSizeValidation.error || 'Please enter a valid font size (4-10)';
     return '';
   };
 

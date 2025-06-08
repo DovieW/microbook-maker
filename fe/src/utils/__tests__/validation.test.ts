@@ -18,14 +18,14 @@ describe('Validation Utilities', () => {
       expect(validateFontSize('7.5')).toEqual({ isValid: true });
     });
 
-    it('should show warnings for edge cases', () => {
+    it('should accept edge case font sizes without warnings', () => {
       const result1 = validateFontSize('4.5');
       expect(result1.isValid).toBe(true);
-      expect(result1.warning).toContain('Very small font size');
+      expect(result1.warning).toBeUndefined();
 
       const result2 = validateFontSize('9.5');
       expect(result2.isValid).toBe(true);
-      expect(result2.warning).toContain('Large font size');
+      expect(result2.warning).toBeUndefined();
     });
 
     it('should reject invalid font sizes', () => {

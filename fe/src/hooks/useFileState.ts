@@ -1,6 +1,7 @@
 import { useReducer, useCallback } from 'react';
 import { FileState, FileStateAction } from '../types';
 import { calculatePapers, calculateReadingTime } from '../utils';
+import { validateFontSize } from '../utils/validation';
 
 const initialFileState: FileState = {
   fileName: '',
@@ -74,12 +75,12 @@ export function useFileState() {
   }, []);
 
   const validateUpload = useCallback((fontSize: string, hasFile: boolean) => {
-    const fontSizeNum = +fontSize;
-    const isValidFontSize = fontSizeNum >= 4 && fontSizeNum <= 10;
+    const fontSizeValidation = validateFontSize(fontSize);
+    const isValidFontSize = fontSizeValidation.isValid;
     const shouldDisable = !isValidFontSize || !hasFile;
-    
+
     setDisableUpload(shouldDisable);
-    
+
     if (!isValidFontSize) {
       setSheetsCount(0);
     }
