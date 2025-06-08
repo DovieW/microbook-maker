@@ -106,10 +106,25 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
   async function run(json, id, bookName, fontSize, borderStyle) {
     const browser = await puppeteer.launch({
       executablePath: '/usr/bin/chromium',
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-extensions', '--mute-audio'],
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-extensions',
+        '--mute-audio',
+        // Enhanced v24 performance args
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-renderer-backgrounding',
+        '--disable-features=TranslateUI',
+        '--disable-ipc-flooding-protection'
+      ],
       protocolTimeout: 1000000,
       headless: true,
-      devtools: false
+      devtools: false,
+      // New v24 option: can enable extensions if needed in future
+      // enableExtensions: false, // Explicitly disabled for performance
+      // Enhanced timeout handling
+      timeout: 60000
     });
 
     // Track this job for potential cancellation
@@ -118,7 +133,13 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
     // Check if job was cancelled before we started
     if (runningJobs.get(id)?.cancelled) {
       console.log(`Job ${id} was cancelled before processing started`);
-      await browser.close();
+      try {
+        await browser.close();
+      } catch (closeError) {
+        console.error(`Error closing browser during early cancellation for job ${id}:`, closeError);
+      } finally {
+        runningJobs.delete(id);
+      }
       return;
     }
 
@@ -133,6 +154,39 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
     };
     progressService.writeProgress(id, browserProgress);
     const page = await browser.newPage();
+
+    // Enhanced v24 page configuration
+    await page.setDefaultTimeout(60000);
+    await page.setDefaultNavigationTimeout(60000);
+
+    // Optional: Enable performance monitoring for debugging (v24 feature)
+    const enablePerformanceMonitoring = process.env.ENABLE_PERFORMANCE_MONITORING === 'true';
+    if (enablePerformanceMonitoring) {
+      await page.tracing.start({
+        path: path.join(__dirname, 'generated', `trace_${id}.json`),
+        screenshots: false,
+        categories: ['devtools.timeline']
+      });
+    }
+
+    // Enhanced error handling for v24
+    page.on('error', (error) => {
+      console.error(`Page error for job ${id}:`, error);
+      const errorProgress = {
+        step: 'Page error occurred',
+        percentage: 0,
+        isComplete: false,
+        isError: true,
+        errorMessage: error.message,
+        phase: 'error'
+      };
+      progressService.writeProgress(id, errorProgress);
+    });
+
+    page.on('pageerror', (error) => {
+      console.error(`Page script error for job ${id}:`, error);
+    });
+
     const inProgressPath = path.join(__dirname, 'generated', `IN_PROGRESS_${id}.txt`);
 
     page.on('console', pageIndex => {
@@ -462,7 +516,15 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
     };
     progressService.writeProgress(id, renderingProgress);
 
-    const pdf = await page.pdf({ format: 'Letter' });
+    // Enhanced PDF generation with v24 improvements
+    const pdf = await page.pdf({
+      format: 'Letter',
+      printBackground: true,
+      preferCSSPageSize: false,
+      // Enhanced v24 options for better quality
+      timeout: 120000, // 2 minute timeout for large documents
+      omitBackground: false
+    });
 
     // Final check for cancellation before writing PDF file
     if (runningJobs.get(id)?.cancelled) {
@@ -474,7 +536,27 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
     const pdfOutput = path.join(__dirname, 'generated', `${id}.pdf`);
     fs.writeFileSync(pdfOutput, pdf);
 
-    await browser.close();
+    // Enhanced v24 browser cleanup
+    try {
+      // Stop performance tracing if enabled
+      const enablePerformanceMonitoring = process.env.ENABLE_PERFORMANCE_MONITORING === 'true';
+      if (enablePerformanceMonitoring) {
+        try {
+          await page.tracing.stop();
+          console.log(`Performance trace saved for job ${id}`);
+        } catch (tracingError) {
+          console.error(`Error stopping tracing for job ${id}:`, tracingError);
+        }
+      }
+
+      await page.close();
+      await browser.close();
+    } catch (closeError) {
+      console.error(`Error closing browser for job ${id}:`, closeError);
+    } finally {
+      // Remove from running jobs tracking
+      runningJobs.delete(id);
+    }
 
     // Mark as complete
     const completionProgress = progressService.createCompletionProgress();
