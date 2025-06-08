@@ -791,6 +791,10 @@ app.delete('/api/jobs/:id', (req, res) => {
   }
 });
 
+// Serve static files
+app.use('/history', express.static(path.join(__dirname, 'generated')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 app.listen(port, () => {
-  console.log(`Listening on port ${port}`);
+  console.log(`Listening on port ${port} with static file serving`);
 });

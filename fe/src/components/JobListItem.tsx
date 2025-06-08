@@ -12,11 +12,13 @@ import {
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
   PictureAsPdf as PdfIcon,
+  Upload as UploadIcon,
 } from '@mui/icons-material';
 import { Job } from '../types';
 import { JobManagementService } from '../services/jobManagementService';
 import { PdfGeneratorService } from '../services/pdfGeneratorService';
 import { useJobManagementContext } from '../context/JobManagementContext';
+import { useFileHandling } from '../hooks/useFileHandling';
 import {
   JobListItem as StyledJobListItem,
   JobItemHeader,
@@ -37,7 +39,9 @@ const JobListItem: React.FC<JobListItemProps> = ({ job }) => {
   const [expanded, setExpanded] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [hasAutoExpanded, setHasAutoExpanded] = useState(false);
+  const [loadingFile, setLoadingFile] = useState(false);
   const { deleteJob } = useJobManagementContext();
+  const { loadFileFromJob } = useFileHandling();
 
   // Auto-expand when job starts generating (only once)
   const isGenerating = job.status === 'in_progress' || job.status === 'queued';
@@ -100,6 +104,22 @@ const JobListItem: React.FC<JobListItemProps> = ({ job }) => {
     }
   };
 
+  const handleLoadFile = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent expanding when clicking action button
+
+    if (loadingFile) return;
+
+    setLoadingFile(true);
+    try {
+      await loadFileFromJob(job);
+    } catch (error) {
+      console.error('Failed to load file:', error);
+      // Error is already handled by the hook and displayed in the UI
+    } finally {
+      setLoadingFile(false);
+    }
+  };
+
   // Calculate progress percentage for loading bar
   const progressPercentage = job.progress?.percentage || 0;
 
@@ -151,7 +171,7 @@ const JobListItem: React.FC<JobListItemProps> = ({ job }) => {
             <JobActionButtons>
               {/* Left side buttons */}
               <div style={{ display: 'flex', gap: '8px' }}>
-                <Tooltip title="Delete job and all associated files">
+                <Tooltip title="Delete job">
                   <IconButton
                     size="small"
                     onClick={handleDeleteJob}
@@ -170,6 +190,19 @@ const JobListItem: React.FC<JobListItemProps> = ({ job }) => {
                       color="primary"
                     >
                       <FileIcon />
+                    </IconButton>
+                  </Tooltip>
+                )}
+
+                {job.uploadPath && job.originalFileName && (
+                  <Tooltip title={`Load ${job.originalFileName}`}>
+                    <IconButton
+                      size="small"
+                      onClick={handleLoadFile}
+                      color="primary"
+                      disabled={loadingFile}
+                    >
+                      <UploadIcon />
                     </IconButton>
                   </Tooltip>
                 )}

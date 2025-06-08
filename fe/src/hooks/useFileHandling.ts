@@ -1,9 +1,10 @@
 import { useRef, useCallback } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { UploadParams } from '../types';
+import { UploadParams, Job } from '../types';
 import { usePdfGenerator } from './usePdfGenerator';
 import { useNotifications } from './useNotifications';
 import { useJobManagementContext } from '../context/JobManagementContext';
+import { JobManagementService } from '../services/jobManagementService';
 
 // Module-level storage for dropped files to persist across re-renders
 let droppedFileStorage: File | null = null;
@@ -268,6 +269,41 @@ export function useFileHandling() {
     addNewJob,
   ]);
 
+  const loadFileFromJob = useCallback(async (job: Job) => {
+    if (!job.uploadPath || !job.originalFileName) {
+      showError(
+        'File Not Available',
+        'The original file for this job is not available.'
+      );
+      return;
+    }
+
+    try {
+      // Fetch the file content from the server
+      const fileContent = await JobManagementService.fetchOriginalFileContent(job.uploadPath);
+
+      // Create a File object from the content
+      const blob = new Blob([fileContent], { type: 'text/plain' });
+      const file = new File([blob], job.originalFileName, { type: 'text/plain' });
+
+      // Clear any existing file input and dropped file
+      if (uploadRef.current) {
+        uploadRef.current.value = '';
+      }
+      droppedFileStorage = null;
+
+      // Process the file as if it was selected by the user
+      processFile(file);
+
+    } catch (error) {
+      console.error('Failed to load file from job:', error);
+      showError(
+        'Failed to Load File',
+        error instanceof Error ? error.message : 'Could not load the original file from this job.'
+      );
+    }
+  }, [processFile, showError]);
+
   return {
     uploadRef,
     handleFileChange,
@@ -275,6 +311,7 @@ export function useFileHandling() {
     handleFontSizeChange,
     handleUploadFile,
     createHandleUploadFile,
+    loadFileFromJob,
     pdfGenerationLoading,
     pdfGenerationError,
   };

@@ -38,27 +38,27 @@ export function validateFontSize(value: string): ValidationResult {
     };
   }
 
-  if (numValue > 10) {
-    return {
-      isValid: false,
-      error: 'Font size must be no more than 10'
-    };
-  }
+  // if (numValue > 10) {
+  //   return {
+  //     isValid: false,
+  //     error: 'Font size must be no more than 10'
+  //   };
+  // }
 
   // Warnings for edge cases
-  if (numValue < 5) {
-    return {
-      isValid: true,
-      warning: 'Very small font size may be difficult to read'
-    };
-  }
+  // if (numValue < 5) {
+  //   return {
+  //     isValid: true,
+  //     warning: 'Very small font size may be difficult to read'
+  //   };
+  // }
 
-  if (numValue > 9) {
-    return {
-      isValid: true,
-      warning: 'Large font size will result in fewer words per page'
-    };
-  }
+  // if (numValue > 9) {
+  //   return {
+  //     isValid: true,
+  //     warning: 'Large font size will result in fewer words per page'
+  //   };
+  // }
 
   return { isValid: true };
 }

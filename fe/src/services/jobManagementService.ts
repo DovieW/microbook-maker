@@ -60,6 +60,49 @@ export class JobManagementService {
   }
 
   /**
+   * Fetches the original file content for a job
+   * @param uploadPath - The upload path from job data
+   * @returns Promise resolving to file content as text
+   * @throws ApiError if the request fails
+   */
+  static async fetchOriginalFileContent(uploadPath: string): Promise<string> {
+    try {
+      const fileUrl = this.getOriginalFileUrl(uploadPath);
+      if (!fileUrl) {
+        throw new ApiError(
+          'No upload path available for this job',
+          400,
+          'NO_UPLOAD_PATH'
+        );
+      }
+
+      const response = await fetch(fileUrl);
+
+      if (!response.ok) {
+        throw new ApiError(
+          `Failed to fetch file content: ${response.statusText}`,
+          response.status,
+          'FETCH_FILE_CONTENT_ERROR'
+        );
+      }
+
+      const content = await response.text();
+      return content;
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+
+      // Handle network errors, etc.
+      throw new ApiError(
+        `Network error while fetching file content: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        0,
+        'NETWORK_ERROR'
+      );
+    }
+  }
+
+  /**
    * Deletes a job and all associated files
    * @param jobId - The job ID to delete
    * @returns Promise resolving to deletion result
