@@ -170,19 +170,8 @@ export const ProgressContainer = styled(Box)(({ theme }) => ({
   marginBottom: theme.spacing(1),
 }));
 
-export const ProgressBar = styled(LinearProgress)(({ theme }) => ({
-  width: '100%',
-  height: 8,
-  borderRadius: 4,
-  backgroundColor: theme.palette.grey[300],
-  '& .MuiLinearProgress-bar': {
-    borderRadius: 4,
-    transition: 'transform 0.4s ease-in-out',
-  },
-  '& .MuiLinearProgress-bar1Determinate': {
-    transition: 'transform 0.4s ease-in-out',
-  },
-}));
+// ProgressBar component removed - no longer used in the application
+// Progress tracking is now handled through JobProgressBar in individual job items
 
 // Job List Components
 export const JobListContainer = styled(Box)(({ theme }) => ({
@@ -349,7 +338,6 @@ export const StyledComponents = {
 
   // Progress
   ProgressContainer,
-  ProgressBar,
   ProgressText,
 
   // Job List

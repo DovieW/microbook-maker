@@ -29,7 +29,6 @@ import {
   JobDetailsContainer,
   JobDetailRow,
   JobActionButtons,
-  JobProgressBar,
 } from './styled';
 
 interface JobListItemProps {
@@ -290,13 +289,7 @@ const JobListItem: React.FC<JobListItemProps> = ({ job }) => {
           </JobDetailsContainer>
         </JobExpandedContent>
 
-        {/* Progress bar at bottom during generation */}
-        {isGenerating && (
-          <JobProgressBar
-            variant="determinate"
-            value={progressPercentage}
-          />
-        )}
+
       </StyledJobListItem>
     </Fade>
   );
