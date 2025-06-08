@@ -6,6 +6,9 @@ const app = express();
 const port = 3001;
 const path = require('path');
 const progressService = require('./services/progressService');
+
+// Job tracking system for cancellation
+const runningJobs = new Map(); // jobId -> { browser, cancelled: boolean }
 const storage = multer.diskStorage({
   destination: function(req, file, cb) {
     cb(null, 'uploads/')
@@ -24,6 +27,16 @@ const storage = multer.diskStorage({
   }
 });
 const upload = multer({ storage: storage });
+
+// Debug endpoint to see running jobs
+app.get('/api/debug/running-jobs', (req, res) => {
+  const jobs = Array.from(runningJobs.entries()).map(([id, job]) => ({
+    id,
+    cancelled: job.cancelled,
+    hasBrowser: !!job.browser
+  }));
+  res.json({ runningJobs: jobs, count: jobs.length });
+});
 
 app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
   const json = JSON.parse(req.body.params);
@@ -78,6 +91,9 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
       const errorProgress = progressService.createErrorProgress(error.toString(), 'generation');
       progressService.writeProgress(id, errorProgress);
       writeToInProgress('ERROR: ' + error.toString());
+    } finally {
+      // Clean up job tracking
+      runningJobs.delete(id);
     }
   });
 
@@ -89,6 +105,16 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
       headless: true,
       devtools: false
     });
+
+    // Track this job for potential cancellation
+    runningJobs.set(id, { browser, cancelled: false });
+
+    // Check if job was cancelled before we started
+    if (runningJobs.get(id)?.cancelled) {
+      console.log(`Job ${id} was cancelled before processing started`);
+      await browser.close();
+      return;
+    }
 
     // Update progress for browser launch
     console.log('Browser launched, updating progress to 15%');
@@ -134,6 +160,13 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
           border-top: 1px ${borderStyle || 'dashed'} black;
       }
     `});
+
+    // Check for cancellation before starting page creation
+    if (runningJobs.get(id)?.cancelled) {
+      console.log(`Job ${id} was cancelled during setup`);
+      await browser.close();
+      return;
+    }
 
     writeToInProgress(`Creating: ${bookName}`);
 
@@ -361,6 +394,13 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
       });
     }, json, text, bookName);
 
+    // Check for cancellation after page evaluation
+    if (runningJobs.get(id)?.cancelled) {
+      console.log(`Job ${id} was cancelled after page evaluation`);
+      await browser.close();
+      return;
+    }
+
     console.log('Page evaluation completed, updating progress to 70%');
     // Update progress for page layout completion
     const layoutProgress = {
@@ -397,6 +437,13 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
     let htmlContent = await page.content();
     fs.writeFileSync(path.join(__dirname, `output.html`), htmlContent);
 
+    // Check for cancellation before PDF rendering
+    if (runningJobs.get(id)?.cancelled) {
+      console.log(`Job ${id} was cancelled before PDF rendering`);
+      await browser.close();
+      return;
+    }
+
     // Update progress for PDF rendering
     const renderingProgress = {
       step: 'Rendering PDF document',
@@ -408,6 +455,14 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
     progressService.writeProgress(id, renderingProgress);
 
     const pdf = await page.pdf({ format: 'Letter' });
+
+    // Final check for cancellation before writing PDF file
+    if (runningJobs.get(id)?.cancelled) {
+      console.log(`Job ${id} was cancelled before writing PDF file`);
+      await browser.close();
+      return;
+    }
+
     const pdfOutput = path.join(__dirname, 'generated', `${id}.pdf`);
     fs.writeFileSync(pdfOutput, pdf);
 
@@ -727,10 +782,30 @@ app.get('/api/download/', (req, res) => {
 });
 
 // Delete job endpoint
-app.delete('/api/jobs/:id', (req, res) => {
+app.delete('/api/jobs/:id', async (req, res) => {
   const { id } = req.params;
 
   try {
+    // First, cancel the running job if it exists
+    const runningJob = runningJobs.get(id);
+    if (runningJob) {
+      console.log(`Cancelling running job: ${id}`);
+      runningJob.cancelled = true;
+
+      // Close the browser if it's still running
+      try {
+        if (runningJob.browser) {
+          await runningJob.browser.close();
+          console.log(`Browser closed for cancelled job: ${id}`);
+        }
+      } catch (browserError) {
+        console.error(`Error closing browser for job ${id}:`, browserError);
+      }
+
+      // Remove from running jobs
+      runningJobs.delete(id);
+    }
+
     const generatedDir = path.join(__dirname, 'generated');
     const uploadsDir = path.join(__dirname, 'uploads');
 
@@ -806,23 +881,34 @@ app.delete('/api/jobs/:id', (req, res) => {
     }
 
     if (deletedFiles.length === 0 && errors.length === 0) {
-      return res.status(404).json({
-        error: 'Job not found',
-        message: `No files found for job ID: ${id}`
-      });
+      if (runningJob) {
+        // Job was running but had no files yet
+        return res.json({
+          message: 'Running job cancelled successfully',
+          deletedFiles: [],
+          cancelled: true
+        });
+      } else {
+        return res.status(404).json({
+          error: 'Job not found',
+          message: `No files found for job ID: ${id}`
+        });
+      }
     }
 
     if (errors.length > 0) {
       return res.status(207).json({
-        message: `Job partially deleted. Deleted: ${deletedFiles.join(', ')}`,
+        message: `Job partially deleted. ${runningJob ? 'Running job cancelled. ' : ''}Deleted: ${deletedFiles.join(', ')}`,
         deletedFiles,
-        errors
+        errors,
+        cancelled: !!runningJob
       });
     }
 
     res.json({
-      message: `Job deleted successfully. Deleted: ${deletedFiles.join(', ')}`,
-      deletedFiles
+      message: `Job deleted successfully. ${runningJob ? 'Running job cancelled. ' : ''}Deleted: ${deletedFiles.join(', ')}`,
+      deletedFiles,
+      cancelled: !!runningJob
     });
 
   } catch (error) {
