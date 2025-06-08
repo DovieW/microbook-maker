@@ -4,7 +4,6 @@ import {
   IconButton,
   Tooltip,
   Fade,
-  Chip,
   Button,
 } from '@mui/material';
 import {
@@ -121,14 +120,6 @@ const JobListItem: React.FC<JobListItemProps> = ({ job }) => {
           </JobItemContent>
 
           <JobItemActions>
-            {isGenerating && (
-              <Chip
-                label={`in progress ${progressPercentage}%`}
-                color="primary"
-                size="small"
-                sx={{ mr: 1 }}
-              />
-            )}
             <IconButton size="small">
               {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
             </IconButton>
@@ -183,7 +174,7 @@ const JobListItem: React.FC<JobListItemProps> = ({ job }) => {
               </div>
 
               {/* Right side button */}
-              {job.status === 'completed' && (
+              {job.status === 'completed' ? (
                 <Button
                   size="small"
                   onClick={handleShowPdf}
@@ -193,7 +184,19 @@ const JobListItem: React.FC<JobListItemProps> = ({ job }) => {
                 >
                   Open PDF
                 </Button>
-              )}
+              ) : isGenerating ? (
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{
+                    fontStyle: 'italic',
+                    opacity: 0.7,
+                    alignSelf: 'center'
+                  }}
+                >
+                  {progressPercentage}% complete...
+                </Typography>
+              ) : null}
             </JobActionButtons>
           </JobDetailsContainer>
         </JobExpandedContent>
