@@ -190,7 +190,7 @@ export const JobListContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
   flexDirection: 'column',
   gap: theme.spacing(2),
-  paddingRight: theme.spacing(0.5), // Small padding to account for scrollbar
+  // No padding needed since scrollbar is hidden
 }));
 
 export const JobListItem = styled(Box)(({ theme }) => ({

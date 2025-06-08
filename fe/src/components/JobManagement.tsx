@@ -76,20 +76,12 @@ const JobManagement: React.FC = () => {
               flex: 1,
               overflowY: 'auto',
               maxHeight: '544px', // Adjusted to match main card height more precisely
+              // Hide scrollbar
               '&::-webkit-scrollbar': {
-                width: '8px',
+                display: 'none',
               },
-              '&::-webkit-scrollbar-track': {
-                backgroundColor: 'rgba(0,0,0,0.1)',
-                borderRadius: '4px',
-              },
-              '&::-webkit-scrollbar-thumb': {
-                backgroundColor: 'rgba(0,0,0,0.3)',
-                borderRadius: '4px',
-                '&:hover': {
-                  backgroundColor: 'rgba(0,0,0,0.5)',
-                },
-              },
+              // Hide scrollbar for Firefox
+              scrollbarWidth: 'none',
             }}>
             <JobListContainer>
               {sortedJobs.map((job) => (
