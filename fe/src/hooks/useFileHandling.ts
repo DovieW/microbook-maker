@@ -9,6 +9,9 @@ import { JobManagementService } from '../services/jobManagementService';
 // Module-level storage for dropped files to persist across re-renders
 let droppedFileStorage: File | null = null;
 
+// Module-level storage for files loaded from jobs to persist across re-renders
+let loadedFileStorage: File | null = null;
+
 export function useFileHandling() {
   const uploadRef = useRef<HTMLInputElement>(null);
   const { generatePdf, loading: pdfGenerationLoading, error: pdfGenerationError } = usePdfGenerator();
@@ -29,8 +32,8 @@ export function useFileHandling() {
     validateUpload,
   } = useAppContext();
 
-  // Extract file processing logic to reuse for both file input and drag-and-drop
-  const processFile = useCallback((file: File, clearInput?: () => void, isDropped = false) => {
+  // Extract file processing logic to reuse for both file input, drag-and-drop, and loaded files
+  const processFile = useCallback((file: File, clearInput?: () => void, isDropped = false, isLoaded = false) => {
     // Validate file type
     if (!file.name.toLowerCase().endsWith('.txt')) {
       showError(
@@ -57,13 +60,22 @@ export function useFileHandling() {
     // Store the file reference for later use
     if (isDropped) {
       droppedFileStorage = file;
+      loadedFileStorage = null; // Clear loaded file when using drag-and-drop
+      // Clear the file input to avoid conflicts
+      if (uploadRef.current) {
+        uploadRef.current.value = '';
+      }
+    } else if (isLoaded) {
+      loadedFileStorage = file;
+      droppedFileStorage = null; // Clear dropped file when loading from job
       // Clear the file input to avoid conflicts
       if (uploadRef.current) {
         uploadRef.current.value = '';
       }
     } else {
-      // Clear dropped file when using file input
+      // Clear dropped and loaded files when using file input
       droppedFileStorage = null;
+      loadedFileStorage = null;
     }
 
     setDisableUpload(false);
@@ -143,21 +155,22 @@ export function useFileHandling() {
     // Check for file from any source: file input, drag-and-drop, or loaded from job
     const hasInputFile = !!uploadRef?.current?.files?.length;
     const hasDroppedFile = !!droppedFileStorage;
-    const hasLoadedFile = !!fileState.fileName; // File loaded from any source
+    const hasLoadedFile = !!loadedFileStorage;
     const hasFile = hasInputFile || hasDroppedFile || hasLoadedFile;
     validateUpload(newFontSize, hasFile);
 
     if (fileState.wordCount > 0) {
       updateFileStats(fileState.wordCount, newFontSize);
     }
-  }, [setFontSize, validateUpload, fileState.wordCount, fileState.fileName, updateFileStats]);
+  }, [setFontSize, validateUpload, fileState.wordCount, updateFileStats]);
 
   const handleUploadFile = useCallback(async () => {
-    // Check for file from either file input or drag-and-drop
+    // Check for file from file input, drag-and-drop, or loaded from job
     const files = uploadRef.current?.files;
     const inputFile = files && files.length > 0 ? files[0] : null;
     const droppedFile = droppedFileStorage;
-    const file = inputFile || droppedFile;
+    const loadedFile = loadedFileStorage;
+    const file = inputFile || droppedFile || loadedFile;
 
     if (file) {
       setLoading(true);
@@ -211,11 +224,12 @@ export function useFileHandling() {
 
   const createHandleUploadFile = useCallback((onJobStarted?: () => void) => {
     return async () => {
-      // Check for file from either file input or drag-and-drop
+      // Check for file from file input, drag-and-drop, or loaded from job
       const files = uploadRef.current?.files;
       const inputFile = files && files.length > 0 ? files[0] : null;
       const droppedFile = droppedFileStorage;
-      const file = inputFile || droppedFile;
+      const loadedFile = loadedFileStorage;
+      const file = inputFile || droppedFile || loadedFile;
 
       if (file) {
         setLoading(true);
@@ -257,7 +271,7 @@ export function useFileHandling() {
           );
         }
       } else {
-        console.warn('No file available for upload - neither from input nor drag-and-drop');
+        console.warn('No file available for upload - no file from input, drag-and-drop, or loaded from job');
       }
     };
   }, [
@@ -287,14 +301,8 @@ export function useFileHandling() {
       const blob = new Blob([fileContent], { type: 'text/plain' });
       const file = new File([blob], job.originalFileName, { type: 'text/plain' });
 
-      // Clear any existing file input and dropped file
-      if (uploadRef.current) {
-        uploadRef.current.value = '';
-      }
-      droppedFileStorage = null;
-
-      // Process the file as if it was selected by the user
-      processFile(file);
+      // Process the file as loaded from job
+      processFile(file, undefined, false, true);
 
     } catch (error) {
       console.error('Failed to load file from job:', error);
