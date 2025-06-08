@@ -142,7 +142,7 @@ export class PdfGeneratorService {
     // Parse different progress messages
     if (text.includes('Creating:')) {
       progress.step = 'Initializing';
-      progress.percentage = 10;
+      progress.percentage = 3;
     } else if (text.includes('Creating sheet')) {
       // Extract sheet numbers: "Creating sheet 5 of 10-ish."
       const match = text.match(/Creating sheet (\d+(?:\.\d+)?) of (\d+)/);
@@ -151,7 +151,7 @@ export class PdfGeneratorService {
         const total = parseInt(match[2]);
         progress.currentSheet = Math.floor(current);
         progress.totalSheets = total;
-        progress.percentage = Math.min(90, Math.round((current / total) * 80) + 10); // 10-90% range
+        progress.percentage = Math.min(95, Math.round((current / total) * 90) + 5); // 5-95% range
         progress.step = `Creating sheet ${Math.floor(current)} of ${total}`;
       } else {
         progress.step = 'Creating pages';
@@ -159,7 +159,7 @@ export class PdfGeneratorService {
       }
     } else if (text.includes('Finished creating pages')) {
       progress.step = 'Generating PDF';
-      progress.percentage = 95;
+      progress.percentage = 97;
     } else if (text.includes('Writing to file')) {
       progress.step = 'Finalizing PDF';
       progress.percentage = 98;

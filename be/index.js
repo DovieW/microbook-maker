@@ -78,9 +78,15 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
     progressService.writeProgress(id, structuredProgress);
   }
 
-  // Write initial progress
+  // Write initial progress (0-5% range)
   const estimatedSheets = Math.ceil(json.headerInfo.wordCount / 250); // Rough estimate
-  const initialProgress = progressService.createInitialProgress(bookName, estimatedSheets);
+  const initialProgress = {
+    step: `Initializing: ${bookName}`,
+    percentage: 1,
+    isComplete: false,
+    isError: false,
+    phase: 'initialization'
+  };
   progressService.writeProgress(id, initialProgress);
 
   setImmediate(async () => {
@@ -116,11 +122,11 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
       return;
     }
 
-    // Update progress for browser launch
-    console.log('Browser launched, updating progress to 15%');
+    // Update progress for browser launch (0-5% range)
+    console.log('Browser launched, updating progress to 3%');
     const browserProgress = {
       step: 'Setting up document processing',
-      percentage: 15,
+      percentage: 3,
       isComplete: false,
       isError: false,
       phase: 'setup'
@@ -136,7 +142,20 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
         return;
       }
       const currentSheet = Math.ceil(n / 2);
-      const progressInfo = progressService.createPageProgress(currentSheet, sheetsCount);
+      // Use a dynamic progress calculation since we don't know the final sheet count yet
+      // Progress range: 5% to 95% (90% range for page creation - the main work!)
+      // Use a logarithmic approach to slow down progress as more pages are created
+      const progressPercentage = Math.min(95, 5 + Math.round(Math.log(n + 1) * 18));
+
+      const progressInfo = {
+        step: `Creating sheet ${currentSheet}`,
+        percentage: progressPercentage,
+        currentSheet,
+        totalSheets: null, // Will be updated when final count is known
+        isComplete: false,
+        isError: false,
+        phase: 'page_creation'
+      };
       progressService.writeProgress(id, progressInfo);
       writeToInProgress(`Creating sheet ${n / 2} of ${sheetsCount}-ish.`);
     });
@@ -170,34 +189,23 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
 
     writeToInProgress(`Creating: ${bookName}`);
 
-    // Update progress for starting page creation
+    // Update progress for starting page creation (5-95% range)
     const startPageProgress = {
       step: 'Creating document pages',
-      percentage: 25,
+      percentage: 5,
       isComplete: false,
       isError: false,
       phase: 'page_creation'
     };
     progressService.writeProgress(id, startPageProgress);
 
-    // Update progress for text processing start
-    console.log('Starting text processing, updating progress to 35%');
-    const textProcessingProgress = {
-      step: 'Processing document text',
-      percentage: 35,
-      isComplete: false,
-      isError: false,
-      phase: 'text_processing'
-    };
-    progressService.writeProgress(id, textProcessingProgress);
-
     await page.evaluate((json, text, bookName) => {
       let pageIndex = 0;
       let isCurrentPageFront = true; // tracks whether the next page to be rendered is on the front of the double sided sheet. the side with the big header
 
       function createNewPage(readTime, initialWordCount, wordsLeft, headerInfo) {
-        // Remove console.log that was causing floating "0" in UI
-        // console.log(pageIndex+1);
+        // Console.log triggers progress updates via page console event listener
+        console.log(pageIndex+1);
         const percentageCompleted = Math.round((initialWordCount - wordsLeft) / initialWordCount * 100);
         const page = document.createElement('div');
         page.className = 'page';
@@ -401,11 +409,11 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
       return;
     }
 
-    console.log('Page evaluation completed, updating progress to 70%');
-    // Update progress for page layout completion
+    console.log('Page evaluation completed, updating progress to 95%');
+    // Update progress for page layout completion (95-100% range)
     const layoutProgress = {
       step: 'Finalizing page layout',
-      percentage: 70,
+      percentage: 95,
       isComplete: false,
       isError: false,
       phase: 'layout'
@@ -416,10 +424,10 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
     const pageCount = await page.evaluate(() => document.querySelectorAll('.page').length);
     const estimatedSheets = Math.ceil(pageCount / 2);
 
-    // Update progress for page creation completion (85%)
+    // Update progress for page creation completion (96%)
     const pageCompletionProgress = {
       step: `Created ${estimatedSheets} sheets`,
-      percentage: 85,
+      percentage: 96,
       currentSheet: estimatedSheets,
       totalSheets: estimatedSheets,
       isComplete: false,
@@ -444,7 +452,7 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
       return;
     }
 
-    // Update progress for PDF rendering
+    // Update progress for PDF rendering (95-100% range)
     const renderingProgress = {
       step: 'Rendering PDF document',
       percentage: 98,

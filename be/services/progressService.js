@@ -84,7 +84,7 @@ class ProgressService {
   createInitialProgress(bookName, estimatedSheets = 0) {
     return {
       step: `Initializing: ${bookName}`,
-      percentage: 5,
+      percentage: 1,
       currentSheet: 0,
       totalSheets: estimatedSheets,
       isComplete: false,
@@ -100,8 +100,9 @@ class ProgressService {
    * @returns {Object} Progress information
    */
   createPageProgress(currentSheet, totalSheets) {
-    const percentage = Math.min(90, Math.round((currentSheet / totalSheets) * 75) + 10); // 10-85% range
-    
+    // Progress range: 5% to 95% (90% range for page creation - the main work!)
+    const percentage = Math.min(95, Math.round((currentSheet / totalSheets) * 90) + 5);
+
     return {
       step: `Creating sheet ${currentSheet} of ${totalSheets}`,
       percentage,
@@ -120,7 +121,7 @@ class ProgressService {
   createPdfProgress() {
     return {
       step: 'Generating PDF file',
-      percentage: 95,
+      percentage: 97,
       isComplete: false,
       isError: false,
       phase: 'pdf_generation'
@@ -175,7 +176,7 @@ class ProgressService {
     // Parse different progress messages
     if (text.includes('Creating:')) {
       progress.step = 'Initializing';
-      progress.percentage = 10;
+      progress.percentage = 3;
       progress.phase = 'initialization';
     } else if (text.includes('Creating sheet')) {
       // Extract sheet numbers: "Creating sheet 5 of 10-ish."
@@ -185,7 +186,8 @@ class ProgressService {
         const total = parseInt(match[2]);
         progress.currentSheet = Math.floor(current);
         progress.totalSheets = total;
-        progress.percentage = Math.min(90, Math.round((current / total) * 80) + 10); // 10-90% range
+        // Progress range: 5% to 95% (90% range for page creation - the main work!)
+        progress.percentage = Math.min(95, Math.round((current / total) * 90) + 5);
         progress.step = `Creating sheet ${Math.floor(current)} of ${total}`;
         progress.phase = 'page_creation';
       } else {
@@ -195,7 +197,7 @@ class ProgressService {
       }
     } else if (text.includes('Finished creating pages')) {
       progress.step = 'Generating PDF';
-      progress.percentage = 95;
+      progress.percentage = 97;
       progress.phase = 'pdf_generation';
     } else if (text.includes('Writing to file')) {
       progress.step = 'Finalizing PDF';
