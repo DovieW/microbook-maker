@@ -117,6 +117,7 @@ export const MainFormContainer = styled(Box)(({ theme }) => ({
   borderRadius: designTokens.borderRadius.xlarge,
   maxWidth: '600px',
   width: '100%',
+  boxSizing: 'border-box', // Ensure consistent box-sizing
 }));
 
 export const ControlsContainer = styled(Box)(({ theme }) => ({

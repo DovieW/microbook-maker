@@ -50,32 +50,47 @@ const JobManagement: React.FC = () => {
   }
 
   return (
-    <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ 
+      width: '100%', 
+      height: '100%', 
+      display: 'flex', 
+      flexDirection: 'column',
+      minHeight: 0, // Important for flex child to shrink properly
+    }}>
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={clearError}>
+        <Alert severity="error" sx={{ mb: 2, flexShrink: 0 }} onClose={clearError}>
           {error.message}
         </Alert>
       )}
 
       {sortedJobs.length === 0 ? (
-        <Paper sx={{ p: 4, textAlign: 'center' }}>
+        <Box sx={{ 
+          flex: 1, 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          p: 4,
+          backgroundColor: 'rgba(255, 255, 255, 0.1)',
+          borderRadius: 1,
+        }}>
           <Typography variant="body1" color="text.secondary">
             No jobs found.
           </Typography>
-        </Paper>
+        </Box>
       ) : (
         <Box sx={{
           flex: 1,
           overflow: 'hidden',
           display: 'flex',
-          flexDirection: 'column'
+          flexDirection: 'column',
+          minHeight: 0, // Important for proper flex behavior
         }}>
           <Box
             ref={scrollContainerRef}
             sx={{
               flex: 1,
               overflowY: 'auto',
-              maxHeight: '544px', // Adjusted to match main card height more precisely
+              minHeight: 0, // Allow shrinking
               // Hide scrollbar
               '&::-webkit-scrollbar': {
                 display: 'none',
