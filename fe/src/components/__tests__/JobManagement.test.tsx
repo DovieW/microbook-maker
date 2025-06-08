@@ -18,6 +18,10 @@ vi.mock('../../hooks/useJobManagement', () => ({
         id: 'test-job-1',
         bookName: 'Test Book',
         fontSize: '6',
+        borderStyle: 'dashed',
+        author: 'Test Author',
+        year: '2023',
+        series: 'Test Series',
         status: 'completed',
         progress: {
           step: 'Complete',
@@ -34,6 +38,10 @@ vi.mock('../../hooks/useJobManagement', () => ({
         id: 'test-job-2',
         bookName: 'Another Book',
         fontSize: '8',
+        borderStyle: null,
+        author: null,
+        year: null,
+        series: null,
         status: 'in_progress',
         progress: {
           step: 'Creating pages',

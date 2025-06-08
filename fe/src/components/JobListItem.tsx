@@ -131,6 +131,8 @@ const JobListItem: React.FC<JobListItemProps> = ({ job }) => {
 
 
 
+
+
   return (
     <Fade in={true} timeout={300}>
       <StyledJobListItem>
@@ -158,6 +160,50 @@ const JobListItem: React.FC<JobListItemProps> = ({ job }) => {
                 {job.fontSize}px
               </Typography>
             </JobDetailRow>
+
+            {job.borderStyle && (
+              <JobDetailRow>
+                <Typography variant="body2" color="text.secondary">
+                  Border Style:
+                </Typography>
+                <Typography variant="body2">
+                  {job.borderStyle}
+                </Typography>
+              </JobDetailRow>
+            )}
+
+            {job.author && (
+              <JobDetailRow>
+                <Typography variant="body2" color="text.secondary">
+                  Author:
+                </Typography>
+                <Typography variant="body2">
+                  {job.author}
+                </Typography>
+              </JobDetailRow>
+            )}
+
+            {job.year && (
+              <JobDetailRow>
+                <Typography variant="body2" color="text.secondary">
+                  Year:
+                </Typography>
+                <Typography variant="body2">
+                  {job.year}
+                </Typography>
+              </JobDetailRow>
+            )}
+
+            {job.series && (
+              <JobDetailRow>
+                <Typography variant="body2" color="text.secondary">
+                  Series:
+                </Typography>
+                <Typography variant="body2">
+                  {job.series}
+                </Typography>
+              </JobDetailRow>
+            )}
 
             <JobDetailRow>
               <Typography variant="body2" color="text.secondary">

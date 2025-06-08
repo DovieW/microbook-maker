@@ -164,6 +164,10 @@ export interface Job {
   id: string;
   bookName: string;
   fontSize: string;
+  borderStyle: string | null;
+  author: string | null;
+  year: string | null;
+  series: string | null;
   status: 'queued' | 'in_progress' | 'completed' | 'error';
   progress: ProgressInfo | null;
   createdAt: string | null;
@@ -182,6 +186,6 @@ export interface UseJobManagementReturn {
   error: Error | null;
   refreshJobs: () => Promise<void>;
   clearError: () => void;
-  addNewJob: (jobId: string, bookName: string, fontSize: string, originalFileName?: string) => void;
+  addNewJob: (jobId: string, bookName: string, fontSize: string, originalFileName?: string, borderStyle?: string, author?: string, year?: string, series?: string) => void;
   deleteJob: (jobId: string) => Promise<void>;
 }

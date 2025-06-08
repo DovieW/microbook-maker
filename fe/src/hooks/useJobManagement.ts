@@ -15,7 +15,7 @@ export function useJobManagement(): UseJobManagementReturn {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const initialLoadRef = useRef<boolean>(false);
 
-  const addNewJob = useCallback((jobId: string, bookName: string, fontSize: string, originalFileName?: string) => {
+  const addNewJob = useCallback((jobId: string, bookName: string, fontSize: string, originalFileName?: string, borderStyle?: string, author?: string, year?: string, series?: string) => {
     // Extract timestamp from jobId to construct uploadPath
     const jobParts = jobId.split('_');
     const timestamp = jobParts[0]; // YYYYMMDDHHMMSS
@@ -25,6 +25,10 @@ export function useJobManagement(): UseJobManagementReturn {
       id: jobId,
       bookName,
       fontSize,
+      borderStyle: borderStyle || null,
+      author: author || null,
+      year: year || null,
+      series: series || null,
       status: 'queued',
       progress: { percentage: 0, step: 'Starting generation...', isComplete: false, isError: false },
       createdAt: new Date().toISOString(),

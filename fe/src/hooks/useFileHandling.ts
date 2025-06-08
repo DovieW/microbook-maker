@@ -179,7 +179,7 @@ export function useFileHandling() {
         const generationId = await generatePdf(file, params);
         if (generationId) {
           // Only add the job to the job list - don't use old generation state
-          addNewJob(generationId, bookInfo.bookName, pdfOptions.fontSize, file.name);
+          addNewJob(generationId, bookInfo.bookName, pdfOptions.fontSize, file.name, pdfOptions.borderStyle, bookInfo.author, bookInfo.year, bookInfo.series);
           setLoading(false);
         } else {
           setLoading(false);
@@ -237,7 +237,7 @@ export function useFileHandling() {
           const generationId = await generatePdf(file, params);
           if (generationId) {
             // Only add the job to the job list - don't use old generation state
-            addNewJob(generationId, bookInfo.bookName, pdfOptions.fontSize, file.name);
+            addNewJob(generationId, bookInfo.bookName, pdfOptions.fontSize, file.name, pdfOptions.borderStyle, bookInfo.author, bookInfo.year, bookInfo.series);
             setLoading(false);
             // Notify that a job was started
             onJobStarted?.();

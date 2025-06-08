@@ -28,16 +28,32 @@ const upload = multer({ storage: storage });
 app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
   const json = JSON.parse(req.body.params);
   const {bookName, borderStyle} = json;
-  const {fontSize, sheetsCount} = json.headerInfo;
+  const {fontSize, sheetsCount, author, year, series} = json.headerInfo;
 
   const date = new Date();
-  const year = date.getFullYear();
+  const year_date = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   const hour = String(date.getHours()).padStart(2, '0');
   const minute = String(date.getMinutes()).padStart(2, '0');
   const second = String(date.getSeconds()).padStart(2, '0');
-  const id = `${year}${month}${day}${hour}${minute}${second}_${bookName}_${fontSize}`;
+  const id = `${year_date}${month}${day}${hour}${minute}${second}_${bookName}_${fontSize}`;
+
+  // Store job metadata
+  const jobMetadata = {
+    id,
+    bookName,
+    borderStyle,
+    fontSize,
+    author: author || null,
+    year: year || null,
+    series: series || null,
+    createdAt: new Date().toISOString(),
+    originalFileName: req.files.file && req.files.file[0] ? req.files.file[0].originalname : null
+  };
+
+  const metadataPath = path.join(__dirname, 'generated', `METADATA_${id}.json`);
+  fs.writeFileSync(metadataPath, JSON.stringify(jobMetadata, null, 2));
 
   function writeToInProgress(text) {
     console.log(`${text}`);
@@ -646,15 +662,31 @@ app.get('/api/jobs', (req, res) => {
         // Get original file info if available
         const uploadInfo = uploadFileMap[timestamp] || {};
 
+        // Try to read metadata file
+        const metadataPath = path.join(generatedDir, `METADATA_${jobId}.json`);
+        let metadata = {};
+        if (fs.existsSync(metadataPath)) {
+          try {
+            const metadataContent = fs.readFileSync(metadataPath, 'utf8');
+            metadata = JSON.parse(metadataContent);
+          } catch (error) {
+            console.warn(`Failed to parse metadata for job ${jobId}:`, error);
+          }
+        }
+
         const job = {
           id: jobId,
-          bookName: bookName || 'Unknown',
-          fontSize: fontSize || 'Unknown',
+          bookName: metadata.bookName || bookName || 'Unknown',
+          fontSize: metadata.fontSize || fontSize || 'Unknown',
+          borderStyle: metadata.borderStyle || null,
+          author: metadata.author || null,
+          year: metadata.year || null,
+          series: metadata.series || null,
           status,
           progress,
-          createdAt,
+          createdAt: metadata.createdAt || createdAt,
           completedAt,
-          originalFileName: uploadInfo.originalName || null,
+          originalFileName: metadata.originalFileName || uploadInfo.originalName || null,
           uploadPath: uploadInfo.uploadPath || null
         };
 
@@ -706,6 +738,7 @@ app.delete('/api/jobs/:id', (req, res) => {
     const pdfPath = path.join(generatedDir, `${id}.pdf`);
     const inProgressPath = path.join(generatedDir, `IN_PROGRESS_${id}.txt`);
     const structuredProgressPath = path.join(generatedDir, `PROGRESS_${id}.json`);
+    const metadataPath = path.join(generatedDir, `METADATA_${id}.json`);
 
     // Extract timestamp from job ID to find the original upload file
     const jobParts = id.split('_');
@@ -743,6 +776,16 @@ app.delete('/api/jobs/:id', (req, res) => {
         deletedFiles.push('structured progress file');
       } catch (error) {
         errors.push(`Failed to delete structured progress file: ${error.message}`);
+      }
+    }
+
+    // Delete metadata file
+    if (fs.existsSync(metadataPath)) {
+      try {
+        fs.unlinkSync(metadataPath);
+        deletedFiles.push('metadata file');
+      } catch (error) {
+        errors.push(`Failed to delete metadata file: ${error.message}`);
       }
     }
 
