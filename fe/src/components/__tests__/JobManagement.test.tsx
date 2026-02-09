@@ -4,13 +4,28 @@ import { ThemeProvider } from '@mui/material/styles';
 import { vi } from 'vitest';
 import JobManagement from '../JobManagement';
 import { theme } from '../../theme';
-import { JobManagementService } from '../../services/jobManagementService';
+import { JobManagementProvider } from '../../context/JobManagementContext';
+import { AppProvider } from '../../context/AppContext';
 
-// Mock the JobManagementService
-vi.mock('../../services/jobManagementService');
-const mockJobManagementService = JobManagementService as any;
+vi.mock('../../hooks/useCapabilities', () => ({
+  useCapabilities: () => ({
+    capabilities: {
+      acceptedFormats: ['.txt'],
+      maxUploadSizeBytes: 10 * 1024 * 1024,
+      fontOptions: [{ value: 'arial', label: 'Arial' }],
+      defaults: {
+        format: '.txt',
+        borderStyle: 'dashed',
+        fontSize: '6',
+        fontFamily: 'arial',
+      },
+    },
+    capabilitiesLoading: false,
+    capabilitiesError: null,
+    refreshCapabilities: vi.fn(),
+  }),
+}));
 
-// Mock the useJobManagement hook
 vi.mock('../../hooks/useJobManagement', () => ({
   useJobManagement: () => ({
     jobs: [
@@ -18,6 +33,7 @@ vi.mock('../../hooks/useJobManagement', () => ({
         id: 'test-job-1',
         bookName: 'Test Book',
         fontSize: '6',
+        fontFamily: 'arial',
         borderStyle: 'dashed',
         author: 'Test Author',
         year: '2023',
@@ -27,17 +43,18 @@ vi.mock('../../hooks/useJobManagement', () => ({
           step: 'Complete',
           percentage: 100,
           isComplete: true,
-          isError: false
+          isError: false,
         },
         createdAt: '2023-01-01T00:00:00Z',
         completedAt: '2023-01-01T00:05:00Z',
         originalFileName: 'test.txt',
-        uploadPath: 'test-upload.txt'
+        uploadPath: 'test-upload.txt',
       },
       {
         id: 'test-job-2',
         bookName: 'Another Book',
         fontSize: '8',
+        fontFamily: 'arial',
         borderStyle: null,
         author: null,
         year: null,
@@ -47,25 +64,30 @@ vi.mock('../../hooks/useJobManagement', () => ({
           step: 'Creating pages',
           percentage: 45,
           isComplete: false,
-          isError: false
+          isError: false,
         },
         createdAt: '2023-01-01T01:00:00Z',
         completedAt: null,
         originalFileName: 'another.txt',
-        uploadPath: 'another-upload.txt'
-      }
+        uploadPath: 'another-upload.txt',
+      },
     ],
     loading: false,
     error: null,
     refreshJobs: vi.fn(),
     clearError: vi.fn(),
-  })
+    addNewJob: vi.fn(),
+    deleteJob: vi.fn(),
+    onScrollToTop: vi.fn(),
+  }),
 }));
 
-const renderWithTheme = (component: React.ReactElement) => {
+const renderWithProviders = (component: React.ReactElement) => {
   return render(
     <ThemeProvider theme={theme}>
-      {component}
+      <AppProvider>
+        <JobManagementProvider>{component}</JobManagementProvider>
+      </AppProvider>
     </ThemeProvider>
   );
 };
@@ -75,16 +97,15 @@ describe('JobManagement', () => {
     vi.clearAllMocks();
   });
 
-  it('renders job management interface', async () => {
-    renderWithTheme(<JobManagement />);
+  it('renders job management interface', () => {
+    renderWithProviders(<JobManagement />);
 
-    // Should render jobs without header
     expect(screen.getByText('Test Book')).toBeInTheDocument();
     expect(screen.getByText('Another Book')).toBeInTheDocument();
   });
 
   it('displays job list with correct data', async () => {
-    renderWithTheme(<JobManagement />);
+    renderWithProviders(<JobManagement />);
 
     await waitFor(() => {
       expect(screen.getByText('Test Book')).toBeInTheDocument();
@@ -92,16 +113,12 @@ describe('JobManagement', () => {
     });
   });
 
-  // Note: Scrolling functionality is tested manually in the browser
-  // The component now includes proper scrolling when job list exceeds container height
-
-  it('shows download buttons for jobs', async () => {
-    renderWithTheme(<JobManagement />);
+  it('shows action buttons for jobs', async () => {
+    renderWithProviders(<JobManagement />);
 
     await waitFor(() => {
-      // Should have download buttons (some enabled, some disabled based on status)
-      const downloadButtons = screen.getAllByRole('button');
-      expect(downloadButtons.length).toBeGreaterThan(0);
+      const buttons = screen.getAllByRole('button');
+      expect(buttons.length).toBeGreaterThan(0);
     });
   });
 });

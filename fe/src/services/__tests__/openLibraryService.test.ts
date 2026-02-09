@@ -1,11 +1,12 @@
 import { OpenLibraryService, ApiError } from '../openLibraryService';
+import { vi } from 'vitest';
 
 // Mock fetch globally
-global.fetch = jest.fn();
+global.fetch = vi.fn() as any;
 
 describe('OpenLibraryService', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('fetchBookInfo', () => {
@@ -19,7 +20,7 @@ describe('OpenLibraryService', () => {
         ],
       };
 
-      (fetch as jest.Mock).mockResolvedValueOnce({
+      (fetch as any).mockResolvedValueOnce({
         ok: true,
         json: async () => mockResponse,
       });
@@ -40,7 +41,7 @@ describe('OpenLibraryService', () => {
         docs: [],
       };
 
-      (fetch as jest.Mock).mockResolvedValueOnce({
+      (fetch as any).mockResolvedValueOnce({
         ok: true,
         json: async () => mockResponse,
       });
@@ -51,7 +52,7 @@ describe('OpenLibraryService', () => {
     });
 
     it('should throw ApiError when fetch fails', async () => {
-      (fetch as jest.Mock).mockResolvedValueOnce({
+      (fetch as any).mockResolvedValueOnce({
         ok: false,
         status: 500,
         statusText: 'Internal Server Error',
@@ -69,7 +70,7 @@ describe('OpenLibraryService', () => {
     });
 
     it('should handle network errors', async () => {
-      (fetch as jest.Mock).mockRejectedValueOnce(new Error('Network error'));
+      (fetch as any).mockRejectedValueOnce(new Error('Network error'));
 
       await expect(
         OpenLibraryService.fetchBookInfo('Test Book')
@@ -85,7 +86,7 @@ describe('OpenLibraryService', () => {
         ],
       };
 
-      (fetch as jest.Mock).mockResolvedValueOnce({
+      (fetch as any).mockResolvedValueOnce({
         ok: true,
         json: async () => mockResponse,
       });

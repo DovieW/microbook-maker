@@ -16,7 +16,7 @@ export function useJobManagement(): UseJobManagementReturn {
   const initialLoadRef = useRef<boolean>(false);
   const scrollToTopCallbackRef = useRef<(() => void) | null>(null);
 
-  const addNewJob = useCallback((jobId: string, bookName: string, fontSize: string, originalFileName?: string, borderStyle?: string, author?: string, year?: string, series?: string) => {
+  const addNewJob = useCallback((jobId: string, bookName: string, fontSize: string, fontFamily: string, originalFileName?: string, borderStyle?: string, author?: string, year?: string, series?: string) => {
     // Extract timestamp from jobId to construct uploadPath
     const jobParts = jobId.split('_');
     const timestamp = jobParts[0]; // YYYYMMDDHHMMSS
@@ -26,6 +26,7 @@ export function useJobManagement(): UseJobManagementReturn {
       id: jobId,
       bookName,
       fontSize,
+      fontFamily,
       borderStyle: borderStyle || null,
       author: author || null,
       year: year || null,

@@ -53,7 +53,7 @@ describe('Validation Utilities', () => {
 
   describe('validateFile', () => {
     it('should validate correct files', () => {
-      const validFile = new File(['content'], 'test.txt', { type: 'text/plain' });
+      const validFile = new File(['content '.repeat(300)], 'test.txt', { type: 'text/plain' });
       expect(validateFile(validFile)).toEqual({ isValid: true });
     });
 
@@ -79,7 +79,7 @@ describe('Validation Utilities', () => {
       const wrongType = new File(['content'], 'test.pdf', { type: 'application/pdf' });
       expect(validateFile(wrongType)).toEqual({
         isValid: false,
-        error: 'Only .txt files are supported'
+        error: 'Only .txt, .md, .markdown files are supported'
       });
 
       const emptyFile = new File([''], 'empty.txt', { type: 'text/plain' });
@@ -99,7 +99,7 @@ describe('Validation Utilities', () => {
 
   describe('validateFileContent', () => {
     it('should validate good content', () => {
-      const goodContent = 'This is a good file with plenty of content to make a nice PDF document.';
+      const goodContent = 'This is a good file with plenty of content to make a nice PDF document. '.repeat(10);
       expect(validateFileContent(goodContent)).toEqual({ isValid: true });
     });
 
@@ -112,7 +112,7 @@ describe('Validation Utilities', () => {
       const veryShortContent = 'Very short';
       const result2 = validateFileContent(veryShortContent);
       expect(result2.isValid).toBe(true);
-      expect(result2.warning).toContain('Short content');
+      expect(result2.warning).toContain('very few words');
     });
 
     it('should reject empty content', () => {

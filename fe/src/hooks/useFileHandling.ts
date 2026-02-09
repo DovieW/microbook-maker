@@ -6,12 +6,6 @@ import { useNotifications } from './useNotifications';
 import { useJobManagementContext } from '../context/JobManagementContext';
 import { JobManagementService } from '../services/jobManagementService';
 
-// Module-level storage for dropped files to persist across re-renders
-let droppedFileStorage: File | null = null;
-
-// Module-level storage for files loaded from jobs to persist across re-renders
-let loadedFileStorage: File | null = null;
-
 export function useFileHandling() {
   const uploadRef = useRef<HTMLInputElement>(null);
   const { generatePdf, loading: pdfGenerationLoading, error: pdfGenerationError } = usePdfGenerator();
@@ -22,81 +16,70 @@ export function useFileHandling() {
     setBookName,
     pdfOptions,
     setFontSize,
+    setFontFamily,
     fileState,
     setFileName,
+    setSelectedFile,
     updateFileStats,
     setDisableUpload,
     setLoading,
     setBookInfoLoading,
     fetchBookInfo,
     validateUpload,
+    capabilities,
   } = useAppContext();
 
-  // Extract file processing logic to reuse for both file input, drag-and-drop, and loaded files
-  const processFile = useCallback((file: File, clearInput?: () => void, isDropped = false, isLoaded = false) => {
-    // Validate file type
-    if (!file.name.toLowerCase().endsWith('.txt')) {
+  const acceptedFormats = capabilities.acceptedFormats;
+  const maxSize = capabilities.maxUploadSizeBytes;
+
+  const processFile = useCallback((file: File, clearInput?: () => void) => {
+    const extension = `.${file.name.split('.').pop()?.toLowerCase()}`;
+
+    if (!acceptedFormats.includes(extension)) {
       showError(
         'Invalid File Type',
-        'Please select a .txt file. Other file types are not supported.'
+        `Please select one of: ${acceptedFormats.join(', ')}`
       );
       clearInput?.();
       return;
     }
 
-    // Validate file size (e.g., max 10MB)
-    const maxSize = 10 * 1024 * 1024; // 10MB
     if (file.size > maxSize) {
       showError(
         'File Too Large',
-        'Please select a file smaller than 10MB.'
+        `Please select a file smaller than ${Math.round(maxSize / (1024 * 1024))}MB.`
       );
       clearInput?.();
       return;
     }
 
-    const bookNiceName = file.name.split('.')[0];
+    const bookNiceName = file.name.split('.').slice(0, -1).join('.') || file.name;
 
-    // Store the file reference for later use
-    if (isDropped) {
-      droppedFileStorage = file;
-      loadedFileStorage = null; // Clear loaded file when using drag-and-drop
-      // Clear the file input to avoid conflicts
-      if (uploadRef.current) {
-        uploadRef.current.value = '';
-      }
-    } else if (isLoaded) {
-      loadedFileStorage = file;
-      droppedFileStorage = null; // Clear dropped file when loading from job
-      // Clear the file input to avoid conflicts
-      if (uploadRef.current) {
-        uploadRef.current.value = '';
-      }
-    } else {
-      // Clear dropped and loaded files when using file input
-      droppedFileStorage = null;
-      loadedFileStorage = null;
+    if (uploadRef.current) {
+      uploadRef.current.value = '';
     }
 
+    setSelectedFile(file);
     setDisableUpload(false);
     setBookName(bookNiceName);
     setFileName(file.name);
 
-    // Fetch book info asynchronously
     setBookInfoLoading(true);
-    fetchBookInfo(bookNiceName).catch(() => {
-      showWarning(
-        'Book Info Not Found',
-        'Could not automatically fetch book information. You can enter it manually.'
-      );
-    }).finally(() => {
-      setBookInfoLoading(false);
-    });
+    fetchBookInfo(bookNiceName)
+      .catch(() => {
+        showWarning(
+          'Book Info Not Found',
+          'Could not automatically fetch book information. You can enter it manually.'
+        );
+      })
+      .finally(() => {
+        setBookInfoLoading(false);
+      });
 
     const reader = new FileReader();
-    reader.onload = e => {
+    reader.onload = (e) => {
       const text = (e.target?.result as string).trim();
-      const wordCount = text.split(' ').length;
+      const wordCount = text ? text.split(/\s+/).length : 0;
 
       if (wordCount === 0) {
         showWarning(
@@ -125,164 +108,123 @@ export function useFileHandling() {
 
     reader.readAsText(file);
   }, [
+    acceptedFormats,
+    maxSize,
+    setSelectedFile,
     setDisableUpload,
     setBookName,
     setFileName,
     setBookInfoLoading,
     fetchBookInfo,
+    showWarning,
     updateFileStats,
     pdfOptions.fontSize,
     showError,
-    showWarning,
   ]);
 
   const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files && files.length > 0) {
-      const file = files[0];
-      processFile(file, () => {
-        event.target.value = ''; // Clear the input
+      processFile(files[0], () => {
+        event.target.value = '';
       });
     }
   }, [processFile]);
 
   const handleFileDrop = useCallback((file: File) => {
-    processFile(file, undefined, true); // Mark as dropped file
+    processFile(file);
   }, [processFile]);
 
   const handleFontSizeChange = useCallback((newFontSize: string) => {
     setFontSize(newFontSize);
-    // Check for file from any source: file input, drag-and-drop, or loaded from job
-    const hasInputFile = !!uploadRef?.current?.files?.length;
-    const hasDroppedFile = !!droppedFileStorage;
-    const hasLoadedFile = !!loadedFileStorage;
-    const hasFile = hasInputFile || hasDroppedFile || hasLoadedFile;
+    const hasFile = !!fileState.selectedFile;
     validateUpload(newFontSize, hasFile);
 
     if (fileState.wordCount > 0) {
       updateFileStats(fileState.wordCount, newFontSize);
     }
-  }, [setFontSize, validateUpload, fileState.wordCount, updateFileStats]);
+  }, [setFontSize, fileState.selectedFile, validateUpload, fileState.wordCount, updateFileStats]);
 
-  const handleUploadFile = useCallback(async () => {
-    // Check for file from file input, drag-and-drop, or loaded from job
-    const files = uploadRef.current?.files;
-    const inputFile = files && files.length > 0 ? files[0] : null;
-    const droppedFile = droppedFileStorage;
-    const loadedFile = loadedFileStorage;
-    const file = inputFile || droppedFile || loadedFile;
+  const createUploadParams = useCallback((): UploadParams => {
+    return {
+      bookName: bookInfo.bookName,
+      borderStyle: pdfOptions.borderStyle,
+      fontFamily: pdfOptions.fontFamily,
+      headerInfo: {
+        series: bookInfo.series,
+        sheetsCount: fileState.sheetsCount.toString(),
+        wordCount: fileState.wordCount,
+        readTime: fileState.readTime,
+        author: bookInfo.author,
+        year: bookInfo.year,
+        fontSize: pdfOptions.fontSize,
+      },
+    };
+  }, [bookInfo, pdfOptions, fileState]);
 
-    if (file) {
-      setLoading(true);
-      const params: UploadParams = {
-        bookName: bookInfo.bookName,
-        borderStyle: pdfOptions.borderStyle,
-        headerInfo: {
-          series: bookInfo.series,
-          sheetsCount: fileState.sheetsCount.toString(),
-          wordCount: fileState.wordCount,
-          readTime: fileState.readTime,
-          author: bookInfo.author,
-          year: bookInfo.year,
-          fontSize: pdfOptions.fontSize,
-        },
-      };
+  const startGeneration = useCallback(async (onJobStarted?: () => void) => {
+    const file = fileState.selectedFile;
 
-      try {
-        const generationId = await generatePdf(file, params);
-        if (generationId) {
-          // Only add the job to the job list - don't use old generation state
-          addNewJob(generationId, bookInfo.bookName, pdfOptions.fontSize, file.name, pdfOptions.borderStyle, bookInfo.author, bookInfo.year, bookInfo.series);
-          setLoading(false);
-        } else {
-          setLoading(false);
-          showError(
-            'PDF Generation Failed',
-            'Failed to start PDF generation. Please try again.'
-          );
-        }
-      } catch (error) {
-        console.error('There was a problem with the PDF generation: ', error);
-        setLoading(false);
+    if (!file) {
+      console.warn('No file available for upload');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const generationId = await generatePdf(file, createUploadParams());
+
+      if (!generationId) {
         showError(
-          'PDF Generation Error',
-          error instanceof Error ? error.message : 'An unexpected error occurred during PDF generation.'
+          'PDF Generation Failed',
+          'Failed to start PDF generation. Please try again.'
         );
+        return;
       }
-    } else {
-      console.warn('No file available for upload - neither from input nor drag-and-drop');
+
+      addNewJob(
+        generationId,
+        bookInfo.bookName,
+        pdfOptions.fontSize,
+        pdfOptions.fontFamily,
+        file.name,
+        pdfOptions.borderStyle,
+        bookInfo.author,
+        bookInfo.year,
+        bookInfo.series
+      );
+
+      onJobStarted?.();
+    } catch (error) {
+      console.error('There was a problem with the PDF generation: ', error);
+      showError(
+        'PDF Generation Error',
+        error instanceof Error ? error.message : 'An unexpected error occurred during PDF generation.'
+      );
+    } finally {
+      setLoading(false);
     }
   }, [
-    bookInfo,
-    pdfOptions,
-    fileState,
+    fileState.selectedFile,
     setLoading,
     generatePdf,
+    createUploadParams,
     showError,
     addNewJob,
+    bookInfo,
+    pdfOptions,
   ]);
+
+  const handleUploadFile = useCallback(async () => {
+    await startGeneration();
+  }, [startGeneration]);
 
   const createHandleUploadFile = useCallback((onJobStarted?: () => void) => {
     return async () => {
-      // Check for file from file input, drag-and-drop, or loaded from job
-      const files = uploadRef.current?.files;
-      const inputFile = files && files.length > 0 ? files[0] : null;
-      const droppedFile = droppedFileStorage;
-      const loadedFile = loadedFileStorage;
-      const file = inputFile || droppedFile || loadedFile;
-
-      if (file) {
-        setLoading(true);
-        const params: UploadParams = {
-          bookName: bookInfo.bookName,
-          borderStyle: pdfOptions.borderStyle,
-          headerInfo: {
-            series: bookInfo.series,
-            sheetsCount: fileState.sheetsCount.toString(),
-            wordCount: fileState.wordCount,
-            readTime: fileState.readTime,
-            author: bookInfo.author,
-            year: bookInfo.year,
-            fontSize: pdfOptions.fontSize,
-          },
-        };
-
-        try {
-          const generationId = await generatePdf(file, params);
-          if (generationId) {
-            // Only add the job to the job list - don't use old generation state
-            addNewJob(generationId, bookInfo.bookName, pdfOptions.fontSize, file.name, pdfOptions.borderStyle, bookInfo.author, bookInfo.year, bookInfo.series);
-            setLoading(false);
-            // Notify that a job was started
-            onJobStarted?.();
-          } else {
-            setLoading(false);
-            showError(
-              'PDF Generation Failed',
-              'Failed to start PDF generation. Please try again.'
-            );
-          }
-        } catch (error) {
-          console.error('There was a problem with the PDF generation: ', error);
-          setLoading(false);
-          showError(
-            'PDF Generation Error',
-            error instanceof Error ? error.message : 'An unexpected error occurred during PDF generation.'
-          );
-        }
-      } else {
-        console.warn('No file available for upload - no file from input, drag-and-drop, or loaded from job');
-      }
+      await startGeneration(onJobStarted);
     };
-  }, [
-    bookInfo,
-    pdfOptions,
-    fileState,
-    setLoading,
-    generatePdf,
-    showError,
-    addNewJob,
-  ]);
+  }, [startGeneration]);
 
   const loadFileFromJob = useCallback(async (job: Job) => {
     if (!job.uploadPath || !job.originalFileName) {
@@ -294,16 +236,23 @@ export function useFileHandling() {
     }
 
     try {
-      // Fetch the file content from the server
       const fileContent = await JobManagementService.fetchOriginalFileContent(job.uploadPath);
+      const extension = `.${job.originalFileName.split('.').pop()?.toLowerCase()}`;
 
-      // Create a File object from the content
+      if (!acceptedFormats.includes(extension)) {
+        showError(
+          'Unsupported Format',
+          `This job uses ${extension} which is not currently enabled.`
+        );
+        return;
+      }
+
       const blob = new Blob([fileContent], { type: 'text/plain' });
       const file = new File([blob], job.originalFileName, { type: 'text/plain' });
-
-      // Process the file as loaded from job
-      processFile(file, undefined, false, true);
-
+      if (job.fontFamily) {
+        setFontFamily(job.fontFamily);
+      }
+      processFile(file);
     } catch (error) {
       console.error('Failed to load file from job:', error);
       showError(
@@ -311,7 +260,7 @@ export function useFileHandling() {
         error instanceof Error ? error.message : 'Could not load the original file from this job.'
       );
     }
-  }, [processFile, showError]);
+  }, [acceptedFormats, processFile, setFontFamily, showError]);
 
   return {
     uploadRef,

@@ -8,6 +8,7 @@ describe('useFileState', () => {
 
     expect(result.current.fileState).toEqual({
       fileName: '',
+      selectedFile: null,
       wordCount: 0,
       sheetsCount: 0,
       readTime: '--',
@@ -75,6 +76,7 @@ describe('useFileState', () => {
 
     expect(result.current.fileState).toEqual({
       fileName: '',
+      selectedFile: null,
       wordCount: 0,
       sheetsCount: 0,
       readTime: '--',

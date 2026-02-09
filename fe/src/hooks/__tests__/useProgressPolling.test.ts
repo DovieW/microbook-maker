@@ -1,21 +1,22 @@
 import { renderHook, act } from '@testing-library/react';
+import { vi } from 'vitest';
 import { useProgressPolling } from '../useProgressPolling';
 import { PdfGeneratorService } from '../../services/pdfGeneratorService';
 
 // Mock the PdfGeneratorService
-jest.mock('../../services/pdfGeneratorService');
+vi.mock('../../services/pdfGeneratorService');
 
 describe('useProgressPolling', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    jest.useFakeTimers();
+    vi.clearAllMocks();
+    vi.useFakeTimers();
   });
 
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
-  const mockCheckProgress = PdfGeneratorService.checkProgress as jest.MockedFunction<typeof PdfGeneratorService.checkProgress>;
+  const mockCheckProgress = PdfGeneratorService.checkProgress as any;
 
   it('should not poll when disabled', () => {
     renderHook(() => useProgressPolling({
@@ -54,9 +55,8 @@ describe('useProgressPolling', () => {
 
     expect(result.current.isPolling).toBe(true);
 
-    // Wait for initial poll
     await act(async () => {
-      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(600);
     });
 
     expect(mockCheckProgress).toHaveBeenCalledWith('test-id');
@@ -69,7 +69,7 @@ describe('useProgressPolling', () => {
   });
 
   it('should call onComplete when generation is finished', async () => {
-    const onComplete = jest.fn();
+    const onComplete = vi.fn();
     
     mockCheckProgress.mockResolvedValue({
       status: 'completed',
@@ -88,7 +88,7 @@ describe('useProgressPolling', () => {
     }));
 
     await act(async () => {
-      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(600);
     });
 
     expect(onComplete).toHaveBeenCalledWith({
@@ -100,7 +100,7 @@ describe('useProgressPolling', () => {
   });
 
   it('should call onError when generation fails', async () => {
-    const onError = jest.fn();
+    const onError = vi.fn();
     
     mockCheckProgress.mockResolvedValue({
       status: 'error',
@@ -114,7 +114,7 @@ describe('useProgressPolling', () => {
     }));
 
     await act(async () => {
-      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(600);
     });
 
     expect(onError).toHaveBeenCalledWith('Generation failed');

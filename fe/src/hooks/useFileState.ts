@@ -5,6 +5,7 @@ import { validateFontSize } from '../utils/validation';
 
 const initialFileState: FileState = {
   fileName: '',
+  selectedFile: null,
   wordCount: 0,
   sheetsCount: 0,
   readTime: '--',
@@ -15,6 +16,8 @@ function fileStateReducer(state: FileState, action: FileStateAction): FileState 
   switch (action.type) {
     case 'SET_FILE_NAME':
       return { ...state, fileName: action.payload };
+    case 'SET_SELECTED_FILE':
+      return { ...state, selectedFile: action.payload };
     case 'SET_WORD_COUNT':
       return { ...state, wordCount: action.payload };
     case 'SET_SHEETS_COUNT':
@@ -42,6 +45,10 @@ export function useFileState() {
 
   const setFileName = useCallback((fileName: string) => {
     dispatch({ type: 'SET_FILE_NAME', payload: fileName });
+  }, []);
+
+  const setSelectedFile = useCallback((file: File | null) => {
+    dispatch({ type: 'SET_SELECTED_FILE', payload: file });
   }, []);
 
   const setWordCount = useCallback((wordCount: number) => {
@@ -89,6 +96,7 @@ export function useFileState() {
   return {
     fileState,
     setFileName,
+    setSelectedFile,
     setWordCount,
     setSheetsCount,
     setReadTime,

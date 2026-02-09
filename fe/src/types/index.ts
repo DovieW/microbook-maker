@@ -15,6 +15,7 @@ export interface HeaderInfo {
 export interface UploadParams {
   bookName: string;
   borderStyle: string;
+  fontFamily: string;
   headerInfo: HeaderInfo;
 }
 
@@ -29,10 +30,12 @@ export interface BookInfo {
 export interface PdfOptions {
   fontSize: string;
   borderStyle: string;
+  fontFamily: string;
 }
 
 export interface FileState {
   fileName: string;
+  selectedFile: File | null;
   wordCount: number;
   sheetsCount: number;
   readTime: string;
@@ -65,10 +68,12 @@ export type BookInfoAction =
 
 export type PdfOptionsAction =
   | { type: 'SET_FONT_SIZE'; payload: string }
-  | { type: 'SET_BORDER_STYLE'; payload: string };
+  | { type: 'SET_BORDER_STYLE'; payload: string }
+  | { type: 'SET_FONT_FAMILY'; payload: string };
 
 export type FileStateAction =
   | { type: 'SET_FILE_NAME'; payload: string }
+  | { type: 'SET_SELECTED_FILE'; payload: File | null }
   | { type: 'SET_WORD_COUNT'; payload: number }
   | { type: 'SET_SHEETS_COUNT'; payload: number }
   | { type: 'SET_READ_TIME'; payload: string }
@@ -164,6 +169,7 @@ export interface Job {
   id: string;
   bookName: string;
   fontSize: string;
+  fontFamily: string;
   borderStyle: string | null;
   author: string | null;
   year: string | null;
@@ -180,13 +186,28 @@ export interface JobsResponse {
   jobs: Job[];
 }
 
+export interface CapabilitiesResponse {
+  acceptedFormats: string[];
+  maxUploadSizeBytes: number;
+  fontOptions: {
+    value: string;
+    label: string;
+  }[];
+  defaults: {
+    format: string;
+    borderStyle: string;
+    fontSize: string;
+    fontFamily: string;
+  };
+}
+
 export interface UseJobManagementReturn {
   jobs: Job[];
   loading: boolean;
   error: Error | null;
   refreshJobs: () => Promise<void>;
   clearError: () => void;
-  addNewJob: (jobId: string, bookName: string, fontSize: string, originalFileName?: string, borderStyle?: string, author?: string, year?: string, series?: string) => void;
+  addNewJob: (jobId: string, bookName: string, fontSize: string, fontFamily: string, originalFileName?: string, borderStyle?: string, author?: string, year?: string, series?: string) => void;
   deleteJob: (jobId: string) => Promise<void>;
   onScrollToTop: (callback: () => void) => void;
 }

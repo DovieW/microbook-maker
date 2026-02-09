@@ -1,8 +1,9 @@
-import { createContext, useContext, ReactNode } from 'react';
+import { createContext, useContext, ReactNode, useEffect } from 'react';
 import { useBookInfo } from '../hooks/useBookInfo';
 import { usePdfOptions } from '../hooks/usePdfOptions';
 import { useFileState } from '../hooks/useFileState';
 import { useGenerationState } from '../hooks/useGenerationState';
+import { useCapabilities } from '../hooks/useCapabilities';
 
 interface AppContextType {
   // Book Info
@@ -21,10 +22,12 @@ interface AppContextType {
   pdfOptions: ReturnType<typeof usePdfOptions>['pdfOptions'];
   setFontSize: ReturnType<typeof usePdfOptions>['setFontSize'];
   setBorderStyle: ReturnType<typeof usePdfOptions>['setBorderStyle'];
+  setFontFamily: ReturnType<typeof usePdfOptions>['setFontFamily'];
 
   // File State
   fileState: ReturnType<typeof useFileState>['fileState'];
   setFileName: ReturnType<typeof useFileState>['setFileName'];
+  setSelectedFile: ReturnType<typeof useFileState>['setSelectedFile'];
   setWordCount: ReturnType<typeof useFileState>['setWordCount'];
   setSheetsCount: ReturnType<typeof useFileState>['setSheetsCount'];
   setReadTime: ReturnType<typeof useFileState>['setReadTime'];
@@ -43,6 +46,12 @@ interface AppContextType {
   removeNotification: ReturnType<typeof useGenerationState>['removeNotification'];
   clearNotifications: ReturnType<typeof useGenerationState>['clearNotifications'];
   resetGenerationState: ReturnType<typeof useGenerationState>['resetGenerationState'];
+
+  // Capabilities
+  capabilities: ReturnType<typeof useCapabilities>['capabilities'];
+  capabilitiesLoading: ReturnType<typeof useCapabilities>['capabilitiesLoading'];
+  capabilitiesError: ReturnType<typeof useCapabilities>['capabilitiesError'];
+  refreshCapabilities: ReturnType<typeof useCapabilities>['refreshCapabilities'];
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -56,6 +65,23 @@ export function AppProvider({ children }: AppProviderProps) {
   const pdfOptionsHook = usePdfOptions();
   const fileStateHook = useFileState();
   const generationStateHook = useGenerationState();
+  const capabilitiesHook = useCapabilities();
+
+  useEffect(() => {
+    const availableFontValues = capabilitiesHook.capabilities.fontOptions.map((option) => option.value);
+    if (availableFontValues.length === 0) {
+      return;
+    }
+
+    if (!availableFontValues.includes(pdfOptionsHook.pdfOptions.fontFamily)) {
+      pdfOptionsHook.setFontFamily(capabilitiesHook.capabilities.defaults.fontFamily);
+    }
+  }, [
+    capabilitiesHook.capabilities.fontOptions,
+    capabilitiesHook.capabilities.defaults.fontFamily,
+    pdfOptionsHook.pdfOptions.fontFamily,
+    pdfOptionsHook.setFontFamily,
+  ]);
 
   const contextValue: AppContextType = {
     // Book Info
@@ -74,10 +100,12 @@ export function AppProvider({ children }: AppProviderProps) {
     pdfOptions: pdfOptionsHook.pdfOptions,
     setFontSize: pdfOptionsHook.setFontSize,
     setBorderStyle: pdfOptionsHook.setBorderStyle,
+    setFontFamily: pdfOptionsHook.setFontFamily,
 
     // File State
     fileState: fileStateHook.fileState,
     setFileName: fileStateHook.setFileName,
+    setSelectedFile: fileStateHook.setSelectedFile,
     setWordCount: fileStateHook.setWordCount,
     setSheetsCount: fileStateHook.setSheetsCount,
     setReadTime: fileStateHook.setReadTime,
@@ -96,6 +124,12 @@ export function AppProvider({ children }: AppProviderProps) {
     removeNotification: generationStateHook.removeNotification,
     clearNotifications: generationStateHook.clearNotifications,
     resetGenerationState: generationStateHook.resetGenerationState,
+
+    // Capabilities
+    capabilities: capabilitiesHook.capabilities,
+    capabilitiesLoading: capabilitiesHook.capabilitiesLoading,
+    capabilitiesError: capabilitiesHook.capabilitiesError,
+    refreshCapabilities: capabilitiesHook.refreshCapabilities,
   };
 
   return (

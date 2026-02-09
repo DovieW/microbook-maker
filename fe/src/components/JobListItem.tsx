@@ -136,6 +136,13 @@ const JobListItem: React.FC<JobListItemProps> = ({ job }) => {
     return new Date(dateString).toLocaleString();
   };
 
+  const formatFontFamily = (fontFamily: string) => {
+    return fontFamily
+      .split('-')
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+  };
+
 
 
 
@@ -165,6 +172,15 @@ const JobListItem: React.FC<JobListItemProps> = ({ job }) => {
               </Typography>
               <Typography variant="body2">
                 {job.fontSize}px
+              </Typography>
+            </JobDetailRow>
+
+            <JobDetailRow>
+              <Typography variant="body2" color="text.secondary">
+                Font:
+              </Typography>
+              <Typography variant="body2">
+                {formatFontFamily(job.fontFamily)}
               </Typography>
             </JobDetailRow>
 

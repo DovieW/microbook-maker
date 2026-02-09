@@ -1,13 +1,14 @@
 import { renderHook, act } from '@testing-library/react';
+import { vi } from 'vitest';
 import { useOpenLibrary } from '../useOpenLibrary';
 import { OpenLibraryService } from '../../services/openLibraryService';
 
 // Mock the service
-jest.mock('../../services/openLibraryService');
+vi.mock('../../services/openLibraryService');
 
 describe('useOpenLibrary', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('should initialize with correct default state', () => {
@@ -25,7 +26,7 @@ describe('useOpenLibrary', () => {
       publishYear: '2023',
     };
 
-    (OpenLibraryService.fetchBookInfo as jest.Mock).mockResolvedValue(mockBookInfo);
+    (OpenLibraryService.fetchBookInfo as any).mockResolvedValue(mockBookInfo);
 
     const { result } = renderHook(() => useOpenLibrary());
 
@@ -41,7 +42,7 @@ describe('useOpenLibrary', () => {
   });
 
   it('should handle loading state correctly', async () => {
-    (OpenLibraryService.fetchBookInfo as jest.Mock).mockImplementation(
+    (OpenLibraryService.fetchBookInfo as any).mockImplementation(
       () => new Promise(resolve => setTimeout(() => resolve(null), 100))
     );
 
@@ -62,7 +63,7 @@ describe('useOpenLibrary', () => {
 
   it('should handle errors correctly', async () => {
     const mockError = new Error('API Error');
-    (OpenLibraryService.fetchBookInfo as jest.Mock).mockRejectedValue(mockError);
+    (OpenLibraryService.fetchBookInfo as any).mockRejectedValue(mockError);
 
     const { result } = renderHook(() => useOpenLibrary());
 
@@ -78,7 +79,7 @@ describe('useOpenLibrary', () => {
 
   it('should clear error when clearError is called', async () => {
     const mockError = new Error('API Error');
-    (OpenLibraryService.fetchBookInfo as jest.Mock).mockRejectedValue(mockError);
+    (OpenLibraryService.fetchBookInfo as any).mockRejectedValue(mockError);
 
     const { result } = renderHook(() => useOpenLibrary());
 

@@ -76,11 +76,14 @@ export function validateFile(file: File): ValidationResult {
     };
   }
 
+  const supportedExtensions = ['.txt', '.md', '.markdown'];
+  const extension = `.${file.name.split('.').pop()?.toLowerCase()}`;
+
   // Check file extension
-  if (!file.name.toLowerCase().endsWith('.txt')) {
+  if (!supportedExtensions.includes(extension)) {
     return {
       isValid: false,
-      error: 'Only .txt files are supported'
+      error: `Only ${supportedExtensions.join(', ')} files are supported`
     };
   }
 

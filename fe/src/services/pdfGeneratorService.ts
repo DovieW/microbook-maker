@@ -19,8 +19,15 @@ export class PdfGeneratorService {
       throw new ApiError('File is required', 400, 'INVALID_INPUT');
     }
 
-    if (!file.name.endsWith('.txt')) {
-      throw new ApiError('Invalid file type. Please select a .txt file.', 400, 'INVALID_FILE_TYPE');
+    const supportedExtensions = ['.txt', '.md', '.markdown'];
+    const extension = `.${file.name.split('.').pop()?.toLowerCase()}`;
+
+    if (!supportedExtensions.includes(extension)) {
+      throw new ApiError(
+        `Invalid file type. Please select one of: ${supportedExtensions.join(', ')}`,
+        400,
+        'INVALID_FILE_TYPE'
+      );
     }
 
     const formData = new FormData();

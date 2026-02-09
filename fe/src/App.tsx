@@ -21,7 +21,7 @@ import {
 
 // Main App Content Component
 function AppContent() {
-  const { fileState, generationState } = useAppContext();
+  const { fileState, generationState, capabilities } = useAppContext();
   const { handleFileDrop } = useFileHandling();
   const { showError } = useNotifications();
   const dragDropRef = useRef<HTMLDivElement>(null);
@@ -31,8 +31,8 @@ function AppContent() {
 
   const { isDragActive, isDragOver, bindDragEvents } = useDragAndDrop({
     onFileDrop: handleFileDrop,
-    acceptedFileTypes: ['.txt'],
-    maxFileSize: 10 * 1024 * 1024, // 10MB
+    acceptedFileTypes: capabilities.acceptedFormats,
+    maxFileSize: capabilities.maxUploadSizeBytes,
     onError: (error) => showError('Drag & Drop Error', error),
   });
 

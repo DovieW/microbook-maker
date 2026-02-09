@@ -20,7 +20,7 @@ interface FileControlsProps {
 }
 
 const FileControls: React.FC<FileControlsProps> = ({ onJobStarted }) => {
-  const { fileState, pdfOptions } = useAppContext();
+  const { fileState, pdfOptions, capabilities } = useAppContext();
   const { uploadRef, handleFileChange, createHandleUploadFile } = useFileHandling();
 
   const handleUploadFile = createHandleUploadFile(onJobStarted);
@@ -29,9 +29,10 @@ const FileControls: React.FC<FileControlsProps> = ({ onJobStarted }) => {
   const fontSizeValidation = validateFontSize(pdfOptions.fontSize);
   const hasValidFontSize = fontSizeValidation.isValid;
   const hasFile = !!fileState.fileName;
+  const acceptedFormats = capabilities.acceptedFormats.join(', ');
 
   const getDisabledReason = () => {
-    if (!hasFile) return 'Please select a TXT file first';
+    if (!hasFile) return `Please select a supported file first (${acceptedFormats})`;
     if (!hasValidFontSize) return fontSizeValidation.error || 'Please enter a valid font size (4-10)';
     return '';
   };
@@ -45,7 +46,7 @@ const FileControls: React.FC<FileControlsProps> = ({ onJobStarted }) => {
           type="file"
           onChange={handleFileChange}
           ref={uploadRef}
-          accept=".txt"
+          accept={acceptedFormats}
           id="contained-button-file"
         />
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -60,7 +61,7 @@ const FileControls: React.FC<FileControlsProps> = ({ onJobStarted }) => {
               component="span"
               size="small"
             >
-              Select TXT
+              Select File
             </Button>
           </label>
         </Box>

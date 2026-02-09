@@ -1,13 +1,13 @@
 import { renderHook, act } from '@testing-library/react';
+import { vi } from 'vitest';
 import { useNotifications } from '../useNotifications';
-import { AppProvider } from '../../context/AppContext';
 
 // Mock the context
-const mockAddNotification = jest.fn();
-const mockRemoveNotification = jest.fn();
-const mockClearNotifications = jest.fn();
+const mockAddNotification = vi.fn();
+const mockRemoveNotification = vi.fn();
+const mockClearNotifications = vi.fn();
 
-jest.mock('../../context/AppContext', () => ({
+vi.mock('../../context/AppContext', () => ({
   useAppContext: () => ({
     addNotification: mockAddNotification,
     removeNotification: mockRemoveNotification,
@@ -17,7 +17,7 @@ jest.mock('../../context/AppContext', () => ({
 
 describe('useNotifications', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('should show success notification', () => {

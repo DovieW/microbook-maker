@@ -4,6 +4,7 @@ import { PdfOptions, PdfOptionsAction } from '../types';
 const initialPdfOptions: PdfOptions = {
   fontSize: '6',
   borderStyle: 'dashed',
+  fontFamily: 'arial',
 };
 
 function pdfOptionsReducer(state: PdfOptions, action: PdfOptionsAction): PdfOptions {
@@ -12,6 +13,8 @@ function pdfOptionsReducer(state: PdfOptions, action: PdfOptionsAction): PdfOpti
       return { ...state, fontSize: action.payload };
     case 'SET_BORDER_STYLE':
       return { ...state, borderStyle: action.payload };
+    case 'SET_FONT_FAMILY':
+      return { ...state, fontFamily: action.payload };
     default:
       return state;
   }
@@ -28,9 +31,14 @@ export function usePdfOptions() {
     dispatch({ type: 'SET_BORDER_STYLE', payload: borderStyle });
   }, []);
 
+  const setFontFamily = useCallback((fontFamily: string) => {
+    dispatch({ type: 'SET_FONT_FAMILY', payload: fontFamily });
+  }, []);
+
   return {
     pdfOptions,
     setFontSize,
     setBorderStyle,
+    setFontFamily,
   };
 }

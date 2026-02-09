@@ -1,19 +1,21 @@
 import { PdfGeneratorService } from '../pdfGeneratorService';
 import { ApiError } from '../openLibraryService';
 import { UploadParams } from '../../types';
+import { vi } from 'vitest';
 
 // Mock fetch globally
-global.fetch = jest.fn();
+global.fetch = vi.fn() as any;
 
 describe('PdfGeneratorService', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   const mockFile = new File(['test content'], 'test.txt', { type: 'text/plain' });
   const mockParams: UploadParams = {
     bookName: 'Test Book',
     borderStyle: 'dashed',
+    fontFamily: 'arial',
     headerInfo: {
       series: 'Test Series',
       sheetsCount: '10',
@@ -31,7 +33,7 @@ describe('PdfGeneratorService', () => {
         id: 'test-generation-id',
       };
 
-      (fetch as jest.Mock).mockResolvedValueOnce({
+      (fetch as any).mockResolvedValueOnce({
         ok: true,
         json: async () => mockResponse,
       });
@@ -60,7 +62,7 @@ describe('PdfGeneratorService', () => {
     });
 
     it('should throw ApiError when server returns error', async () => {
-      (fetch as jest.Mock).mockResolvedValueOnce({
+      (fetch as any).mockResolvedValueOnce({
         ok: false,
         status: 400,
         statusText: 'Bad Request',
@@ -76,7 +78,7 @@ describe('PdfGeneratorService', () => {
         // Missing id field
       };
 
-      (fetch as jest.Mock).mockResolvedValueOnce({
+      (fetch as any).mockResolvedValueOnce({
         ok: true,
         json: async () => mockResponse,
       });
@@ -87,7 +89,7 @@ describe('PdfGeneratorService', () => {
     });
 
     it('should handle network errors', async () => {
-      (fetch as jest.Mock).mockRejectedValueOnce(new Error('Network error'));
+      (fetch as any).mockRejectedValueOnce(new Error('Network error'));
 
       await expect(
         PdfGeneratorService.generatePdf(mockFile, mockParams)

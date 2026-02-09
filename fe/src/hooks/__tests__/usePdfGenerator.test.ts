@@ -1,20 +1,22 @@
 import { renderHook, act } from '@testing-library/react';
+import { vi } from 'vitest';
 import { usePdfGenerator } from '../usePdfGenerator';
 import { PdfGeneratorService } from '../../services/pdfGeneratorService';
 import { UploadParams } from '../../types';
 
 // Mock the service
-jest.mock('../../services/pdfGeneratorService');
+vi.mock('../../services/pdfGeneratorService');
 
 describe('usePdfGenerator', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   const mockFile = new File(['test content'], 'test.txt', { type: 'text/plain' });
   const mockParams: UploadParams = {
     bookName: 'Test Book',
     borderStyle: 'dashed',
+    fontFamily: 'arial',
     headerInfo: {
       series: 'Test Series',
       sheetsCount: '10',
@@ -37,7 +39,7 @@ describe('usePdfGenerator', () => {
 
   it('should generate PDF successfully', async () => {
     const mockGenerationId = 'test-generation-id';
-    (PdfGeneratorService.generatePdf as jest.Mock).mockResolvedValue(mockGenerationId);
+    (PdfGeneratorService.generatePdf as any).mockResolvedValue(mockGenerationId);
 
     const { result } = renderHook(() => usePdfGenerator());
 
@@ -53,7 +55,7 @@ describe('usePdfGenerator', () => {
   });
 
   it('should handle loading state correctly', async () => {
-    (PdfGeneratorService.generatePdf as jest.Mock).mockImplementation(
+    (PdfGeneratorService.generatePdf as any).mockImplementation(
       () => new Promise(resolve => setTimeout(() => resolve('test-id'), 100))
     );
 
@@ -74,7 +76,7 @@ describe('usePdfGenerator', () => {
 
   it('should handle errors correctly', async () => {
     const mockError = new Error('Generation Error');
-    (PdfGeneratorService.generatePdf as jest.Mock).mockRejectedValue(mockError);
+    (PdfGeneratorService.generatePdf as any).mockRejectedValue(mockError);
 
     const { result } = renderHook(() => usePdfGenerator());
 
@@ -90,7 +92,7 @@ describe('usePdfGenerator', () => {
 
   it('should clear error when clearError is called', async () => {
     const mockError = new Error('Generation Error');
-    (PdfGeneratorService.generatePdf as jest.Mock).mockRejectedValue(mockError);
+    (PdfGeneratorService.generatePdf as any).mockRejectedValue(mockError);
 
     const { result } = renderHook(() => usePdfGenerator());
 

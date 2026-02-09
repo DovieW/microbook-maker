@@ -6,3 +6,4 @@ export { useFileHandling } from './useFileHandling';
 export { useOpenLibrary } from './useOpenLibrary';
 export { usePdfGenerator } from './usePdfGenerator';
 export { useJobManagement } from './useJobManagement';
+export { useCapabilities } from './useCapabilities';

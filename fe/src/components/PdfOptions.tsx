@@ -18,6 +18,8 @@ const PdfOptions: React.FC = () => {
   const {
     pdfOptions,
     setBorderStyle,
+    setFontFamily,
+    capabilities,
   } = useAppContext();
 
   const { handleFontSizeChange } = useFileHandling();
@@ -50,6 +52,24 @@ const PdfOptions: React.FC = () => {
             step: 0.5,
           }}
         />
+
+        <StyledFormControl
+          variant="outlined"
+          margin="normal"
+        >
+          <InputLabel>Font</InputLabel>
+          <Select
+            value={pdfOptions.fontFamily}
+            onChange={e => setFontFamily(e.target.value)}
+            label="Font"
+          >
+            {capabilities.fontOptions.map((option) => (
+              <MenuItem key={option.value} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </StyledFormControl>
 
         <StyledFormControl
           variant="outlined"

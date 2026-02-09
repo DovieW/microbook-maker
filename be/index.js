@@ -1,350 +1,355 @@
 const fs = require('fs');
+const path = require('path');
 const multer = require('multer');
-const puppeteer = require('puppeteer');
 const express = require('express');
+const puppeteer = require('puppeteer');
+
+const progressService = require('./services/progressService');
+const { JobQueueService } = require('./services/jobQueueService');
+const { getCapabilities } = require('./services/capabilitiesService');
+const {
+  parseUploadedDocument,
+  normalizeDocument,
+  serializeDocumentToTokens,
+} = require('./pipeline/documentPipeline');
+const {
+  resolveFontFamily,
+  getFontStack,
+} = require('./pipeline/render/fontCatalog');
+const { buildTokenStyles } = require('./pipeline/render/tokenStyles');
+const {
+  generateJobId,
+  getSafeUploadFilename,
+  sanitizeFileComponent,
+} = require('./utils/fileUtils');
+const { getPuppeteerLaunchOptions } = require('./utils/browserUtils');
+
 const app = express();
 const port = 3001;
-const path = require('path');
-const progressService = require('./services/progressService');
+const queueConcurrency = Number(process.env.JOB_QUEUE_CONCURRENCY || 1);
+const jobQueue = new JobQueueService({ concurrency: queueConcurrency });
+const capabilities = getCapabilities();
+const supportedFormatSet = new Set(capabilities.acceptedFormats);
+const supportedFontValues = new Set(capabilities.fontOptions.map((option) => option.value));
+const defaultFontFamily = capabilities.defaults.fontFamily;
 
-// Job tracking system for cancellation
-const runningJobs = new Map(); // jobId -> { browser, cancelled: boolean }
+const generatedDir = path.join(__dirname, 'generated');
+const uploadsDir = path.join(__dirname, 'uploads');
+
+fs.mkdirSync(generatedDir, { recursive: true });
+fs.mkdirSync(uploadsDir, { recursive: true });
+
+const runningJobs = new Map(); // jobId -> { browser, cancelled, status }
+
 const storage = multer.diskStorage({
-  destination: function(req, file, cb) {
-    cb(null, 'uploads/')
+  destination: function destination(req, file, cb) {
+    cb(null, uploadsDir);
   },
-  filename: function(req, file, cb) {
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hour = String(date.getHours()).padStart(2, '0');
-    const minute = String(date.getMinutes()).padStart(2, '0');
-    const second = String(date.getSeconds()).padStart(2, '0');
-    const formattedDate = `${year}${month}${day}${hour}${minute}${second}`;
-    const fileName = `${formattedDate}_${file.originalname}`;
-    cb(null, fileName);
-  }
-});
-const upload = multer({ storage: storage });
-
-// Debug endpoint to see running jobs
-app.get('/api/debug/running-jobs', (req, res) => {
-  const jobs = Array.from(runningJobs.entries()).map(([id, job]) => ({
-    id,
-    cancelled: job.cancelled,
-    hasBrowser: !!job.browser
-  }));
-  res.json({ runningJobs: jobs, count: jobs.length });
+  filename: function filename(req, file, cb) {
+    cb(null, getSafeUploadFilename(file.originalname));
+  },
 });
 
-app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
-  const json = JSON.parse(req.body.params);
-  const {bookName, borderStyle} = json;
-  const {fontSize, sheetsCount, author, year, series} = json.headerInfo;
+const upload = multer({
+  storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024,
+  },
+  fileFilter: (req, file, cb) => {
+    const extension = path.extname(file.originalname || '').toLowerCase();
+    if (!supportedFormatSet.has(extension)) {
+      cb(new Error(`Unsupported file format: ${extension || 'unknown'}`));
+      return;
+    }
+    cb(null, true);
+  },
+});
 
-  const date = new Date();
-  const year_date = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hour = String(date.getHours()).padStart(2, '0');
-  const minute = String(date.getMinutes()).padStart(2, '0');
-  const second = String(date.getSeconds()).padStart(2, '0');
-  const id = `${year_date}${month}${day}${hour}${minute}${second}_${bookName}_${fontSize}`;
-
-  // Store job metadata
-  const jobMetadata = {
-    id,
-    bookName,
-    borderStyle,
-    fontSize,
-    author: author || null,
-    year: year || null,
-    series: series || null,
-    createdAt: new Date().toISOString(),
-    originalFileName: req.files.file && req.files.file[0] ? req.files.file[0].originalname : null
+function getProgressPaths(id) {
+  return {
+    inProgressPath: path.join(generatedDir, `IN_PROGRESS_${id}.txt`),
+    structuredProgressPath: path.join(generatedDir, `PROGRESS_${id}.json`),
+    metadataPath: path.join(generatedDir, `METADATA_${id}.json`),
+    pdfPath: path.join(generatedDir, `${id}.pdf`),
   };
+}
 
-  const metadataPath = path.join(__dirname, 'generated', `METADATA_${id}.json`);
-  fs.writeFileSync(metadataPath, JSON.stringify(jobMetadata, null, 2));
+function writeLegacyProgress(id, text) {
+  const { inProgressPath } = getProgressPaths(id);
+  fs.writeFileSync(inProgressPath, text);
+  const structuredProgress = progressService.parseLegacyProgress(text);
+  progressService.writeProgress(id, structuredProgress);
+}
 
-  function writeToInProgress(text) {
-    console.log(`${text}`);
-    const inProgressPath = path.join(__dirname, 'generated', `IN_PROGRESS_${id}.txt`);
-    fs.writeFileSync(inProgressPath, text);
-
-    // Also write structured progress
-    const structuredProgress = progressService.parseLegacyProgress(text);
-    progressService.writeProgress(id, structuredProgress);
+function readMetadata(id) {
+  const { metadataPath } = getProgressPaths(id);
+  if (!fs.existsSync(metadataPath)) {
+    return null;
   }
 
-  // Write initial progress (0-5% range)
-  const estimatedSheets = Math.ceil(json.headerInfo.wordCount / 250); // Rough estimate
-  const initialProgress = {
+  try {
+    return JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
+  } catch (error) {
+    console.warn(`Failed to parse metadata ${metadataPath}:`, error);
+    return null;
+  }
+}
+
+function setQueuedProgress(id, bookName) {
+  progressService.writeProgress(id, {
+    step: `Queued: ${bookName}`,
+    percentage: 0,
+    isComplete: false,
+    isError: false,
+    phase: 'queued',
+  });
+}
+
+async function executePdfJob({
+  id,
+  params,
+  uploadFile,
+  metadata,
+}) {
+  const { bookName, borderStyle, fontFamily } = params;
+  const { fontSize, author, year, series } = params.headerInfo;
+  const resolvedFontFamily = resolveFontFamily(fontFamily, {
+    allowedValues: supportedFontValues,
+  });
+  const selectedFontStack = getFontStack(resolvedFontFamily, {
+    allowedValues: supportedFontValues,
+  });
+
+  let browser = null;
+  let page = null;
+  const { inProgressPath, pdfPath } = getProgressPaths(id);
+
+  const jobState = runningJobs.get(id);
+  if (jobState?.cancelled) {
+    return;
+  }
+
+  progressService.writeProgress(id, {
     step: `Initializing: ${bookName}`,
     percentage: 1,
     isComplete: false,
     isError: false,
-    phase: 'initialization'
-  };
-  progressService.writeProgress(id, initialProgress);
-
-  setImmediate(async () => {
-    try {
-      await run(json, id, bookName, fontSize, borderStyle);
-    } catch (error) {
-      console.error(error);
-      const errorProgress = progressService.createErrorProgress(error.toString(), 'generation');
-      progressService.writeProgress(id, errorProgress);
-      writeToInProgress('ERROR: ' + error.toString());
-    } finally {
-      // Clean up job tracking
-      runningJobs.delete(id);
-    }
+    phase: 'initialization',
   });
 
-  async function run(json, id, bookName, fontSize, borderStyle) {
-    const browser = await puppeteer.launch({
-      executablePath: '/usr/bin/chromium',
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-extensions',
-        '--mute-audio',
-        // Enhanced v24 performance args
-        '--disable-background-timer-throttling',
-        '--disable-backgrounding-occluded-windows',
-        '--disable-renderer-backgrounding',
-        '--disable-features=TranslateUI',
-        '--disable-ipc-flooding-protection'
-      ],
-      protocolTimeout: 1000000,
-      headless: true,
-      devtools: false,
-      // New v24 option: can enable extensions if needed in future
-      // enableExtensions: false, // Explicitly disabled for performance
-      // Enhanced timeout handling
-      timeout: 60000
+  try {
+    const inputBuffer = fs.readFileSync(uploadFile.path);
+    const parsedDocument = parseUploadedDocument({
+      originalName: uploadFile.originalname,
+      mimeType: uploadFile.mimetype,
+      input: inputBuffer,
     });
 
-    // Track this job for potential cancellation
-    runningJobs.set(id, { browser, cancelled: false });
+    const normalizedDocument = normalizeDocument(parsedDocument);
+    const tokens = serializeDocumentToTokens(normalizedDocument);
 
-    // Check if job was cancelled before we started
-    if (runningJobs.get(id)?.cancelled) {
-      console.log(`Job ${id} was cancelled before processing started`);
-      try {
-        await browser.close();
-      } catch (closeError) {
-        console.error(`Error closing browser during early cancellation for job ${id}:`, closeError);
-      } finally {
-        runningJobs.delete(id);
-      }
-      return;
-    }
-
-    // Update progress for browser launch (0-5% range)
-    console.log('Browser launched, updating progress to 3%');
-    const browserProgress = {
+    progressService.writeProgress(id, {
       step: 'Setting up document processing',
       percentage: 3,
       isComplete: false,
       isError: false,
-      phase: 'setup'
-    };
-    progressService.writeProgress(id, browserProgress);
-    const page = await browser.newPage();
+      phase: 'setup',
+    });
 
-    // Enhanced v24 page configuration
-    await page.setDefaultTimeout(60000);
-    await page.setDefaultNavigationTimeout(60000);
+    const launchOptions = getPuppeteerLaunchOptions();
+    if (process.env.PUPPETEER_EXECUTABLE_PATH && !launchOptions.executablePath) {
+      console.warn(`PUPPETEER_EXECUTABLE_PATH is set but missing: ${process.env.PUPPETEER_EXECUTABLE_PATH}`);
+    }
 
-    // Optional: Enable performance monitoring for debugging (v24 feature)
-    const enablePerformanceMonitoring = process.env.ENABLE_PERFORMANCE_MONITORING === 'true';
-    if (enablePerformanceMonitoring) {
-      await page.tracing.start({
-        path: path.join(__dirname, 'generated', `trace_${id}.json`),
-        screenshots: false,
-        categories: ['devtools.timeline']
+    try {
+      browser = await puppeteer.launch(launchOptions);
+    } catch (error) {
+      const message = String(error?.message || error);
+      if (/Browser was not found|Could not find Chrome|Could not find chromium/i.test(message)) {
+        throw new Error(
+          `${message}. Install Chromium in WSL (e.g. 'sudo apt install chromium-browser') `
+          + `or set PUPPETEER_EXECUTABLE_PATH to a valid browser binary.`
+        );
+      }
+      throw error;
+    }
+
+    const existingState = runningJobs.get(id);
+    if (existingState) {
+      runningJobs.set(id, {
+        ...existingState,
+        browser,
+        status: 'running',
       });
     }
 
-    // Enhanced error handling for v24
+    if (runningJobs.get(id)?.cancelled) {
+      return;
+    }
+
+    page = await browser.newPage();
+    await page.setDefaultTimeout(60000);
+    await page.setDefaultNavigationTimeout(60000);
+
     page.on('error', (error) => {
       console.error(`Page error for job ${id}:`, error);
-      const errorProgress = {
+      progressService.writeProgress(id, {
         step: 'Page error occurred',
         percentage: 0,
         isComplete: false,
         isError: true,
         errorMessage: error.message,
-        phase: 'error'
-      };
-      progressService.writeProgress(id, errorProgress);
+        phase: 'error',
+      });
     });
 
     page.on('pageerror', (error) => {
       console.error(`Page script error for job ${id}:`, error);
     });
 
-    const inProgressPath = path.join(__dirname, 'generated', `IN_PROGRESS_${id}.txt`);
-
-    page.on('console', pageIndex => {
-      const n = Number(pageIndex.text());
-      if (isNaN(n)) {
-        console.log(pageIndex.text());
+    page.on('console', (event) => {
+      const index = Number(event.text());
+      if (Number.isNaN(index)) {
         return;
       }
-      const currentSheet = Math.ceil(n / 2);
-      // Use a dynamic progress calculation since we don't know the final sheet count yet
-      // Progress range: 5% to 95% (90% range for page creation - the main work!)
-      // Use a logarithmic approach to slow down progress as more pages are created
-      const progressPercentage = Math.min(95, 5 + Math.round(Math.log(n + 1) * 18));
 
-      const progressInfo = {
+      const currentSheet = Math.ceil(index / 2);
+      const progressPercentage = Math.min(95, 5 + Math.round(Math.log(index + 1) * 18));
+
+      progressService.writeProgress(id, {
         step: `Creating sheet ${currentSheet}`,
         percentage: progressPercentage,
         currentSheet,
-        totalSheets: null, // Will be updated when final count is known
+        totalSheets: null,
         isComplete: false,
         isError: false,
-        phase: 'page_creation'
-      };
-      progressService.writeProgress(id, progressInfo);
-      writeToInProgress(`Creating sheet ${n / 2} of ${sheetsCount}-ish.`);
+        phase: 'page_creation',
+      });
+
+      writeLegacyProgress(id, `Creating sheet ${index / 2} of ${params.headerInfo.sheetsCount}-ish.`);
     });
 
-    // await page.setViewport({ width: 816, height: 1056 });
+    const fontSizeNumber = Number(fontSize) || 6;
 
-    let text = fs.readFileSync(req.files.file[0].path, 'utf8');
-    
-    await page.goto(`file://${__dirname}/page.html`);
-    
-    await page.addStyleTag({content: `body { font-size: ${fontSize}px; }`});
-    
-    // Add dynamic border style
-    await page.addStyleTag({content: `
-      .grid-item:nth-child(4n-2), 
-      .grid-item:nth-child(4n-1), 
-      .grid-item:nth-child(4n-3) {
-          border-right: 1px ${borderStyle || 'dashed'} black;
-      }
-      .grid-item:nth-child(n+5) {
-          border-top: 1px ${borderStyle || 'dashed'} black;
-      }
-    `});
+    await page.goto(`file://${path.join(__dirname, 'page.html')}`);
+    await page.addStyleTag({ content: `body { font-size: ${fontSizeNumber}px; }` });
+    await page.addStyleTag({
+      content: buildTokenStyles({
+        selectedFontStack,
+        borderStyle,
+      }),
+    });
 
-    // Check for cancellation before starting page creation
-    if (runningJobs.get(id)?.cancelled) {
-      console.log(`Job ${id} was cancelled during setup`);
-      await browser.close();
-      return;
-    }
-
-    writeToInProgress(`Creating: ${bookName}`);
-
-    // Update progress for starting page creation (5-95% range)
-    const startPageProgress = {
+    progressService.writeProgress(id, {
       step: 'Creating document pages',
       percentage: 5,
       isComplete: false,
       isError: false,
-      phase: 'page_creation'
-    };
-    progressService.writeProgress(id, startPageProgress);
+      phase: 'page_creation',
+    });
 
-    await page.evaluate((json, text, bookName) => {
+    writeLegacyProgress(id, `Creating: ${bookName}`);
+
+    await page.evaluate((payload) => {
+      const {
+        tokens,
+        bookName,
+        headerInfo,
+        totalWords,
+      } = payload;
+
       let pageIndex = 0;
-      let isCurrentPageFront = true; // tracks whether the next page to be rendered is on the front of the double sided sheet. the side with the big header
+      let isCurrentPageFront = true;
 
-      function createNewPage(readTime, initialWordCount, wordsLeft, headerInfo) {
-        // Console.log triggers progress updates via page console event listener
-        console.log(pageIndex+1);
-        const percentageCompleted = Math.round((initialWordCount - wordsLeft) / initialWordCount * 100);
-        const page = document.createElement('div');
-        page.className = 'page';
+      function createNewPage(initialWordCount, wordsLeft) {
+        console.log(pageIndex + 1);
+        const percentageCompleted = initialWordCount > 0
+          ? Math.round((initialWordCount - wordsLeft) / initialWordCount * 100)
+          : 0;
 
-        // create grid cells
+        const pageElement = document.createElement('div');
+        pageElement.className = 'page';
+
         const grid = document.createElement('div');
         grid.className = 'grid-container';
-        for (let i = 0; i < 16; i++) {
+
+        for (let i = 0; i < 16; i += 1) {
           const gridItem = document.createElement('div');
           gridItem.className = 'grid-item';
 
-          // Determine padding classes for Improved Padding
           let paddingClass = '';
-          // Rows
-          if (i < 4) { // Row 1 (bottom padding)
+          if (i < 4) {
             paddingClass += 'pad-bottom ';
-          } else if (i >= 4 && i < 12) { // Rows 2 and 3 (top and bottom padding)
+          } else if (i >= 4 && i < 12) {
             paddingClass += 'pad-top pad-bottom ';
-          } else { // Row 4 (top padding)
+          } else {
             paddingClass += 'pad-top ';
           }
-          // Columns
-          if (i % 4 === 1) { // Second cell from the left in each row, right padding for crease
+
+          if (i % 4 === 1) {
             paddingClass += 'pad-right';
-          } else if (i % 4 === 2) { // Third cell from the left in each row, left padding for crease
+          } else if (i % 4 === 2) {
             paddingClass += 'pad-left';
           }
+
           gridItem.className += ` ${paddingClass}`;
 
-          if (i === 0 && isCurrentPageFront) { // First cell on front page
-            gridItem.id = 'header' + pageIndex;
-            if (pageIndex === 0) { // Add main header on first page
-              let mainHeader = document.createElement('div');
-              mainHeader.classList.add('main-header');
-              let table = document.createElement('table');
-              mainHeader.appendChild(table);
-              const mainHeaderTitleTr = document.createElement('tr');
-              const mainHeaderTitleTd = document.createElement('td');
-              mainHeaderTitleTd.setAttribute('colspan', '2');
-              mainHeaderTitleTr.appendChild(mainHeaderTitleTd);
-              mainHeaderTitleTd.classList.add('main-header-title');
-              mainHeaderTitleTd.innerText = `${bookName}`;
-              table.appendChild(mainHeaderTitleTd);
+          if (i === 0 && isCurrentPageFront) {
+            gridItem.id = `header${pageIndex}`;
+            const mainHeader = document.createElement('div');
+            mainHeader.classList.add('main-header');
+            const table = document.createElement('table');
+            mainHeader.appendChild(table);
 
+            const titleRow = document.createElement('tr');
+            const titleCell = document.createElement('td');
+            titleCell.setAttribute('colspan', '2');
+            titleCell.classList.add('main-header-title');
+
+            if (pageIndex === 0) {
+              titleCell.innerText = `${bookName}`;
+            } else {
+              const sheetNumSpan = document.createElement('span');
+              sheetNumSpan.id = `sheetNum${pageIndex}`;
+              sheetNumSpan.innerText = '00/00';
+              titleCell.appendChild(sheetNumSpan);
+              if (bookName) {
+                titleCell.innerHTML += ` - ${bookName}`;
+              }
+            }
+
+            titleRow.appendChild(titleCell);
+            table.appendChild(titleRow);
+
+            if (pageIndex === 0) {
               let cellCount = 0;
-              let currentRow;
-              for (let property in headerInfo) {
-                if (!headerInfo[property]) continue;
+              let currentRow = null;
+              for (const property in headerInfo) {
+                if (!headerInfo[property]) {
+                  continue;
+                }
+
                 if (cellCount === 0 || cellCount >= 2) {
                   currentRow = document.createElement('tr');
                   table.appendChild(currentRow);
                   cellCount = 0;
                 }
-                let cell = document.createElement('td');
-                
+
+                const cell = document.createElement('td');
                 let value = headerInfo[property];
                 if (property === 'wordCount') {
                   value = `${Intl.NumberFormat().format(wordsLeft)}`;
                 }
-                cell.innerHTML = `<b>${property.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}:</b> ${value}`;
-                currentRow.appendChild(cell);
-                cellCount++;
-              }
-              gridItem.appendChild(mainHeader);
-            } else {
-              let mainHeader = document.createElement('div');
-              gridItem.appendChild(mainHeader);
-              mainHeader.classList.add('main-header');
-              let table = document.createElement('table');
-              mainHeader.appendChild(table);
-              const mainHeaderTitleTr = document.createElement('tr');
-              const mainHeaderTitleTd = document.createElement('td');
-              mainHeaderTitleTd.setAttribute('colspan', '2');
-              mainHeaderTitleTr.appendChild(mainHeaderTitleTd);
-              mainHeaderTitleTd.classList.add('main-header-title');
-              let sheetNumSpan = document.createElement('span');
-              sheetNumSpan.id = 'sheetNum' + pageIndex;
-              sheetNumSpan.innerText = '00/00';
-              mainHeaderTitleTd.appendChild(sheetNumSpan);
-              if (bookName) mainHeaderTitleTd.innerHTML += ` - ${bookName}`;
-              table.appendChild(mainHeaderTitleTd);
 
-              let currentRow = document.createElement('tr');
+                cell.innerHTML = `<b>${property.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase())}:</b> ${value}`;
+                currentRow.appendChild(cell);
+                cellCount += 1;
+              }
+            } else {
+              const currentRow = document.createElement('tr');
               table.appendChild(currentRow);
-              let cell = document.createElement('td');
+
+              const cell = document.createElement('td');
               cell.setAttribute('colspan', '2');
               const wordsPerMinute = 215;
               const timeLeftMinutes = wordsLeft / wordsPerMinute;
@@ -357,233 +362,461 @@ app.post('/api/upload', upload.fields([{name: 'file'}]), (req, res) => {
               if (minsLeft > 0) {
                 timeText += ` ${minsLeft} minute${minsLeft > 1 ? 's' : ''}`;
               }
+
               cell.innerHTML = `${Intl.NumberFormat().format(wordsLeft)} Words - ${percentageCompleted}% Complete - ${timeText}`;
               currentRow.appendChild(cell);
             }
-          } else if (i % 4 === 0) { // if it's the first cell in a row, add mini header
+
+            gridItem.appendChild(mainHeader);
+          } else if (i % 4 === 0) {
             const miniSheetNumContainer = document.createElement('span');
             const miniSheetNum = document.createElement('span');
-            const miniSheetNumPrecentage = document.createElement('span');
+            const miniSheetNumPercentage = document.createElement('span');
+
             miniSheetNumContainer.appendChild(miniSheetNum);
-            miniSheetNumContainer.appendChild(miniSheetNumPrecentage);
-            miniSheetNumPrecentage.classList.add('miniSheetNumPrecentage');
-            miniSheetNum.classList.add('miniSheetNum' + pageIndex);
+            miniSheetNumContainer.appendChild(miniSheetNumPercentage);
+            miniSheetNumPercentage.classList.add('miniSheetNumPrecentage');
+            miniSheetNum.classList.add(`miniSheetNum${pageIndex}`);
             miniSheetNumContainer.classList.add('miniSheetNum');
             miniSheetNum.textContent = '00/00';
-            miniSheetNumPrecentage.textContent = ` 00%`;
+            miniSheetNumPercentage.textContent = ' 00%';
+
             gridItem.appendChild(miniSheetNumContainer);
           }
+
           grid.appendChild(gridItem);
         }
 
-        page.appendChild(grid);
-        document.body.appendChild(page);
+        pageElement.appendChild(grid);
+        document.body.appendChild(pageElement);
+
         isCurrentPageFront = !isCurrentPageFront;
-        blocks = Array.from(document.querySelectorAll('.grid-item'));
-        pageIndex++;
+        pageIndex += 1;
+
+        return Array.from(document.querySelectorAll('.grid-item'));
       }
 
-      // Populate grid items with text
-      const words = text.split(' ');
-      const initialWordCount = words.length;
-      let blocks = []; // Grid items
-      createNewPage(json.headerInfo.readTime, initialWordCount, words.length, json.headerInfo); // Create first page
-      let currentBlockIndex = 0;
-      let currentBlock;
-      currentBlock = blocks[currentBlockIndex];
-      for (let i = 0; i < words.length; i++) {
-        currentBlock.innerHTML += ' ' + words[i];
-        const miniSheetNumPrecentage = currentBlock.querySelector(`.miniSheetNumPrecentage`);
-        if (miniSheetNumPrecentage) {
-          miniSheetNumPrecentage.textContent = ` ${Math.round((i + 1) / words.length * 100)}%`;
+      function buildTokenClass(token) {
+        const classes = [
+          'token',
+          `token-${token.variant || 'body'}`,
+        ];
+
+        if (token.inlineStyle) {
+          classes.push(`token-inline-${token.inlineStyle}`);
         }
 
+        if (token.type === 'link') {
+          classes.push('token-link');
+        }
 
+        return classes.join(' ');
+      }
 
-        if (currentBlock.scrollHeight > currentBlock.clientHeight) { // If the word made the block overflow, remove it from the block
-          currentBlock.innerHTML = currentBlock.innerHTML.slice(0, currentBlock.innerHTML.length - words[i].length);
-
-          // Move to the next block
-          currentBlockIndex++;
-          if (currentBlockIndex >= blocks.length) { // Create a new page if all blocks are filled
-            createNewPage(json.headerInfo.readTime, initialWordCount, words.length - i, json.headerInfo);
-            currentBlockIndex = blocks.length - 16; // Reset the block index to the first block of the new page
+      function buildNode(token) {
+        if (token.type === 'break') {
+          if (token.variant === 'separator') {
+            const hr = document.createElement('hr');
+            hr.className = 'token-separator';
+            return hr;
           }
+
+          const breakSpan = document.createElement('span');
+          breakSpan.className = 'token-break token-break-paragraph-space';
+          breakSpan.textContent = '    ';
+          return breakSpan;
+        }
+
+        if (token.type === 'link') {
+          if (token.isImage) {
+            const imageLink = document.createElement('span');
+            imageLink.className = `${buildTokenClass(token)} token-link-image`;
+            imageLink.textContent = token.text || 'Image';
+            return imageLink;
+          }
+
+          if (token.isBareUrl) {
+            const plain = document.createElement('span');
+            plain.className = `${buildTokenClass(token)} token-link-bare`;
+            plain.textContent = `${token.url}`;
+            return plain;
+          }
+
+          const container = document.createElement('span');
+          container.className = buildTokenClass(token);
+
+          const label = document.createElement('span');
+          label.className = 'token-link-label';
+          label.textContent = token.text || token.url;
+
+          const url = document.createElement('span');
+          url.className = 'token-link-url';
+          url.textContent = token.url ? ` (${token.url})` : '';
+
+          container.appendChild(label);
+          container.appendChild(url);
+          return container;
+        }
+
+        const span = document.createElement('span');
+        span.className = buildTokenClass(token);
+        span.textContent = `${token.text}`;
+        return span;
+      }
+
+      function isTextLikeToken(token) {
+        return token?.type === 'word' || token?.type === 'link';
+      }
+
+      function isStandalonePunctuationWord(token) {
+        return token?.type === 'word' && /^[,.;:!?%)\]}]+$/.test(String(token.text || ''));
+      }
+
+      function shouldInsertLeadingSpace(previousToken, currentToken) {
+        if (!isTextLikeToken(previousToken) || !isTextLikeToken(currentToken)) {
+          return false;
+        }
+
+        if (isStandalonePunctuationWord(currentToken)) {
+          return false;
+        }
+
+        return true;
+      }
+
+      const initialWordCount = totalWords;
+      let wordsPlaced = 0;
+      let blocks = createNewPage(initialWordCount, initialWordCount);
+      let currentBlockIndex = 0;
+      let currentBlock = blocks[currentBlockIndex];
+      let lastPlacedToken = null;
+
+      const isHeadingVariant = (variant) => typeof variant === 'string' && variant.startsWith('heading-');
+
+      for (let tokenIndex = 0; tokenIndex < tokens.length; tokenIndex += 1) {
+        const token = tokens[tokenIndex];
+        let placed = false;
+        let retries = 0;
+
+        while (!placed && retries < 32) {
+          const prevToken = tokenIndex > 0 ? tokens[tokenIndex - 1] : null;
+          const nextToken = tokenIndex < tokens.length - 1 ? tokens[tokenIndex + 1] : null;
+          const isHeadingBoundaryBreak = token.type === 'break'
+            && token.variant === 'paragraph'
+            && (isHeadingVariant(prevToken?.variant) || isHeadingVariant(nextToken?.variant));
+
+          const shouldAddLeadingSpace = !isHeadingBoundaryBreak
+            && shouldInsertLeadingSpace(lastPlacedToken, token);
+          let spacerNode = null;
+          if (shouldAddLeadingSpace) {
+            spacerNode = document.createTextNode(' ');
+            currentBlock.appendChild(spacerNode);
+          }
+
+          const node = isHeadingBoundaryBreak
+            ? (() => {
+                const br = document.createElement('br');
+                br.className = 'token-break token-break-paragraph';
+                return br;
+              })()
+            : buildNode(token);
+          currentBlock.appendChild(node);
+
+          if (currentBlock.scrollHeight <= currentBlock.clientHeight) {
+            placed = true;
+            lastPlacedToken = token;
+            if (token.type === 'word') {
+              wordsPlaced += 1;
+              const miniPercent = currentBlock.querySelector('.miniSheetNumPrecentage');
+              if (miniPercent && initialWordCount > 0) {
+                miniPercent.textContent = ` ${Math.round((wordsPlaced / initialWordCount) * 100)}%`;
+              }
+            }
+            continue;
+          }
+
+          if (spacerNode) {
+            spacerNode.remove();
+          }
+          node.remove();
+          currentBlockIndex += 1;
+
+          if (currentBlockIndex >= blocks.length) {
+            blocks = createNewPage(initialWordCount, Math.max(initialWordCount - wordsPlaced, 0));
+            currentBlockIndex = blocks.length - 16;
+          }
+
           currentBlock = blocks[currentBlockIndex];
-          currentBlock.innerHTML += ' ' + words[i]; // Add the word to the new block
+          lastPlacedToken = null;
+          retries += 1;
+
+          if (token.type === 'break' && token.variant === 'paragraph') {
+            placed = true;
+          }
         }
       }
-      if (currentBlock) { // Ensure currentBlock is defined
+
+      if (currentBlock) {
         const endMarker = document.createElement('div');
         endMarker.innerHTML = 'THE END';
         endMarker.style.textAlign = 'center';
         endMarker.style.fontWeight = 'bold';
-        endMarker.style.fontSize = '1.75em';
+        endMarker.style.fontSize = '1.6em';
         endMarker.style.marginTop = '10px';
         currentBlock.appendChild(endMarker);
       }
 
-      // Populate headers
-      const SHEETS_AMOUNT = Math.ceil(pageIndex / 2);
+      const sheetsAmount = Math.ceil(pageIndex / 2);
       isCurrentPageFront = true;
-      for (let i = 0; i < pageIndex; i++) {
+      for (let i = 0; i < pageIndex; i += 1) {
         const sideIndicator = isCurrentPageFront ? '' : 'b';
-        const SHEET_NUM = `${Math.ceil((i+1) / 2)}/${SHEETS_AMOUNT}`;
-        const MINI_SHEET_NUM = `${Math.ceil((i+1) / 2)}${sideIndicator}/${SHEETS_AMOUNT}`;
-        let miniSheetNums = document.querySelectorAll('.miniSheetNum' + i);
+        const sheetNum = `${Math.ceil((i + 1) / 2)}/${sheetsAmount}`;
+        const miniSheetNum = `${Math.ceil((i + 1) / 2)}${sideIndicator}/${sheetsAmount}`;
 
-        for(let i = 0; i < miniSheetNums.length; i++) {
-          miniSheetNums[i].textContent = MINI_SHEET_NUM;
-        }
+        const miniSheetNums = document.querySelectorAll(`.miniSheetNum${i}`);
+        miniSheetNums.forEach((el) => {
+          el.textContent = miniSheetNum;
+        });
 
         if (isCurrentPageFront && i !== 0) {
-          document.querySelector('#sheetNum' + i).textContent = SHEET_NUM;
+          const sheetNode = document.querySelector(`#sheetNum${i}`);
+          if (sheetNode) {
+            sheetNode.textContent = sheetNum;
+          }
         }
+
         isCurrentPageFront = !isCurrentPageFront;
       }
 
-      // remove empty grid items on final page
       const allGridItems = document.querySelectorAll('.grid-item');
-      Array.from(allGridItems).slice(-15).forEach((block, index) => {
+      Array.from(allGridItems).slice(-15).forEach((block) => {
         const cloneBlock = block.cloneNode(true);
         const spanElement = cloneBlock.querySelector('.miniSheetNum');
         if (spanElement) {
           spanElement.remove();
         }
+
         if (cloneBlock.textContent.trim() === '') {
           block.remove();
         }
       });
-    }, json, text, bookName);
+    }, {
+      tokens,
+      bookName,
+      headerInfo: {
+        wordCount: normalizedDocument.wordCount,
+        readTime: metadata.readTime,
+        author,
+        year,
+        series,
+        fontSize,
+      },
+      totalWords: normalizedDocument.wordCount,
+    });
 
-    // Check for cancellation after page evaluation
     if (runningJobs.get(id)?.cancelled) {
-      console.log(`Job ${id} was cancelled after page evaluation`);
-      await browser.close();
       return;
     }
 
-    console.log('Page evaluation completed, updating progress to 95%');
-    // Update progress for page layout completion (95-100% range)
-    const layoutProgress = {
+    progressService.writeProgress(id, {
       step: 'Finalizing page layout',
       percentage: 95,
       isComplete: false,
       isError: false,
-      phase: 'layout'
-    };
-    progressService.writeProgress(id, layoutProgress);
+      phase: 'layout',
+    });
 
-    // Get the final page count and update progress
     const pageCount = await page.evaluate(() => document.querySelectorAll('.page').length);
     const estimatedSheets = Math.ceil(pageCount / 2);
 
-    // Update progress for page creation completion (96%)
-    const pageCompletionProgress = {
+    progressService.writeProgress(id, {
       step: `Created ${estimatedSheets} sheets`,
       percentage: 96,
       currentSheet: estimatedSheets,
       totalSheets: estimatedSheets,
       isComplete: false,
       isError: false,
-      phase: 'page_creation'
-    };
-    progressService.writeProgress(id, pageCompletionProgress);
+      phase: 'page_creation',
+    });
 
-    writeToInProgress('Finished creating pages. Writing to file...');
+    writeLegacyProgress(id, 'Finished creating pages. Writing to file...');
+    progressService.writeProgress(id, progressService.createPdfProgress());
 
-    // Update progress for PDF generation
-    const pdfProgress = progressService.createPdfProgress();
-    progressService.writeProgress(id, pdfProgress);
+    const htmlContent = await page.content();
+    fs.writeFileSync(path.join(generatedDir, `output_${id}.html`), htmlContent);
 
-    let htmlContent = await page.content();
-    fs.writeFileSync(path.join(__dirname, `output.html`), htmlContent);
-
-    // Check for cancellation before PDF rendering
     if (runningJobs.get(id)?.cancelled) {
-      console.log(`Job ${id} was cancelled before PDF rendering`);
-      await browser.close();
       return;
     }
 
-    // Update progress for PDF rendering (95-100% range)
-    const renderingProgress = {
+    progressService.writeProgress(id, {
       step: 'Rendering PDF document',
       percentage: 98,
       isComplete: false,
       isError: false,
-      phase: 'rendering'
-    };
-    progressService.writeProgress(id, renderingProgress);
+      phase: 'rendering',
+    });
 
-    // Enhanced PDF generation with v24 improvements
     const pdf = await page.pdf({
       format: 'Letter',
       printBackground: true,
       preferCSSPageSize: false,
-      // Enhanced v24 options for better quality
-      timeout: 120000, // 2 minute timeout for large documents
-      omitBackground: false
+      timeout: 120000,
+      omitBackground: false,
     });
 
-    // Final check for cancellation before writing PDF file
     if (runningJobs.get(id)?.cancelled) {
-      console.log(`Job ${id} was cancelled before writing PDF file`);
-      await browser.close();
       return;
     }
 
-    const pdfOutput = path.join(__dirname, 'generated', `${id}.pdf`);
-    fs.writeFileSync(pdfOutput, pdf);
+    fs.writeFileSync(pdfPath, pdf);
 
-    // Enhanced v24 browser cleanup
-    try {
-      // Stop performance tracing if enabled
-      const enablePerformanceMonitoring = process.env.ENABLE_PERFORMANCE_MONITORING === 'true';
-      if (enablePerformanceMonitoring) {
-        try {
-          await page.tracing.stop();
-          console.log(`Performance trace saved for job ${id}`);
-        } catch (tracingError) {
-          console.error(`Error stopping tracing for job ${id}:`, tracingError);
-        }
-      }
+    progressService.writeProgress(id, progressService.createCompletionProgress());
 
-      await page.close();
-      await browser.close();
-    } catch (closeError) {
-      console.error(`Error closing browser for job ${id}:`, closeError);
-    } finally {
-      // Remove from running jobs tracking
-      runningJobs.delete(id);
-    }
-
-    // Mark as complete
-    const completionProgress = progressService.createCompletionProgress();
-    progressService.writeProgress(id, completionProgress);
-
-    // Clean up progress files after a delay to allow frontend to read completion
     setTimeout(() => {
       progressService.cleanupProgress(id);
       if (fs.existsSync(inProgressPath)) {
         fs.unlinkSync(inProgressPath);
       }
-    }, 5000); // 5 second delay
+    }, 5000);
+  } catch (error) {
+    console.error(error);
+    progressService.writeProgress(id, progressService.createErrorProgress(error.toString(), 'generation'));
+    writeLegacyProgress(id, `ERROR: ${error.toString()}`);
+  } finally {
+    try {
+      if (page) {
+        await page.close();
+      }
+    } catch (pageCloseError) {
+      console.error(`Error closing page for job ${id}:`, pageCloseError);
+    }
+
+    try {
+      if (browser) {
+        await browser.close();
+      }
+    } catch (browserCloseError) {
+      console.error(`Error closing browser for job ${id}:`, browserCloseError);
+    }
+
+    runningJobs.delete(id);
   }
-  
-  res.json({ message: 'PDF creation started.', id });
+}
+
+app.get('/api/capabilities', (req, res) => {
+  res.json(capabilities);
 });
 
-// Dedicated progress endpoint
+app.get('/api/debug/running-jobs', (req, res) => {
+  const jobs = Array.from(runningJobs.entries()).map(([id, job]) => ({
+    id,
+    cancelled: job.cancelled,
+    status: job.status,
+    hasBrowser: !!job.browser,
+  }));
+
+  res.json({
+    runningJobs: jobs,
+    count: jobs.length,
+    queue: jobQueue.getSnapshot(),
+  });
+});
+
+app.post('/api/upload', upload.fields([{ name: 'file' }]), (req, res) => {
+  try {
+    if (!req.files || !req.files.file || !req.files.file[0]) {
+      res.status(400).json({ error: 'No file uploaded' });
+      return;
+    }
+
+    const uploadedFile = req.files.file[0];
+    const params = JSON.parse(req.body.params || '{}');
+    const fontFamily = resolveFontFamily(params.fontFamily || params?.headerInfo?.fontFamily || defaultFontFamily, {
+      allowedValues: supportedFontValues,
+    });
+
+    const id = generateJobId();
+    const bookName = sanitizeFileComponent(params.bookName || path.basename(uploadedFile.originalname, path.extname(uploadedFile.originalname)), 'Untitled');
+
+    const jobMetadata = {
+      id,
+      bookName,
+      borderStyle: params.borderStyle || 'dashed',
+      fontSize: String(params?.headerInfo?.fontSize || '6'),
+      fontFamily,
+      author: params?.headerInfo?.author || null,
+      year: params?.headerInfo?.year || null,
+      series: params?.headerInfo?.series || null,
+      wordCount: Number(params?.headerInfo?.wordCount || 0),
+      readTime: params?.headerInfo?.readTime || '--',
+      createdAt: new Date().toISOString(),
+      originalFileName: uploadedFile.originalname,
+      uploadPath: path.basename(uploadedFile.path),
+      mimeType: uploadedFile.mimetype,
+    };
+
+    const { metadataPath } = getProgressPaths(id);
+    fs.writeFileSync(metadataPath, JSON.stringify(jobMetadata, null, 2));
+
+    setQueuedProgress(id, bookName);
+
+    runningJobs.set(id, {
+      browser: null,
+      cancelled: false,
+      status: 'queued',
+    });
+
+    const executionPayload = {
+      id,
+      params: {
+        ...params,
+        bookName,
+        borderStyle: params.borderStyle || 'dashed',
+        fontFamily,
+        headerInfo: {
+          ...params.headerInfo,
+          fontSize: String(params?.headerInfo?.fontSize || '6'),
+          author: params?.headerInfo?.author || null,
+          year: params?.headerInfo?.year || null,
+          series: params?.headerInfo?.series || null,
+        },
+      },
+      uploadFile: uploadedFile,
+      metadata: jobMetadata,
+    };
+
+    jobQueue.enqueue(id, async () => {
+      const state = runningJobs.get(id);
+      if (!state || state.cancelled) {
+        runningJobs.delete(id);
+        return;
+      }
+
+      runningJobs.set(id, {
+        ...state,
+        status: 'running',
+      });
+
+      await executePdfJob(executionPayload);
+    });
+
+    res.json({ message: 'PDF creation started.', id });
+  } catch (error) {
+    console.error('Upload failed:', error);
+    res.status(400).json({
+      error: 'Failed to start generation',
+      message: error.message,
+    });
+  }
+});
+
 app.get('/api/progress/:id', (req, res) => {
   const { id } = req.params;
-
-  const pdfOutput = path.join(__dirname, 'generated', `${id}.pdf`);
-  const inProgressPath = path.join(__dirname, 'generated', `IN_PROGRESS_${id}.txt`);
+  const { pdfPath, inProgressPath } = getProgressPaths(id);
 
   try {
-    // Check if PDF is complete
-    if (fs.existsSync(pdfOutput)) {
+    if (fs.existsSync(pdfPath)) {
       res.json({
         status: 'completed',
         progress: {
@@ -591,429 +824,332 @@ app.get('/api/progress/:id', (req, res) => {
           percentage: 100,
           isComplete: true,
           isError: false,
-          phase: 'complete'
-        }
+          phase: 'complete',
+        },
       });
       return;
     }
 
-    // Check for structured progress first
     const structuredProgress = progressService.readProgress(id);
     if (structuredProgress) {
       res.json({
-        status: structuredProgress.isError ? 'error' :
-                structuredProgress.isComplete ? 'completed' : 'in_progress',
+        status: structuredProgress.isError
+          ? 'error'
+          : structuredProgress.isComplete
+            ? 'completed'
+            : 'in_progress',
         progress: structuredProgress,
-        message: structuredProgress.isError ? structuredProgress.errorMessage : undefined
+        message: structuredProgress.isError ? structuredProgress.errorMessage : undefined,
       });
       return;
     }
 
-    // Fall back to legacy progress
     if (fs.existsSync(inProgressPath)) {
       const legacyText = fs.readFileSync(inProgressPath, 'utf8');
-
-      // If it's an error message, return structured error
       if (legacyText.startsWith('ERROR:')) {
         res.json({
           status: 'error',
-          message: legacyText.replace('ERROR: ', '')
+          message: legacyText.replace('ERROR: ', ''),
         });
-      } else {
-        // Parse legacy progress and return structured format
-        const parsedProgress = progressService.parseLegacyProgress(legacyText);
-        res.json({
-          status: 'in_progress',
-          progress: parsedProgress
-        });
+        return;
       }
-    } else {
+
       res.json({
-        status: 'not_found',
-        message: 'Generation not found or has not started yet.'
+        status: 'in_progress',
+        progress: progressService.parseLegacyProgress(legacyText),
       });
+      return;
     }
+
+    if (runningJobs.get(id)?.status === 'queued' || jobQueue.isQueued(id)) {
+      res.json({
+        status: 'in_progress',
+        progress: {
+          step: 'Queued',
+          percentage: 0,
+          isComplete: false,
+          isError: false,
+          phase: 'queued',
+        },
+      });
+      return;
+    }
+
+    res.json({
+      status: 'not_found',
+      message: 'Generation not found or has not started yet.',
+    });
   } catch (error) {
     console.error(`Error checking progress for ID: ${id}`, error);
     res.status(500).json({
       status: 'error',
-      message: 'Internal server error while checking progress'
+      message: 'Internal server error while checking progress',
     });
   }
 });
 
-// Get list of all jobs
 app.get('/api/jobs', (req, res) => {
   try {
-    const generatedDir = path.join(__dirname, 'generated');
-    const uploadsDir = path.join(__dirname, 'uploads');
+    fs.mkdirSync(generatedDir, { recursive: true });
+    fs.mkdirSync(uploadsDir, { recursive: true });
 
-    // Ensure directories exist
-    if (!fs.existsSync(generatedDir)) {
-      fs.mkdirSync(generatedDir, { recursive: true });
-    }
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
-    }
-
-    const jobs = [];
     const files = fs.readdirSync(generatedDir);
-    const uploadFiles = fs.readdirSync(uploadsDir);
+    const ids = new Set();
 
-    // Create a map of upload files for quick lookup
-    const uploadFileMap = {};
-    uploadFiles.forEach(file => {
-      // Extract timestamp from upload filename (YYYYMMDDHHMMSS_originalname)
-      const match = file.match(/^(\d{14})_(.+)$/);
-      if (match) {
-        const timestamp = match[1];
-        uploadFileMap[timestamp] = {
-          originalName: match[2],
-          uploadPath: file
-        };
+    files.forEach((file) => {
+      if (file.endsWith('.pdf')) {
+        ids.add(file.replace('.pdf', ''));
+      }
+      if (file.startsWith('IN_PROGRESS_') && file.endsWith('.txt')) {
+        ids.add(file.replace('IN_PROGRESS_', '').replace('.txt', ''));
+      }
+      if (file.startsWith('PROGRESS_') && file.endsWith('.json')) {
+        ids.add(file.replace('PROGRESS_', '').replace('.json', ''));
+      }
+      if (file.startsWith('METADATA_') && file.endsWith('.json')) {
+        ids.add(file.replace('METADATA_', '').replace('.json', ''));
       }
     });
 
-    // Track processed job IDs to avoid duplicates
-    const processedJobs = new Set();
+    runningJobs.forEach((_, id) => ids.add(id));
 
-    // Process all files in generated directory
-    files.forEach(file => {
-      let jobId = null;
-      let fileType = null;
+    const jobs = Array.from(ids).map((id) => {
+      const { pdfPath, inProgressPath, structuredProgressPath } = getProgressPaths(id);
+      const metadata = readMetadata(id) || {};
 
-      // Identify file type and extract job ID
-      if (file.endsWith('.pdf')) {
-        jobId = file.replace('.pdf', '');
-        fileType = 'pdf';
-      } else if (file.startsWith('IN_PROGRESS_') && file.endsWith('.txt')) {
-        jobId = file.replace('IN_PROGRESS_', '').replace('.txt', '');
-        fileType = 'progress';
-      } else if (file.startsWith('PROGRESS_') && file.endsWith('.json')) {
-        jobId = file.replace('PROGRESS_', '').replace('.json', '');
-        fileType = 'structured_progress';
-      }
+      let status = 'queued';
+      let progress = {
+        step: 'Queued',
+        percentage: 0,
+        isComplete: false,
+        isError: false,
+      };
 
-      if (jobId && !processedJobs.has(jobId)) {
-        processedJobs.add(jobId);
+      let completedAt = null;
 
-        // Parse job ID to extract metadata
-        const jobParts = jobId.split('_');
-        let timestamp = '';
-        let bookName = '';
-        let fontSize = '';
-
-        if (jobParts.length >= 3) {
-          timestamp = jobParts[0]; // YYYYMMDDHHMMSS
-          fontSize = jobParts[jobParts.length - 1];
-          bookName = jobParts.slice(1, -1).join('_');
-        }
-
-        // Get file stats
-        const pdfPath = path.join(generatedDir, `${jobId}.pdf`);
-        const progressPath = path.join(generatedDir, `IN_PROGRESS_${jobId}.txt`);
-        const structuredProgressPath = path.join(generatedDir, `PROGRESS_${jobId}.json`);
-
-        let status = 'unknown';
-        let progress = null;
-        let createdAt = null;
-        let completedAt = null;
-
-        // Determine status and get progress info
-        if (fs.existsSync(pdfPath)) {
-          status = 'completed';
-          const pdfStats = fs.statSync(pdfPath);
-          completedAt = pdfStats.mtime.toISOString();
-          progress = {
-            step: 'Complete',
-            percentage: 100,
-            isComplete: true,
-            isError: false
-          };
-        } else {
-          // Check for structured progress first
-          const structuredProgress = progressService.readProgress(jobId);
-          if (structuredProgress) {
-            status = structuredProgress.isError ? 'error' :
-                    structuredProgress.isComplete ? 'completed' : 'in_progress';
-            progress = structuredProgress;
-          } else if (fs.existsSync(progressPath)) {
-            status = 'in_progress';
-            const progressText = fs.readFileSync(progressPath, 'utf8');
-            if (progressText.startsWith('ERROR:')) {
-              status = 'error';
-              progress = {
-                step: 'Error',
-                percentage: 0,
-                isComplete: false,
-                isError: true,
-                errorMessage: progressText.replace('ERROR: ', '')
-              };
-            } else {
-              progress = progressService.parseLegacyProgress(progressText);
-            }
-          } else {
-            status = 'queued';
+      if (fs.existsSync(pdfPath)) {
+        status = 'completed';
+        const stats = fs.statSync(pdfPath);
+        completedAt = stats.mtime.toISOString();
+        progress = {
+          step: 'Complete',
+          percentage: 100,
+          isComplete: true,
+          isError: false,
+        };
+      } else {
+        const structuredProgress = progressService.readProgress(id);
+        if (structuredProgress) {
+          status = structuredProgress.isError ? 'error' : (structuredProgress.isComplete ? 'completed' : 'in_progress');
+          progress = structuredProgress;
+        } else if (fs.existsSync(inProgressPath)) {
+          const progressText = fs.readFileSync(inProgressPath, 'utf8');
+          if (progressText.startsWith('ERROR:')) {
+            status = 'error';
             progress = {
-              step: 'Queued',
+              step: 'Error',
               percentage: 0,
               isComplete: false,
-              isError: false
+              isError: true,
+              errorMessage: progressText.replace('ERROR: ', ''),
             };
+          } else {
+            status = 'in_progress';
+            progress = progressService.parseLegacyProgress(progressText);
           }
+        } else if (runningJobs.get(id)?.status === 'running') {
+          status = 'in_progress';
+          progress = {
+            step: 'Processing',
+            percentage: 1,
+            isComplete: false,
+            isError: false,
+          };
+        } else if (runningJobs.get(id)?.status === 'queued' || jobQueue.isQueued(id)) {
+          status = 'queued';
         }
-
-        // Parse timestamp for creation date
-        if (timestamp) {
-          try {
-            if (timestamp.length === 14) {
-              // New format: YYYYMMDDHHMMSS
-              const year = parseInt(timestamp.substring(0, 4));
-              const month = parseInt(timestamp.substring(4, 6)) - 1; // JavaScript months are 0-indexed
-              const day = parseInt(timestamp.substring(6, 8));
-              const hour = parseInt(timestamp.substring(8, 10));
-              const minute = parseInt(timestamp.substring(10, 12));
-              const second = parseInt(timestamp.substring(12, 14));
-              createdAt = new Date(year, month, day, hour, minute, second).toISOString();
-            } else {
-              // Old format: variable length, parse dynamically
-              // Format was: YYYY + M + D + H + M + S (no zero padding)
-              // Try to parse by extracting year first, then parse the rest
-              const year = parseInt(timestamp.substring(0, 4));
-              const remaining = timestamp.substring(4);
-
-              // For old format, use file modification time as fallback
-              if (fs.existsSync(pdfPath)) {
-                const pdfStats = fs.statSync(pdfPath);
-                createdAt = pdfStats.mtime.toISOString();
-              } else if (fs.existsSync(progressPath)) {
-                const progressStats = fs.statSync(progressPath);
-                createdAt = progressStats.mtime.toISOString();
-              } else if (fs.existsSync(structuredProgressPath)) {
-                const structuredStats = fs.statSync(structuredProgressPath);
-                createdAt = structuredStats.mtime.toISOString();
-              }
-            }
-          } catch (error) {
-            console.warn(`Failed to parse timestamp ${timestamp}:`, error);
-            // Fallback to file modification time
-            if (fs.existsSync(pdfPath)) {
-              const pdfStats = fs.statSync(pdfPath);
-              createdAt = pdfStats.mtime.toISOString();
-            }
-          }
-        }
-
-        // Get original file info if available
-        const uploadInfo = uploadFileMap[timestamp] || {};
-
-        // Try to read metadata file
-        const metadataPath = path.join(generatedDir, `METADATA_${jobId}.json`);
-        let metadata = {};
-        if (fs.existsSync(metadataPath)) {
-          try {
-            const metadataContent = fs.readFileSync(metadataPath, 'utf8');
-            metadata = JSON.parse(metadataContent);
-          } catch (error) {
-            console.warn(`Failed to parse metadata for job ${jobId}:`, error);
-          }
-        }
-
-        const job = {
-          id: jobId,
-          bookName: metadata.bookName || bookName || 'Unknown',
-          fontSize: metadata.fontSize || fontSize || 'Unknown',
-          borderStyle: metadata.borderStyle || null,
-          author: metadata.author || null,
-          year: metadata.year || null,
-          series: metadata.series || null,
-          status,
-          progress,
-          createdAt: metadata.createdAt || createdAt,
-          completedAt,
-          originalFileName: metadata.originalFileName || uploadInfo.originalName || null,
-          uploadPath: uploadInfo.uploadPath || null
-        };
-
-        jobs.push(job);
       }
+
+      const createdAt = metadata.createdAt || (() => {
+        if (fs.existsSync(structuredProgressPath)) {
+          return fs.statSync(structuredProgressPath).mtime.toISOString();
+        }
+        if (fs.existsSync(inProgressPath)) {
+          return fs.statSync(inProgressPath).mtime.toISOString();
+        }
+        if (fs.existsSync(pdfPath)) {
+          return fs.statSync(pdfPath).mtime.toISOString();
+        }
+        return new Date().toISOString();
+      })();
+
+      return {
+        id,
+        bookName: metadata.bookName || 'Unknown',
+        fontSize: metadata.fontSize || '6',
+        fontFamily: resolveFontFamily(metadata.fontFamily || defaultFontFamily, {
+          allowedValues: supportedFontValues,
+        }),
+        borderStyle: metadata.borderStyle || 'dashed',
+        author: metadata.author || null,
+        year: metadata.year || null,
+        series: metadata.series || null,
+        status,
+        progress,
+        createdAt,
+        completedAt,
+        originalFileName: metadata.originalFileName || null,
+        uploadPath: metadata.uploadPath || null,
+      };
     });
 
-    // Sort jobs by creation date (newest first)
-    jobs.sort((a, b) => {
-      if (!a.createdAt && !b.createdAt) return 0;
-      if (!a.createdAt) return 1;
-      if (!b.createdAt) return -1;
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    });
+    jobs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     res.json({ jobs });
   } catch (error) {
     console.error('Error fetching jobs:', error);
     res.status(500).json({
       error: 'Failed to fetch jobs',
-      message: error.message
+      message: error.message,
     });
   }
 });
 
-app.get('/api/download/', (req, res) => {
+app.get('/api/download', (req, res) => {
   const { id } = req.query;
-  const pdfOutput = path.join(__dirname, 'generated', `${id}.pdf`);
-  const inProgressPath = path.join(__dirname, 'generated', `IN_PROGRESS_${id}.txt`);
+  const { pdfPath, inProgressPath } = getProgressPaths(String(id));
 
-  if (fs.existsSync(pdfOutput)) {
+  if (fs.existsSync(pdfPath)) {
     res.redirect(`/history/${id}.pdf`);
-  } else if (fs.existsSync(inProgressPath)) {
-    res.send(fs.readFileSync(inProgressPath, 'utf8'));
-  } else {
-    return res.send('Not started. It\'s either in the queue, or failed entirely.');
+    return;
   }
+
+  if (fs.existsSync(inProgressPath)) {
+    res.send(fs.readFileSync(inProgressPath, 'utf8'));
+    return;
+  }
+
+  res.send('Not started. It\'s either in the queue, or failed entirely.');
 });
 
-// Delete job endpoint
 app.delete('/api/jobs/:id', async (req, res) => {
   const { id } = req.params;
 
   try {
-    // First, cancel the running job if it exists
     const runningJob = runningJobs.get(id);
+    let cancelled = false;
+
     if (runningJob) {
-      console.log(`Cancelling running job: ${id}`);
       runningJob.cancelled = true;
+      cancelled = true;
 
-      // Close the browser if it's still running
-      try {
-        if (runningJob.browser) {
+      if (runningJob.status === 'queued') {
+        jobQueue.remove(id);
+      }
+
+      if (runningJob.browser) {
+        try {
           await runningJob.browser.close();
-          console.log(`Browser closed for cancelled job: ${id}`);
+        } catch (browserError) {
+          console.error(`Error closing browser for job ${id}:`, browserError);
         }
-      } catch (browserError) {
-        console.error(`Error closing browser for job ${id}:`, browserError);
       }
 
-      // Remove from running jobs
       runningJobs.delete(id);
+    } else if (jobQueue.remove(id)) {
+      cancelled = true;
     }
 
-    const generatedDir = path.join(__dirname, 'generated');
-    const uploadsDir = path.join(__dirname, 'uploads');
+    const { pdfPath, inProgressPath, structuredProgressPath, metadataPath } = getProgressPaths(id);
 
-    // Files to delete
-    const pdfPath = path.join(generatedDir, `${id}.pdf`);
-    const inProgressPath = path.join(generatedDir, `IN_PROGRESS_${id}.txt`);
-    const structuredProgressPath = path.join(generatedDir, `PROGRESS_${id}.json`);
-    const metadataPath = path.join(generatedDir, `METADATA_${id}.json`);
+    const metadata = readMetadata(id);
+    const uploadPath = metadata?.uploadPath ? path.join(uploadsDir, metadata.uploadPath) : null;
 
-    // Extract timestamp from job ID to find the original upload file
-    const jobParts = id.split('_');
-    let timestamp = '';
-    if (jobParts.length >= 3) {
-      timestamp = jobParts[0]; // YYYYMMDDHHMMSS
-    }
+    const deletedFiles = [];
+    const errors = [];
 
-    let deletedFiles = [];
-    let errors = [];
+    const deleteFileIfExists = (filePath, label) => {
+      if (!filePath || !fs.existsSync(filePath)) {
+        return;
+      }
 
-    // Delete PDF file
-    if (fs.existsSync(pdfPath)) {
       try {
-        fs.unlinkSync(pdfPath);
-        deletedFiles.push('PDF');
+        fs.unlinkSync(filePath);
+        deletedFiles.push(label);
       } catch (error) {
-        errors.push(`Failed to delete PDF: ${error.message}`);
+        errors.push(`Failed to delete ${label}: ${error.message}`);
       }
-    }
+    };
 
-    // Delete progress files
-    if (fs.existsSync(inProgressPath)) {
-      try {
-        fs.unlinkSync(inProgressPath);
-        deletedFiles.push('progress file');
-      } catch (error) {
-        errors.push(`Failed to delete progress file: ${error.message}`);
-      }
-    }
+    deleteFileIfExists(pdfPath, 'PDF');
+    deleteFileIfExists(inProgressPath, 'progress file');
+    deleteFileIfExists(structuredProgressPath, 'structured progress file');
+    deleteFileIfExists(metadataPath, 'metadata file');
+    deleteFileIfExists(uploadPath, 'original upload');
 
-    if (fs.existsSync(structuredProgressPath)) {
-      try {
-        fs.unlinkSync(structuredProgressPath);
-        deletedFiles.push('structured progress file');
-      } catch (error) {
-        errors.push(`Failed to delete structured progress file: ${error.message}`);
-      }
-    }
-
-    // Delete metadata file
-    if (fs.existsSync(metadataPath)) {
-      try {
-        fs.unlinkSync(metadataPath);
-        deletedFiles.push('metadata file');
-      } catch (error) {
-        errors.push(`Failed to delete metadata file: ${error.message}`);
-      }
-    }
-
-    // Find and delete original upload file
-    if (timestamp && fs.existsSync(uploadsDir)) {
-      try {
-        const uploadFiles = fs.readdirSync(uploadsDir);
-        const matchingUpload = uploadFiles.find(file => file.startsWith(timestamp + '_'));
-
-        if (matchingUpload) {
-          const uploadPath = path.join(uploadsDir, matchingUpload);
-          fs.unlinkSync(uploadPath);
-          deletedFiles.push('original upload');
-        }
-      } catch (error) {
-        errors.push(`Failed to delete upload file: ${error.message}`);
-      }
-    }
-
-    if (deletedFiles.length === 0 && errors.length === 0) {
-      if (runningJob) {
-        // Job was running but had no files yet
-        return res.json({
-          message: 'Running job cancelled successfully',
-          deletedFiles: [],
-          cancelled: true
-        });
-      } else {
-        return res.status(404).json({
-          error: 'Job not found',
-          message: `No files found for job ID: ${id}`
-        });
-      }
+    if (deletedFiles.length === 0 && errors.length === 0 && !cancelled) {
+      res.status(404).json({
+        error: 'Job not found',
+        message: `No files found for job ID: ${id}`,
+      });
+      return;
     }
 
     if (errors.length > 0) {
-      return res.status(207).json({
-        message: `Job partially deleted. ${runningJob ? 'Running job cancelled. ' : ''}Deleted: ${deletedFiles.join(', ')}`,
+      res.status(207).json({
+        message: `Job partially deleted.${cancelled ? ' Job cancelled.' : ''} Deleted: ${deletedFiles.join(', ')}`,
         deletedFiles,
         errors,
-        cancelled: !!runningJob
+        cancelled,
       });
+      return;
     }
 
     res.json({
-      message: `Job deleted successfully. ${runningJob ? 'Running job cancelled. ' : ''}Deleted: ${deletedFiles.join(', ')}`,
+      message: `Job deleted successfully.${cancelled ? ' Job cancelled.' : ''} Deleted: ${deletedFiles.join(', ')}`,
       deletedFiles,
-      cancelled: !!runningJob
+      cancelled,
     });
-
   } catch (error) {
     console.error('Error deleting job:', error);
     res.status(500).json({
       error: 'Failed to delete job',
-      message: error.message
+      message: error.message,
     });
   }
 });
 
-// Serve static files
-app.use('/history', express.static(path.join(__dirname, 'generated')));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/history', express.static(generatedDir));
+app.use('/uploads', express.static(uploadsDir));
+
+app.use((error, req, res, next) => {
+  if (!error) {
+    next();
+    return;
+  }
+
+  if (error.message && error.message.startsWith('Unsupported file format')) {
+    res.status(400).json({
+      error: 'Invalid file format',
+      message: error.message,
+    });
+    return;
+  }
+
+  if (error.code === 'LIMIT_FILE_SIZE') {
+    res.status(400).json({
+      error: 'File too large',
+      message: 'File size must be less than 10MB',
+    });
+    return;
+  }
+
+  res.status(500).json({
+    error: 'Unexpected server error',
+    message: error.message || 'Unknown error',
+  });
+});
 
 app.listen(port, () => {
-  console.log(`Listening on port ${port} with static file serving`);
+  console.log(`Listening on port ${port} with queue concurrency ${queueConcurrency}`);
 });

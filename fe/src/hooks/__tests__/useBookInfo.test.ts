@@ -1,21 +1,21 @@
 import { renderHook, act } from '@testing-library/react';
+import { vi } from 'vitest';
 import { useBookInfo } from '../useBookInfo';
+import { useOpenLibrary } from '../useOpenLibrary';
 
-// Mock the useOpenLibrary hook
-jest.mock('../useOpenLibrary', () => ({
-  useOpenLibrary: jest.fn(),
+vi.mock('../useOpenLibrary', () => ({
+  useOpenLibrary: vi.fn(),
 }));
 
 describe('useBookInfo', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
-    // Default mock for useOpenLibrary
-    const mockUseOpenLibrary = require('../useOpenLibrary').useOpenLibrary;
-    mockUseOpenLibrary.mockReturnValue({
-      fetchBookInfo: jest.fn(),
+    vi.mocked(useOpenLibrary).mockReturnValue({
+      fetchBookInfo: vi.fn(),
       loading: false,
       error: null,
+      clearError: vi.fn(),
     });
   });
 
@@ -62,19 +62,17 @@ describe('useBookInfo', () => {
 
     expect(result.current.bookInfo.author).toBe('Jane Doe');
     expect(result.current.bookInfo.year).toBe('2023');
-    expect(result.current.bookInfo.bookName).toBe(''); // Should remain unchanged
+    expect(result.current.bookInfo.bookName).toBe('');
   });
 
   it('should reset book info', () => {
     const { result } = renderHook(() => useBookInfo());
 
-    // Set some values first
     act(() => {
       result.current.setBookName('Test Book');
       result.current.setAuthor('Test Author');
     });
 
-    // Reset
     act(() => {
       result.current.resetBookInfo();
     });
@@ -88,16 +86,16 @@ describe('useBookInfo', () => {
   });
 
   it('should fetch book info from API', async () => {
-    const mockFetchBookInfo = jest.fn().mockResolvedValue({
+    const mockFetchBookInfo = vi.fn().mockResolvedValue({
       author: 'API Author',
       publishYear: '2022',
     });
 
-    const mockUseOpenLibrary = require('../useOpenLibrary').useOpenLibrary;
-    mockUseOpenLibrary.mockReturnValue({
+    vi.mocked(useOpenLibrary).mockReturnValue({
       fetchBookInfo: mockFetchBookInfo,
       loading: false,
       error: null,
+      clearError: vi.fn(),
     });
 
     const { result } = renderHook(() => useBookInfo());
@@ -112,13 +110,13 @@ describe('useBookInfo', () => {
   });
 
   it('should handle API errors gracefully', async () => {
-    const mockFetchBookInfo = jest.fn().mockResolvedValue(null);
+    const mockFetchBookInfo = vi.fn().mockResolvedValue(null);
 
-    const mockUseOpenLibrary = require('../useOpenLibrary').useOpenLibrary;
-    mockUseOpenLibrary.mockReturnValue({
+    vi.mocked(useOpenLibrary).mockReturnValue({
       fetchBookInfo: mockFetchBookInfo,
       loading: false,
       error: new Error('API Error'),
+      clearError: vi.fn(),
     });
 
     const { result } = renderHook(() => useBookInfo());
@@ -128,7 +126,6 @@ describe('useBookInfo', () => {
     });
 
     expect(mockFetchBookInfo).toHaveBeenCalledWith('Test Book');
-    // The book info should not be updated when there's an error
     expect(result.current.bookInfo.author).toBe('');
     expect(result.current.bookInfo.year).toBe('');
   });
