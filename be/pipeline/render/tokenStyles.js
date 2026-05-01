@@ -1,8 +1,14 @@
+const SAFE_BORDER_STYLES = new Set(['dashed', 'solid', 'dotted']);
+
+function normalizeBorderStyle(borderStyle) {
+  return SAFE_BORDER_STYLES.has(borderStyle) ? borderStyle : 'dashed';
+}
+
 function buildTokenStyles({
   selectedFontStack,
   borderStyle,
 }) {
-  const safeBorderStyle = borderStyle || 'dashed';
+  const safeBorderStyle = normalizeBorderStyle(borderStyle);
   const safeFontStack = selectedFontStack || "Arial, sans-serif";
 
   return `
@@ -18,7 +24,34 @@ function buildTokenStyles({
 
     .grid-item {
       font-family: ${safeFontStack};
+      --microbook-line-height: 1;
+      --microbook-word-spacing: 0px;
+      --microbook-letter-spacing: 0px;
+      --microbook-text-align: left;
+      text-align: var(--microbook-text-align, left);
+      text-align-last: left;
+      text-justify: inter-word;
+    }
+
+    .grid-item.microbook-horizontal-justified {
+      --microbook-text-align: justify;
+    }
+
+    .grid-item.microbook-horizontal-justified .main-header {
       text-align: left;
+      text-align-last: left;
+    }
+
+    .grid-item.microbook-horizontal-justified .token-body,
+    .grid-item.microbook-horizontal-justified .token-heading-1,
+    .grid-item.microbook-horizontal-justified .token-heading-2,
+    .grid-item.microbook-horizontal-justified .token-heading-3,
+    .grid-item.microbook-horizontal-justified .token-heading-4,
+    .grid-item.microbook-horizontal-justified .token-heading-5,
+    .grid-item.microbook-horizontal-justified .token-heading-6,
+    .grid-item.microbook-horizontal-justified .token {
+      hyphens: auto;
+      overflow-wrap: normal;
     }
 
     .miniSheetNum {
@@ -37,7 +70,7 @@ function buildTokenStyles({
 
     .token-break-paragraph-space {
       display: inline;
-      white-space: pre;
+      white-space: normal;
       letter-spacing: 0;
       word-spacing: 0;
     }
@@ -45,9 +78,9 @@ function buildTokenStyles({
     .token-body {
       font-family: ${safeFontStack};
       font-size: 1em;
-      line-height: 1.05;
-      letter-spacing: 0;
-      word-spacing: 0;
+      line-height: var(--microbook-line-height, 1);
+      letter-spacing: var(--microbook-letter-spacing, 0px);
+      word-spacing: var(--microbook-word-spacing, 0px);
       font-kerning: none;
       font-variant-ligatures: none;
     }
@@ -60,9 +93,9 @@ function buildTokenStyles({
     .token-heading-6 {
       font-family: ${safeFontStack};
       font-weight: 700;
-      line-height: 1.05;
-      letter-spacing: 0;
-      word-spacing: 0;
+      line-height: var(--microbook-line-height, 1);
+      letter-spacing: var(--microbook-letter-spacing, 0px);
+      word-spacing: var(--microbook-word-spacing, 0px);
       font-kerning: none;
       font-variant-ligatures: none;
     }
@@ -77,7 +110,9 @@ function buildTokenStyles({
     .token-quote {
       font-style: italic;
       color: #1f2d3d;
-      word-spacing: 0;
+      line-height: var(--microbook-line-height, 1);
+      letter-spacing: var(--microbook-letter-spacing, 0px);
+      word-spacing: var(--microbook-word-spacing, 0px);
       font-kerning: none;
       font-variant-ligatures: none;
     }
@@ -131,4 +166,5 @@ function buildTokenStyles({
 
 module.exports = {
   buildTokenStyles,
+  normalizeBorderStyle,
 };

@@ -16,7 +16,9 @@ export function useFileHandling() {
     setBookName,
     pdfOptions,
     setFontSize,
+    setBorderStyle,
     setFontFamily,
+    setFoldGaps,
     fileState,
     setFileName,
     setSelectedFile,
@@ -32,7 +34,7 @@ export function useFileHandling() {
   const acceptedFormats = capabilities.acceptedFormats;
   const maxSize = capabilities.maxUploadSizeBytes;
 
-  const processFile = useCallback((file: File, clearInput?: () => void) => {
+  const processFile = useCallback((file: File, clearInput?: () => void, fontSizeOverride = pdfOptions.fontSize) => {
     const extension = `.${file.name.split('.').pop()?.toLowerCase()}`;
 
     if (!acceptedFormats.includes(extension)) {
@@ -96,7 +98,7 @@ export function useFileHandling() {
         );
       }
 
-      updateFileStats(wordCount, pdfOptions.fontSize);
+      updateFileStats(wordCount, fontSizeOverride);
     };
 
     reader.onerror = () => {
@@ -150,6 +152,7 @@ export function useFileHandling() {
       bookName: bookInfo.bookName,
       borderStyle: pdfOptions.borderStyle,
       fontFamily: pdfOptions.fontFamily,
+      foldGaps: pdfOptions.foldGaps,
       headerInfo: {
         series: bookInfo.series,
         sheetsCount: fileState.sheetsCount.toString(),
@@ -192,7 +195,8 @@ export function useFileHandling() {
         pdfOptions.borderStyle,
         bookInfo.author,
         bookInfo.year,
-        bookInfo.series
+        bookInfo.series,
+        pdfOptions.foldGaps
       );
 
       onJobStarted?.();
@@ -252,7 +256,14 @@ export function useFileHandling() {
       if (job.fontFamily) {
         setFontFamily(job.fontFamily);
       }
-      processFile(file);
+      if (job.fontSize) {
+        setFontSize(job.fontSize);
+      }
+      if (job.borderStyle) {
+        setBorderStyle(job.borderStyle);
+      }
+      setFoldGaps(Boolean(job.foldGaps));
+      processFile(file, undefined, job.fontSize || pdfOptions.fontSize);
     } catch (error) {
       console.error('Failed to load file from job:', error);
       showError(
@@ -260,7 +271,7 @@ export function useFileHandling() {
         error instanceof Error ? error.message : 'Could not load the original file from this job.'
       );
     }
-  }, [acceptedFormats, processFile, setFontFamily, showError]);
+  }, [acceptedFormats, pdfOptions.fontSize, processFile, setBorderStyle, setFoldGaps, setFontFamily, setFontSize, showError]);
 
   return {
     uploadRef,

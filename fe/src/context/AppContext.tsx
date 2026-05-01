@@ -23,6 +23,7 @@ interface AppContextType {
   setFontSize: ReturnType<typeof usePdfOptions>['setFontSize'];
   setBorderStyle: ReturnType<typeof usePdfOptions>['setBorderStyle'];
   setFontFamily: ReturnType<typeof usePdfOptions>['setFontFamily'];
+  setFoldGaps: ReturnType<typeof usePdfOptions>['setFoldGaps'];
 
   // File State
   fileState: ReturnType<typeof useFileState>['fileState'];
@@ -101,6 +102,7 @@ export function AppProvider({ children }: AppProviderProps) {
     setFontSize: pdfOptionsHook.setFontSize,
     setBorderStyle: pdfOptionsHook.setBorderStyle,
     setFontFamily: pdfOptionsHook.setFontFamily,
+    setFoldGaps: pdfOptionsHook.setFoldGaps,
 
     // File State
     fileState: fileStateHook.fileState,

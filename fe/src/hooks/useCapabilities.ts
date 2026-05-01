@@ -20,6 +20,7 @@ const fallbackCapabilities: CapabilitiesResponse = {
     borderStyle: 'dashed',
     fontSize: '6',
     fontFamily: 'arial',
+    foldGaps: false,
   },
 };
 

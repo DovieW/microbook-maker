@@ -195,6 +195,15 @@ const JobListItem: React.FC<JobListItemProps> = ({ job }) => {
               </JobDetailRow>
             )}
 
+            <JobDetailRow>
+              <Typography variant="body2" color="text.secondary">
+                Fold Gaps:
+              </Typography>
+              <Typography variant="body2">
+                {job.foldGaps ? 'Used' : 'Not used'}
+              </Typography>
+            </JobDetailRow>
+
             {job.author && (
               <JobDetailRow>
                 <Typography variant="body2" color="text.secondary">

@@ -16,7 +16,7 @@ export function useJobManagement(): UseJobManagementReturn {
   const initialLoadRef = useRef<boolean>(false);
   const scrollToTopCallbackRef = useRef<(() => void) | null>(null);
 
-  const addNewJob = useCallback((jobId: string, bookName: string, fontSize: string, fontFamily: string, originalFileName?: string, borderStyle?: string, author?: string, year?: string, series?: string) => {
+  const addNewJob = useCallback((jobId: string, bookName: string, fontSize: string, fontFamily: string, originalFileName?: string, borderStyle?: string, author?: string, year?: string, series?: string, foldGaps = false) => {
     // Extract timestamp from jobId to construct uploadPath
     const jobParts = jobId.split('_');
     const timestamp = jobParts[0]; // YYYYMMDDHHMMSS
@@ -28,6 +28,7 @@ export function useJobManagement(): UseJobManagementReturn {
       fontSize,
       fontFamily,
       borderStyle: borderStyle || null,
+      foldGaps,
       author: author || null,
       year: year || null,
       series: series || null,
@@ -159,10 +160,10 @@ export function useJobManagement(): UseJobManagementReturn {
   // Start polling when component mounts and jobs are loaded
   useEffect(() => {
     if (jobs.length > 0) {
-      const hasActiveJobs = jobs.some(job => 
+      const hasActiveJobs = jobs.some(job =>
         job.status === 'in_progress' || job.status === 'queued'
       );
-      
+
       if (hasActiveJobs) {
         startPolling();
       } else {

@@ -18,6 +18,7 @@ vi.mock('../../hooks/useCapabilities', () => ({
         borderStyle: 'dashed',
         fontSize: '6',
         fontFamily: 'arial',
+        foldGaps: false,
       },
     },
     capabilitiesLoading: false,
@@ -35,6 +36,7 @@ vi.mock('../../hooks/useJobManagement', () => ({
         fontSize: '6',
         fontFamily: 'arial',
         borderStyle: 'dashed',
+        foldGaps: true,
         author: 'Test Author',
         year: '2023',
         series: 'Test Series',
@@ -56,6 +58,7 @@ vi.mock('../../hooks/useJobManagement', () => ({
         fontSize: '8',
         fontFamily: 'arial',
         borderStyle: null,
+        foldGaps: true,
         author: null,
         year: null,
         series: null,
@@ -119,6 +122,15 @@ describe('JobManagement', () => {
     await waitFor(() => {
       const buttons = screen.getAllByRole('button');
       expect(buttons.length).toBeGreaterThan(0);
+    });
+  });
+
+  it('displays whether fold gaps were used', async () => {
+    renderWithProviders(<JobManagement />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Fold Gaps:').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Used').length).toBeGreaterThan(0);
     });
   });
 });

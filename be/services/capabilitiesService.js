@@ -14,6 +14,7 @@ function getCapabilities({ installedFamilies } = {}) {
       borderStyle: 'dashed',
       fontSize: '6',
       fontFamily: defaultFontFamily,
+      foldGaps: false,
     },
   };
 }

@@ -16,16 +16,26 @@ const {
   resolveFontFamily,
   getFontStack,
 } = require('./pipeline/render/fontCatalog');
-const { buildTokenStyles } = require('./pipeline/render/tokenStyles');
+const { buildTokenStyles, normalizeBorderStyle } = require('./pipeline/render/tokenStyles');
+const { PRETEXT_DIST_ROUTE, getPretextModuleUrls } = require('./pipeline/render/pretextAssets');
+const {
+  captureFirstPageScreenshot,
+  getScreenshotArtifactPaths,
+} = require('./pipeline/render/screenshotArtifacts');
 const {
   generateJobId,
   getSafeUploadFilename,
-  sanitizeFileComponent,
 } = require('./utils/fileUtils');
+const {
+  calculateReadingTime,
+  calculateSheetsCount,
+  normalizeDisplayBookName,
+} = require('./utils/outputStats');
 const { getPuppeteerLaunchOptions } = require('./utils/browserUtils');
 
 const app = express();
 const port = 3001;
+const rendererBaseUrl = process.env.MICROBOOK_RENDERER_BASE_URL || `http://127.0.0.1:${port}`;
 const queueConcurrency = Number(process.env.JOB_QUEUE_CONCURRENCY || 1);
 const jobQueue = new JobQueueService({ concurrency: queueConcurrency });
 const capabilities = getCapabilities();
@@ -35,9 +45,15 @@ const defaultFontFamily = capabilities.defaults.fontFamily;
 
 const generatedDir = path.join(__dirname, 'generated');
 const uploadsDir = path.join(__dirname, 'uploads');
+const pretextDistDir = path.join(__dirname, 'node_modules', '@chenglou', 'pretext', 'dist');
 
 fs.mkdirSync(generatedDir, { recursive: true });
 fs.mkdirSync(uploadsDir, { recursive: true });
+
+app.use(PRETEXT_DIST_ROUTE, express.static(pretextDistDir));
+app.get('/__microbook-renderer/page.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'page.html'));
+});
 
 const runningJobs = new Map(); // jobId -> { browser, cancelled, status }
 
@@ -95,6 +111,18 @@ function readMetadata(id) {
   }
 }
 
+function normalizeBoolean(value, fallback = false) {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    return value.toLowerCase() === 'true';
+  }
+
+  return fallback;
+}
+
 function setQueuedProgress(id, bookName) {
   progressService.writeProgress(id, {
     step: `Queued: ${bookName}`,
@@ -111,7 +139,9 @@ async function executePdfJob({
   uploadFile,
   metadata,
 }) {
-  const { bookName, borderStyle, fontFamily } = params;
+  const { bookName, fontFamily } = params;
+  const borderStyle = normalizeBorderStyle(params.borderStyle);
+  const foldGaps = normalizeBoolean(params.foldGaps, false);
   const { fontSize, author, year, series } = params.headerInfo;
   const resolvedFontFamily = resolveFontFamily(fontFamily, {
     allowedValues: supportedFontValues,
@@ -122,7 +152,7 @@ async function executePdfJob({
 
   let browser = null;
   let page = null;
-  const { inProgressPath, pdfPath } = getProgressPaths(id);
+  const { inProgressPath, metadataPath, pdfPath } = getProgressPaths(id);
 
   const jobState = runningJobs.get(id);
   if (jobState?.cancelled) {
@@ -147,6 +177,21 @@ async function executePdfJob({
 
     const normalizedDocument = normalizeDocument(parsedDocument);
     const tokens = serializeDocumentToTokens(normalizedDocument);
+    const normalizedWordCount = normalizedDocument.wordCount;
+    const resolvedSheetsCount = Number(params?.headerInfo?.sheetsCount || 0)
+      || calculateSheetsCount(normalizedWordCount, fontSize);
+    const resolvedReadTime = params?.headerInfo?.readTime && params.headerInfo.readTime !== '--'
+      ? params.headerInfo.readTime
+      : calculateReadingTime(normalizedWordCount);
+    const resolvedHeaderInfo = {
+      sheetsCount: resolvedSheetsCount,
+      wordCount: normalizedWordCount,
+      readTime: resolvedReadTime,
+      author,
+      year,
+      ...(series ? { series } : {}),
+      fontSize,
+    };
 
     progressService.writeProgress(id, {
       step: 'Setting up document processing',
@@ -226,12 +271,13 @@ async function executePdfJob({
         phase: 'page_creation',
       });
 
-      writeLegacyProgress(id, `Creating sheet ${index / 2} of ${params.headerInfo.sheetsCount}-ish.`);
+      writeLegacyProgress(id, `Creating sheet ${index / 2} of ${resolvedSheetsCount}-ish.`);
     });
 
     const fontSizeNumber = Number(fontSize) || 6;
+    const pretextModuleUrls = getPretextModuleUrls(__dirname, { baseUrl: rendererBaseUrl });
 
-    await page.goto(`file://${path.join(__dirname, 'page.html')}`);
+    await page.goto(`${rendererBaseUrl}/__microbook-renderer/page.html`);
     await page.addStyleTag({ content: `body { font-size: ${fontSizeNumber}px; }` });
     await page.addStyleTag({
       content: buildTokenStyles({
@@ -239,6 +285,35 @@ async function executePdfJob({
         borderStyle,
       }),
     });
+
+    const pretextLoadResult = await page.evaluate(async ({ layoutUrl, richInlineUrl, version }) => {
+      try {
+        const [layoutModule, richInlineModule] = await Promise.all([
+          import(layoutUrl),
+          import(richInlineUrl),
+        ]);
+
+        window.__microbookPretext = {
+          ...layoutModule,
+          richInline: richInlineModule,
+          version,
+          available: true,
+        };
+
+        return { available: true, version };
+      } catch (error) {
+        window.__microbookPretext = {
+          available: false,
+          error: error?.message || String(error),
+        };
+
+        return window.__microbookPretext;
+      }
+    }, pretextModuleUrls);
+
+    if (!pretextLoadResult.available) {
+      throw new Error(`Failed to load Pretext in the PDF renderer: ${pretextLoadResult.error}`);
+    }
 
     progressService.writeProgress(id, {
       step: 'Creating document pages',
@@ -256,10 +331,34 @@ async function executePdfJob({
         bookName,
         headerInfo,
         totalWords,
+        foldGaps,
       } = payload;
 
       let pageIndex = 0;
       let isCurrentPageFront = true;
+
+      const foldGapPx = 4;
+
+      function applyFoldGapPadding(gridItem, cellIndex) {
+        if (!foldGaps) {
+          return;
+        }
+
+        if (cellIndex < 4) {
+          gridItem.style.paddingBottom = `${foldGapPx}px`;
+        } else if (cellIndex >= 4 && cellIndex < 12) {
+          gridItem.style.paddingTop = `${foldGapPx}px`;
+          gridItem.style.paddingBottom = `${foldGapPx}px`;
+        } else {
+          gridItem.style.paddingTop = `${foldGapPx}px`;
+        }
+
+        if (cellIndex % 4 === 1) {
+          gridItem.style.paddingRight = `${foldGapPx}px`;
+        } else if (cellIndex % 4 === 2) {
+          gridItem.style.paddingLeft = `${foldGapPx}px`;
+        }
+      }
 
       function createNewPage(initialWordCount, wordsLeft) {
         console.log(pageIndex + 1);
@@ -293,6 +392,7 @@ async function executePdfJob({
           }
 
           gridItem.className += ` ${paddingClass}`;
+          applyFoldGapPadding(gridItem, i);
 
           if (i === 0 && isCurrentPageFront) {
             gridItem.id = `header${pageIndex}`;
@@ -314,7 +414,7 @@ async function executePdfJob({
               sheetNumSpan.innerText = '00/00';
               titleCell.appendChild(sheetNumSpan);
               if (bookName) {
-                titleCell.innerHTML += ` - ${bookName}`;
+                titleCell.appendChild(document.createTextNode(` - ${bookName}`));
               }
             }
 
@@ -341,7 +441,10 @@ async function executePdfJob({
                   value = `${Intl.NumberFormat().format(wordsLeft)}`;
                 }
 
-                cell.innerHTML = `<b>${property.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase())}:</b> ${value}`;
+                const label = document.createElement('b');
+                label.textContent = `${property.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase())}:`;
+                cell.appendChild(label);
+                cell.appendChild(document.createTextNode(` ${value}`));
                 currentRow.appendChild(cell);
                 cellCount += 1;
               }
@@ -363,7 +466,7 @@ async function executePdfJob({
                 timeText += ` ${minsLeft} minute${minsLeft > 1 ? 's' : ''}`;
               }
 
-              cell.innerHTML = `${Intl.NumberFormat().format(wordsLeft)} Words - ${percentageCompleted}% Complete - ${timeText}`;
+              cell.textContent = `${Intl.NumberFormat().format(wordsLeft)} Words - ${percentageCompleted}% Complete - ${timeText}`;
               currentRow.appendChild(cell);
             }
 
@@ -423,22 +526,24 @@ async function executePdfJob({
 
           const breakSpan = document.createElement('span');
           breakSpan.className = 'token-break token-break-paragraph-space';
-          breakSpan.textContent = '    ';
+          breakSpan.textContent = ' ';
           return breakSpan;
         }
+
+        const collapseWhitespace = (value) => String(value || '').replace(/\s+/g, ' ').trim();
 
         if (token.type === 'link') {
           if (token.isImage) {
             const imageLink = document.createElement('span');
             imageLink.className = `${buildTokenClass(token)} token-link-image`;
-            imageLink.textContent = token.text || 'Image';
+            imageLink.textContent = collapseWhitespace(token.text) || 'Image';
             return imageLink;
           }
 
           if (token.isBareUrl) {
             const plain = document.createElement('span');
             plain.className = `${buildTokenClass(token)} token-link-bare`;
-            plain.textContent = `${token.url}`;
+            plain.textContent = collapseWhitespace(token.url);
             return plain;
           }
 
@@ -447,11 +552,11 @@ async function executePdfJob({
 
           const label = document.createElement('span');
           label.className = 'token-link-label';
-          label.textContent = token.text || token.url;
+          label.textContent = collapseWhitespace(token.text || token.url);
 
           const url = document.createElement('span');
           url.className = 'token-link-url';
-          url.textContent = token.url ? ` (${token.url})` : '';
+          url.textContent = token.url ? ` (${collapseWhitespace(token.url)})` : '';
 
           container.appendChild(label);
           container.appendChild(url);
@@ -460,7 +565,7 @@ async function executePdfJob({
 
         const span = document.createElement('span');
         span.className = buildTokenClass(token);
-        span.textContent = `${token.text}`;
+        span.textContent = collapseWhitespace(token.text);
         return span;
       }
 
@@ -482,6 +587,634 @@ async function executePdfJob({
         }
 
         return true;
+      }
+
+      function toFiniteNumber(value, fallback = 0) {
+        const number = Number.parseFloat(String(value || ''));
+        return Number.isFinite(number) ? number : fallback;
+      }
+
+      function clamp(value, min, max) {
+        return Math.min(max, Math.max(min, value));
+      }
+
+      function getPretextApi() {
+        const api = window.__microbookPretext;
+        if (!api || !api.available) {
+          throw new Error(`Pretext is unavailable in the renderer: ${api?.error || 'unknown error'}`);
+        }
+
+        return api;
+      }
+
+      function getComputedFontString(element) {
+        const style = window.getComputedStyle(element);
+        if (style.font) {
+          return style.font;
+        }
+
+        return [
+          style.fontStyle,
+          style.fontVariant,
+          style.fontWeight,
+          style.fontSize,
+          style.fontFamily,
+        ].filter(Boolean).join(' ');
+      }
+
+      function getPrimaryTextElement(block) {
+        return block.querySelector('.token-body, .token-quote, .token-heading-1, .token-heading-2, .token-heading-3, .token') || block;
+      }
+
+      function getLineHeightPx(element) {
+        const style = window.getComputedStyle(element);
+        const fontSizePx = toFiniteNumber(style.fontSize, 6);
+        const lineHeightPx = style.lineHeight === 'normal'
+          ? fontSizePx * 1.2
+          : toFiniteNumber(style.lineHeight, fontSizePx * 1.05);
+
+        return {
+          fontSizePx,
+          lineHeightPx,
+          ratio: fontSizePx > 0 ? lineHeightPx / fontSizePx : 1.05,
+        };
+      }
+
+      function getInlineLetterSpacing(element) {
+        const style = window.getComputedStyle(element);
+        return style.letterSpacing === 'normal' ? 0 : toFiniteNumber(style.letterSpacing, 0);
+      }
+
+      function getUsableTextWidth(block) {
+        const style = window.getComputedStyle(block);
+        const paddingX = toFiniteNumber(style.paddingLeft) + toFiniteNumber(style.paddingRight);
+        return Math.max(1, block.clientWidth - paddingX);
+      }
+
+      function getFirstLineReservedWidth(block) {
+        const miniSheetNum = block.querySelector(':scope > .miniSheetNum');
+        if (!miniSheetNum) {
+          return 0;
+        }
+
+        const style = window.getComputedStyle(miniSheetNum);
+        return miniSheetNum.getBoundingClientRect().width
+          + toFiniteNumber(style.marginLeft)
+          + toFiniteNumber(style.marginRight);
+      }
+
+      function cloneBodyText(block) {
+        const clone = block.cloneNode(true);
+        clone.querySelectorAll('.miniSheetNum, .main-header, .token-separator').forEach((node) => node.remove());
+        return clone.textContent.replace(/\s+/g, ' ').trim();
+      }
+
+      function collectRichInlineItems(block) {
+        const items = [];
+
+        function visit(node) {
+          if (items.length >= 400) {
+            return;
+          }
+
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            const element = node;
+            if (element.matches('.miniSheetNum, .main-header, .token-separator')) {
+              return;
+            }
+
+            if (element.tagName === 'BR') {
+              items.push({
+                text: ' ',
+                font: getComputedFontString(getPrimaryTextElement(block)),
+              });
+              return;
+            }
+          }
+
+          if (node.nodeType === Node.TEXT_NODE) {
+            const text = node.textContent || '';
+            if (text.trim() !== '') {
+              const parent = node.parentElement || block;
+              items.push({
+                text,
+                font: getComputedFontString(parent),
+                letterSpacing: getInlineLetterSpacing(parent),
+                break: parent.classList?.contains('miniSheetNum') ? 'never' : 'normal',
+              });
+            }
+            return;
+          }
+
+          node.childNodes.forEach(visit);
+        }
+
+        block.childNodes.forEach(visit);
+        return items;
+      }
+
+      function measureVariableWidthLines(api, prepared, maxWidth, lineHeightPx, firstLineReservedWidth) {
+        let cursor = { segmentIndex: 0, graphemeIndex: 0 };
+        let lineCount = 0;
+        let maxLineWidth = 0;
+
+        while (lineCount < 512) {
+          const availableWidth = lineCount === 0
+            ? Math.max(1, maxWidth - firstLineReservedWidth)
+            : maxWidth;
+          const range = api.layoutNextLineRange(prepared, cursor, availableWidth);
+          if (range === null) {
+            break;
+          }
+
+          lineCount += 1;
+          maxLineWidth = Math.max(maxLineWidth, range.width);
+          cursor = range.end;
+        }
+
+        return {
+          lineCount,
+          maxLineWidth,
+          height: lineCount * lineHeightPx,
+        };
+      }
+
+      function analyzeBlockWithPretext(block) {
+        const api = getPretextApi();
+        const text = cloneBodyText(block);
+        if (!text) {
+          return null;
+        }
+
+        const primaryTextElement = getPrimaryTextElement(block);
+        const font = getComputedFontString(primaryTextElement);
+        const lineMetrics = getLineHeightPx(primaryTextElement);
+        const width = getUsableTextWidth(block);
+        const letterSpacing = getInlineLetterSpacing(primaryTextElement);
+        const prepared = api.prepareWithSegments(text, font, {
+          whiteSpace: 'normal',
+          letterSpacing,
+        });
+        const fixedLayout = api.layoutWithLines(prepared, width, lineMetrics.lineHeightPx);
+        const variableLayout = measureVariableWidthLines(
+          api,
+          prepared,
+          width,
+          lineMetrics.lineHeightPx,
+          getFirstLineReservedWidth(block)
+        );
+
+        let richInlineStats = null;
+        const richInlineItems = collectRichInlineItems(block);
+        if (richInlineItems.length > 0 && api.richInline?.prepareRichInline) {
+          try {
+            const preparedRichInline = api.richInline.prepareRichInline(richInlineItems);
+            richInlineStats = api.richInline.measureRichInlineStats(preparedRichInline, width);
+          } catch (error) {
+            richInlineStats = {
+              error: error?.message || String(error),
+            };
+          }
+        }
+
+        const wordCount = text.split(/\s+/).filter(Boolean).length;
+
+        return {
+          textLength: text.length,
+          wordCount,
+          width,
+          font,
+          fontSizePx: lineMetrics.fontSizePx,
+          baseLineHeightPx: lineMetrics.lineHeightPx,
+          baseLineHeightRatio: lineMetrics.ratio,
+          fixedLineCount: fixedLayout.lineCount,
+          fixedHeight: fixedLayout.height,
+          fixedMaxLineWidth: fixedLayout.lines.reduce((maxWidth, line) => Math.max(maxWidth, line.width), 0),
+          variableLineCount: variableLayout.lineCount,
+          variableHeight: variableLayout.height,
+          variableMaxLineWidth: variableLayout.maxLineWidth,
+          richInlineLineCount: richInlineStats && !richInlineStats.error ? richInlineStats.lineCount : null,
+          richInlineMaxLineWidth: richInlineStats && !richInlineStats.error ? richInlineStats.maxLineWidth : null,
+          richInlineError: richInlineStats?.error || null,
+        };
+      }
+
+      function shouldOptimizeBlock(block) {
+        if (!block.isConnected) {
+          return false;
+        }
+
+        if (block.textContent.includes('THE END')) {
+          return false;
+        }
+
+        return block.querySelectorAll('.token').length >= 6;
+      }
+
+      function applyHorizontalJustification(block, analysis) {
+        const renderedLineMetrics = getRenderedLineMetrics(block);
+        const lineCount = renderedLineMetrics.lineCount
+          || analysis.richInlineLineCount
+          || analysis.variableLineCount
+          || analysis.fixedLineCount;
+        const fillRatio = renderedLineMetrics.averageCoreFillRatio;
+        const denseLineShare = renderedLineMetrics.denseCoreLineShare;
+        const shortestCoreLineRatio = renderedLineMetrics.shortestCoreLineRatio;
+        const averageWordsPerLine = analysis.wordCount / Math.max(lineCount, 1);
+        const averageCharactersPerLine = analysis.textLength / Math.max(lineCount, 1);
+        const hasBlockingStructuredContent = Boolean(block.querySelector(
+          '.token-separator, .token-heading-1, .token-heading-2, .token-heading-3, .token-heading-4, .token-heading-5, .token-heading-6, .token-quote, .token-link, .token-inline-code'
+        ));
+        const candidate = lineCount >= 10;
+        const shouldApply = candidate
+          && !hasBlockingStructuredContent
+          && analysis.textLength >= 450
+          && averageCharactersPerLine >= 24
+          && averageWordsPerLine >= 4.5
+          && fillRatio >= 0.72
+          && denseLineShare >= 0.55
+          && shortestCoreLineRatio >= 0.38;
+
+        block.classList.toggle('microbook-horizontal-justified', shouldApply);
+
+        return {
+          candidate,
+          applied: shouldApply,
+          fillRatio,
+          denseLineShare,
+          shortestCoreLineRatio,
+          averageWordsPerLine,
+          averageCharactersPerLine,
+        };
+      }
+
+      function getBlockContentBox(block) {
+        const rect = block.getBoundingClientRect();
+        const style = window.getComputedStyle(block);
+
+        return {
+          top: rect.top + toFiniteNumber(style.paddingTop),
+          bottom: rect.bottom - toFiniteNumber(style.paddingBottom),
+        };
+      }
+
+      function getTextVisualBounds(block) {
+        const rects = [];
+        const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT, {
+          acceptNode(node) {
+            if (!node.textContent || node.textContent.trim() === '') {
+              return NodeFilter.FILTER_REJECT;
+            }
+
+            const parent = node.parentElement;
+            if (!parent || parent.closest('.main-header')) {
+              return NodeFilter.FILTER_REJECT;
+            }
+
+            return NodeFilter.FILTER_ACCEPT;
+          },
+        });
+
+        while (walker.nextNode()) {
+          const range = document.createRange();
+          range.selectNodeContents(walker.currentNode);
+          Array.from(range.getClientRects()).forEach((rect) => {
+            if (rect.width > 0 && rect.height > 0) {
+              rects.push(rect);
+            }
+          });
+          range.detach();
+        }
+
+        if (rects.length === 0) {
+          return null;
+        }
+
+        const rows = [];
+        rects.forEach((rect) => {
+          const existingRow = rows.find((row) => Math.abs(row.top - rect.top) <= 1.25);
+          if (existingRow) {
+            existingRow.top = Math.min(existingRow.top, rect.top);
+            existingRow.bottom = Math.max(existingRow.bottom, rect.bottom);
+            return;
+          }
+
+          rows.push({
+            top: rect.top,
+            bottom: rect.bottom,
+          });
+        });
+
+        rows.sort((a, b) => a.top - b.top);
+
+        const lineGaps = [];
+        for (let i = 1; i < rows.length; i += 1) {
+          const gap = rows[i].top - rows[i - 1].bottom;
+          if (Number.isFinite(gap) && gap >= 0) {
+            lineGaps.push(gap);
+          }
+        }
+
+        const averageLineGap = lineGaps.length > 0
+          ? lineGaps.reduce((sum, gap) => sum + gap, 0) / lineGaps.length
+          : 0;
+
+        return {
+          top: Math.min(...rects.map((rect) => rect.top)),
+          bottom: Math.max(...rects.map((rect) => rect.bottom)),
+          lineBoxCount: rows.length,
+          averageLineGap,
+        };
+      }
+
+      function getRenderedLineMetrics(block) {
+        const style = window.getComputedStyle(block);
+        const blockRect = block.getBoundingClientRect();
+        const contentLeft = blockRect.left + toFiniteNumber(style.paddingLeft);
+        const contentRight = blockRect.right - toFiniteNumber(style.paddingRight);
+        const usableWidth = Math.max(1, contentRight - contentLeft);
+        const rows = [];
+
+        const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT, {
+          acceptNode(node) {
+            if (!node.textContent || node.textContent.trim() === '') {
+              return NodeFilter.FILTER_REJECT;
+            }
+
+            const parent = node.parentElement;
+            if (!parent || parent.closest('.main-header')) {
+              return NodeFilter.FILTER_REJECT;
+            }
+
+            return NodeFilter.FILTER_ACCEPT;
+          },
+        });
+
+        while (walker.nextNode()) {
+          const range = document.createRange();
+          range.selectNodeContents(walker.currentNode);
+          Array.from(range.getClientRects()).forEach((rect) => {
+            if (rect.width <= 0 || rect.height <= 0) {
+              return;
+            }
+
+            const existingRow = rows.find((row) => Math.abs(row.top - rect.top) <= 1.25);
+            if (existingRow) {
+              existingRow.top = Math.min(existingRow.top, rect.top);
+              existingRow.bottom = Math.max(existingRow.bottom, rect.bottom);
+              existingRow.left = Math.min(existingRow.left, rect.left);
+              existingRow.right = Math.max(existingRow.right, rect.right);
+              return;
+            }
+
+            rows.push({
+              top: rect.top,
+              bottom: rect.bottom,
+              left: rect.left,
+              right: rect.right,
+            });
+          });
+          range.detach();
+        }
+
+        rows.sort((a, b) => a.top - b.top);
+
+        const lines = rows.map((row) => {
+          const width = Math.max(0, row.right - row.left);
+          return {
+            width,
+            fillRatio: clamp(width / usableWidth, 0, 1.5),
+          };
+        });
+
+        const coreLines = lines.length > 2 ? lines.slice(1, -1) : lines;
+        const averageCoreFillRatio = coreLines.length > 0
+          ? coreLines.reduce((sum, line) => sum + line.fillRatio, 0) / coreLines.length
+          : 0;
+        const denseCoreLineCount = coreLines.filter((line) => line.fillRatio >= 0.74).length;
+        const denseCoreLineShare = coreLines.length > 0 ? denseCoreLineCount / coreLines.length : 0;
+        const shortestCoreLineRatio = coreLines.length > 0
+          ? Math.min(...coreLines.map((line) => line.fillRatio))
+          : 0;
+
+        return {
+          lineCount: lines.length,
+          averageCoreFillRatio,
+          denseCoreLineShare,
+          shortestCoreLineRatio,
+        };
+      }
+
+      function measureVerticalFit(block) {
+        const contentBox = getBlockContentBox(block);
+        const visualBounds = getTextVisualBounds(block);
+        const scrollSlack = block.clientHeight - block.scrollHeight;
+
+        if (!visualBounds) {
+          return {
+            hasTextBounds: false,
+            scrollSlack,
+            visualSlack: scrollSlack,
+            visualTopSlack: null,
+            averageLineGap: null,
+            targetEdgeSlack: 1,
+          };
+        }
+
+        const targetEdgeSlack = clamp(visualBounds.averageLineGap || 1, 0.5, 2);
+
+        return {
+          hasTextBounds: true,
+          scrollSlack,
+          visualSlack: contentBox.bottom - visualBounds.bottom,
+          visualTopSlack: visualBounds.top - contentBox.top,
+          averageLineGap: visualBounds.averageLineGap,
+          targetEdgeSlack,
+        };
+      }
+
+      function applyVerticalJustification(block, analysis) {
+        const baseRatio = clamp(analysis.baseLineHeightRatio || 1, 0.92, 1.2);
+        const lineCount = Math.max(
+          analysis.richInlineLineCount || analysis.variableLineCount || analysis.fixedLineCount || 1,
+          1
+        );
+
+        block.style.setProperty('--microbook-line-height', baseRatio.toFixed(4));
+        const fitBefore = measureVerticalFit(block);
+        const targetVisualSlack = fitBefore.targetEdgeSlack ?? 1;
+        if (!fitBefore.hasTextBounds || fitBefore.visualSlack <= targetVisualSlack) {
+          return {
+            applied: false,
+            baselineOnly: false,
+            lineHeightRatio: baseRatio,
+            slackBefore: fitBefore.scrollSlack,
+            slackAfter: fitBefore.scrollSlack,
+            visualTopSlackBefore: fitBefore.visualTopSlack,
+            visualTopSlackAfter: fitBefore.visualTopSlack,
+            visualSlackBefore: fitBefore.visualSlack,
+            visualSlackAfter: fitBefore.visualSlack,
+            averageLineGap: fitBefore.averageLineGap,
+            targetEdgeSlack: targetVisualSlack,
+          };
+        }
+
+        const estimatedExtraRatio = fitBefore.visualSlack / Math.max(analysis.fontSizePx * Math.max(lineCount - 1, 1), 1);
+        const pretextTarget = baseRatio + estimatedExtraRatio;
+        let upperBound = clamp(Math.max(pretextTarget, baseRatio + 0.03), baseRatio, 1.35);
+
+        block.style.setProperty('--microbook-line-height', upperBound.toFixed(4));
+        let fitAtUpperBound = measureVerticalFit(block);
+        while (fitAtUpperBound.visualSlack > targetVisualSlack && upperBound < 1.35) {
+          upperBound = clamp(upperBound + 0.05, baseRatio, 1.35);
+          block.style.setProperty('--microbook-line-height', upperBound.toFixed(4));
+          fitAtUpperBound = measureVerticalFit(block);
+        }
+
+        let low = baseRatio;
+        let high = upperBound;
+        for (let i = 0; i < 12; i += 1) {
+          const midpoint = (low + high) / 2;
+          block.style.setProperty('--microbook-line-height', midpoint.toFixed(4));
+          const fit = measureVerticalFit(block);
+          if (fit.visualSlack >= targetVisualSlack) {
+            low = midpoint;
+          } else {
+            high = midpoint;
+          }
+        }
+
+        block.style.setProperty('--microbook-line-height', low.toFixed(4));
+        const fitAfter = measureVerticalFit(block);
+
+        return {
+          applied: low > baseRatio + 0.005,
+          baselineOnly: false,
+          lineHeightRatio: low,
+          slackBefore: fitBefore.scrollSlack,
+          slackAfter: fitAfter.scrollSlack,
+          visualTopSlackBefore: fitBefore.visualTopSlack,
+          visualTopSlackAfter: fitAfter.visualTopSlack,
+          visualSlackBefore: fitBefore.visualSlack,
+          visualSlackAfter: fitAfter.visualSlack,
+          averageLineGap: fitAfter.averageLineGap,
+          targetEdgeSlack: targetVisualSlack,
+          pretextTarget,
+        };
+      }
+
+      function runPretextLayoutOptimization() {
+        const startedAt = performance.now();
+        const api = getPretextApi();
+        const blocks = Array.from(document.querySelectorAll('.grid-item')).filter((block) => block.isConnected);
+        const populatedBlocks = blocks.filter((block) => block.textContent.trim() !== '');
+        const blockReports = [];
+
+        const formatNumber = (value, digits = 2) => Number.isFinite(value)
+          ? value.toFixed(digits)
+          : '';
+        const roundNumber = (value, digits = 2) => Number.isFinite(value)
+          ? Number(value.toFixed(digits))
+          : null;
+
+        let analyzedBlocks = 0;
+        let verticallyJustifiedBlocks = 0;
+        let horizontallyJustifiedBlocks = 0;
+        let horizontalJustificationCandidateBlocks = 0;
+        let estimatedLines = 0;
+
+        populatedBlocks.forEach((block, index) => {
+          if (!shouldOptimizeBlock(block)) {
+            return;
+          }
+
+          const analysis = analyzeBlockWithPretext(block);
+          if (!analysis) {
+            return;
+          }
+
+          analyzedBlocks += 1;
+          estimatedLines += analysis.richInlineLineCount || analysis.variableLineCount || analysis.fixedLineCount || 0;
+
+          const horizontalResult = applyHorizontalJustification(block, analysis);
+          const verticalResult = applyVerticalJustification(block, analysis);
+
+          if (horizontalResult.candidate) {
+            horizontalJustificationCandidateBlocks += 1;
+          }
+          if (horizontalResult.applied) {
+            horizontallyJustifiedBlocks += 1;
+          }
+          if (verticalResult.applied) {
+            verticallyJustifiedBlocks += 1;
+          }
+
+          block.dataset.pretextLineCount = String(analysis.richInlineLineCount || analysis.variableLineCount || analysis.fixedLineCount || 0);
+          block.dataset.pretextVariableLineCount = String(analysis.variableLineCount || 0);
+          block.dataset.pretextRichLineCount = String(analysis.richInlineLineCount || 0);
+          block.dataset.pretextLineHeight = verticalResult.lineHeightRatio.toFixed(4);
+          block.dataset.pretextSlackBefore = formatNumber(verticalResult.slackBefore);
+          block.dataset.pretextSlackAfter = formatNumber(verticalResult.slackAfter);
+          block.dataset.pretextVisualTopSlackBefore = formatNumber(verticalResult.visualTopSlackBefore);
+          block.dataset.pretextVisualTopSlackAfter = formatNumber(verticalResult.visualTopSlackAfter);
+          block.dataset.pretextVisualSlackBefore = formatNumber(verticalResult.visualSlackBefore);
+          block.dataset.pretextVisualSlackAfter = formatNumber(verticalResult.visualSlackAfter);
+          block.dataset.pretextTargetEdgeSlack = formatNumber(verticalResult.targetEdgeSlack);
+          block.dataset.pretextHorizontalFillRatio = horizontalResult.fillRatio.toFixed(3);
+          block.dataset.pretextHorizontalDenseLineShare = horizontalResult.denseLineShare.toFixed(3);
+          block.dataset.pretextHorizontalShortestCoreLineRatio = horizontalResult.shortestCoreLineRatio.toFixed(3);
+          block.dataset.pretextHorizontalWordsPerLine = horizontalResult.averageWordsPerLine.toFixed(2);
+
+          blockReports.push({
+            index,
+            textLength: analysis.textLength,
+            wordCount: analysis.wordCount,
+            width: Number(analysis.width.toFixed(2)),
+            fixedLineCount: analysis.fixedLineCount,
+            variableLineCount: analysis.variableLineCount,
+            richInlineLineCount: analysis.richInlineLineCount,
+            lineHeightRatio: Number(verticalResult.lineHeightRatio.toFixed(4)),
+            slackBefore: roundNumber(verticalResult.slackBefore),
+            slackAfter: roundNumber(verticalResult.slackAfter),
+            visualTopSlackBefore: roundNumber(verticalResult.visualTopSlackBefore),
+            visualTopSlackAfter: roundNumber(verticalResult.visualTopSlackAfter),
+            visualSlackBefore: roundNumber(verticalResult.visualSlackBefore),
+            visualSlackAfter: roundNumber(verticalResult.visualSlackAfter),
+            verticalTargetEdgeSlack: roundNumber(verticalResult.targetEdgeSlack),
+            verticalAverageLineGap: roundNumber(verticalResult.averageLineGap),
+            horizontalJustified: horizontalResult.applied,
+            horizontalJustificationCandidate: horizontalResult.candidate,
+            horizontalFillRatio: Number(horizontalResult.fillRatio.toFixed(3)),
+            horizontalDenseLineShare: Number(horizontalResult.denseLineShare.toFixed(3)),
+            horizontalShortestCoreLineRatio: Number(horizontalResult.shortestCoreLineRatio.toFixed(3)),
+            horizontalAverageWordsPerLine: Number(horizontalResult.averageWordsPerLine.toFixed(2)),
+            horizontalAverageCharactersPerLine: Number(horizontalResult.averageCharactersPerLine.toFixed(2)),
+            verticalJustified: verticalResult.applied,
+            verticalBaselineOnly: Boolean(verticalResult.baselineOnly),
+          });
+        });
+
+        const report = {
+          engine: 'pretext',
+          pretextVersion: api.version || 'unknown',
+          analyzedBlocks,
+          populatedBlocks: populatedBlocks.length,
+          verticallyJustifiedBlocks,
+          horizontallyJustifiedBlocks,
+          horizontalJustificationCandidateBlocks,
+          estimatedLines,
+          durationMs: Number((performance.now() - startedAt).toFixed(2)),
+          blocks: blockReports,
+        };
+
+        const reportNode = document.createElement('script');
+        reportNode.type = 'application/json';
+        reportNode.id = 'microbook-layout-report';
+        reportNode.textContent = JSON.stringify(report);
+        document.body.appendChild(reportNode);
+
+        window.__microbookLayoutReport = report;
+        return report;
       }
 
       const initialWordCount = totalWords;
@@ -558,7 +1291,7 @@ async function executePdfJob({
 
       if (currentBlock) {
         const endMarker = document.createElement('div');
-        endMarker.innerHTML = 'THE END';
+        endMarker.textContent = 'THE END';
         endMarker.style.textAlign = 'center';
         endMarker.style.fontWeight = 'bold';
         endMarker.style.fontSize = '1.6em';
@@ -600,18 +1333,14 @@ async function executePdfJob({
           block.remove();
         }
       });
+
+      runPretextLayoutOptimization();
     }, {
       tokens,
       bookName,
-      headerInfo: {
-        wordCount: normalizedDocument.wordCount,
-        readTime: metadata.readTime,
-        author,
-        year,
-        series,
-        fontSize,
-      },
-      totalWords: normalizedDocument.wordCount,
+      headerInfo: resolvedHeaderInfo,
+      totalWords: normalizedWordCount,
+      foldGaps,
     });
 
     if (runningJobs.get(id)?.cancelled) {
@@ -626,8 +1355,39 @@ async function executePdfJob({
       phase: 'layout',
     });
 
+    const layoutReport = await page.evaluate(() => window.__microbookLayoutReport || null);
     const pageCount = await page.evaluate(() => document.querySelectorAll('.page').length);
     const estimatedSheets = Math.ceil(pageCount / 2);
+    let finalMetadata = {
+      ...metadata,
+      bookName,
+      foldGaps,
+      wordCount: normalizedWordCount,
+      sheetsCount: resolvedSheetsCount,
+      readTime: resolvedReadTime,
+    };
+
+    if (layoutReport) {
+      layoutReport.pageCount = pageCount;
+      layoutReport.sheetCount = estimatedSheets;
+      layoutReport.estimatedCellsPerSheet = 32;
+      layoutReport.estimatedLinesPerSheet = estimatedSheets > 0
+        ? Number((layoutReport.estimatedLines / estimatedSheets).toFixed(2))
+        : 0;
+
+      finalMetadata = {
+        ...finalMetadata,
+        layout: layoutReport,
+      };
+
+      progressService.writeProgress(id, {
+        step: `Pretext optimized ${layoutReport.verticallyJustifiedBlocks}/${layoutReport.analyzedBlocks} cells`,
+        percentage: 95,
+        isComplete: false,
+        isError: false,
+        phase: 'layout',
+      });
+    }
 
     progressService.writeProgress(id, {
       step: `Created ${estimatedSheets} sheets`,
@@ -644,6 +1404,32 @@ async function executePdfJob({
 
     const htmlContent = await page.content();
     fs.writeFileSync(path.join(generatedDir, `output_${id}.html`), htmlContent);
+
+    progressService.writeProgress(id, {
+      step: 'Capturing preview screenshot',
+      percentage: 97,
+      isComplete: false,
+      isError: false,
+      phase: 'preview',
+    });
+
+    try {
+      finalMetadata = {
+        ...finalMetadata,
+        screenshots: await captureFirstPageScreenshot(page, {
+          id,
+          generatedDir,
+        }),
+      };
+    } catch (screenshotError) {
+      console.warn(`Failed to capture screenshot for job ${id}:`, screenshotError);
+      finalMetadata = {
+        ...finalMetadata,
+        screenshotError: screenshotError?.message || String(screenshotError),
+      };
+    }
+
+    fs.writeFileSync(metadataPath, JSON.stringify(finalMetadata, null, 2));
 
     if (runningJobs.get(id)?.cancelled) {
       return;
@@ -735,21 +1521,32 @@ app.post('/api/upload', upload.fields([{ name: 'file' }]), (req, res) => {
     const fontFamily = resolveFontFamily(params.fontFamily || params?.headerInfo?.fontFamily || defaultFontFamily, {
       allowedValues: supportedFontValues,
     });
+    const borderStyle = normalizeBorderStyle(params.borderStyle);
 
     const id = generateJobId();
-    const bookName = sanitizeFileComponent(params.bookName || path.basename(uploadedFile.originalname, path.extname(uploadedFile.originalname)), 'Untitled');
+    const bookName = normalizeDisplayBookName(
+      params.bookName || path.basename(uploadedFile.originalname, path.extname(uploadedFile.originalname)),
+      'Untitled'
+    );
+    const fontSize = String(params?.headerInfo?.fontSize || '6');
+    const requestedWordCount = Number(params?.headerInfo?.wordCount || 0);
+    const requestedSheetsCount = Number(params?.headerInfo?.sheetsCount || 0);
+    const requestedReadTime = params?.headerInfo?.readTime || '--';
+    const foldGaps = normalizeBoolean(params.foldGaps, false);
 
     const jobMetadata = {
       id,
       bookName,
-      borderStyle: params.borderStyle || 'dashed',
-      fontSize: String(params?.headerInfo?.fontSize || '6'),
+      borderStyle,
+      fontSize,
       fontFamily,
+      foldGaps,
       author: params?.headerInfo?.author || null,
       year: params?.headerInfo?.year || null,
       series: params?.headerInfo?.series || null,
-      wordCount: Number(params?.headerInfo?.wordCount || 0),
-      readTime: params?.headerInfo?.readTime || '--',
+      wordCount: requestedWordCount,
+      sheetsCount: requestedSheetsCount || calculateSheetsCount(requestedWordCount, fontSize),
+      readTime: requestedReadTime !== '--' ? requestedReadTime : calculateReadingTime(requestedWordCount),
       createdAt: new Date().toISOString(),
       originalFileName: uploadedFile.originalname,
       uploadPath: path.basename(uploadedFile.path),
@@ -772,14 +1569,17 @@ app.post('/api/upload', upload.fields([{ name: 'file' }]), (req, res) => {
       params: {
         ...params,
         bookName,
-        borderStyle: params.borderStyle || 'dashed',
+        borderStyle,
         fontFamily,
+        foldGaps,
         headerInfo: {
           ...params.headerInfo,
-          fontSize: String(params?.headerInfo?.fontSize || '6'),
+          fontSize,
           author: params?.headerInfo?.author || null,
           year: params?.headerInfo?.year || null,
           series: params?.headerInfo?.series || null,
+          sheetsCount: String(requestedSheetsCount || calculateSheetsCount(requestedWordCount, fontSize)),
+          readTime: requestedReadTime !== '--' ? requestedReadTime : calculateReadingTime(requestedWordCount),
         },
       },
       uploadFile: uploadedFile,
@@ -994,12 +1794,14 @@ app.get('/api/jobs', (req, res) => {
         author: metadata.author || null,
         year: metadata.year || null,
         series: metadata.series || null,
+        foldGaps: Boolean(metadata.foldGaps),
         status,
         progress,
         createdAt,
         completedAt,
         originalFileName: metadata.originalFileName || null,
         uploadPath: metadata.uploadPath || null,
+        screenshots: metadata.screenshots || null,
       };
     });
 
@@ -1013,6 +1815,21 @@ app.get('/api/jobs', (req, res) => {
       message: error.message,
     });
   }
+});
+
+app.get('/api/jobs/:id/screenshot', (req, res) => {
+  const { id } = req.params;
+  const artifacts = getScreenshotArtifactPaths({ id, generatedDir });
+
+  if (!fs.existsSync(artifacts.firstPage.path)) {
+    res.status(404).json({
+      error: 'Screenshot not found',
+      message: `No first-page screenshot found for job ID: ${id}`,
+    });
+    return;
+  }
+
+  res.redirect(artifacts.firstPage.url);
 });
 
 app.get('/api/download', (req, res) => {
@@ -1061,6 +1878,7 @@ app.delete('/api/jobs/:id', async (req, res) => {
     }
 
     const { pdfPath, inProgressPath, structuredProgressPath, metadataPath } = getProgressPaths(id);
+    const screenshotArtifacts = getScreenshotArtifactPaths({ id, generatedDir });
 
     const metadata = readMetadata(id);
     const uploadPath = metadata?.uploadPath ? path.join(uploadsDir, metadata.uploadPath) : null;
@@ -1086,6 +1904,7 @@ app.delete('/api/jobs/:id', async (req, res) => {
     deleteFileIfExists(structuredProgressPath, 'structured progress file');
     deleteFileIfExists(metadataPath, 'metadata file');
     deleteFileIfExists(uploadPath, 'original upload');
+    deleteFileIfExists(screenshotArtifacts.firstPage.path, 'preview screenshot');
 
     if (deletedFiles.length === 0 && errors.length === 0 && !cancelled) {
       res.status(404).json({

@@ -5,6 +5,7 @@ const initialPdfOptions: PdfOptions = {
   fontSize: '6',
   borderStyle: 'dashed',
   fontFamily: 'arial',
+  foldGaps: false,
 };
 
 function pdfOptionsReducer(state: PdfOptions, action: PdfOptionsAction): PdfOptions {
@@ -15,6 +16,8 @@ function pdfOptionsReducer(state: PdfOptions, action: PdfOptionsAction): PdfOpti
       return { ...state, borderStyle: action.payload };
     case 'SET_FONT_FAMILY':
       return { ...state, fontFamily: action.payload };
+    case 'SET_FOLD_GAPS':
+      return { ...state, foldGaps: action.payload };
     default:
       return state;
   }
@@ -35,10 +38,15 @@ export function usePdfOptions() {
     dispatch({ type: 'SET_FONT_FAMILY', payload: fontFamily });
   }, []);
 
+  const setFoldGaps = useCallback((foldGaps: boolean) => {
+    dispatch({ type: 'SET_FOLD_GAPS', payload: foldGaps });
+  }, []);
+
   return {
     pdfOptions,
     setFontSize,
     setBorderStyle,
     setFontFamily,
+    setFoldGaps,
   };
 }

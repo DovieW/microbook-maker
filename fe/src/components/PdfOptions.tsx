@@ -4,6 +4,8 @@ import {
   Select,
   MenuItem,
   InputLabel,
+  Checkbox,
+  FormControlLabel,
 } from '@mui/material';
 import { useAppContext } from '../context/AppContext';
 import { useFileHandling } from '../hooks/useFileHandling';
@@ -19,6 +21,7 @@ const PdfOptions: React.FC = () => {
     pdfOptions,
     setBorderStyle,
     setFontFamily,
+    setFoldGaps,
     capabilities,
   } = useAppContext();
 
@@ -86,6 +89,17 @@ const PdfOptions: React.FC = () => {
             <MenuItem value="dotted">Dotted</MenuItem>
           </Select>
         </StyledFormControl>
+
+        <FormControlLabel
+          sx={{ alignSelf: 'center', mt: 1 }}
+          control={(
+            <Checkbox
+              checked={pdfOptions.foldGaps}
+              onChange={e => setFoldGaps(e.target.checked)}
+            />
+          )}
+          label="Fold gaps"
+        />
       </Stack>
     </OptionsContainer>
   );

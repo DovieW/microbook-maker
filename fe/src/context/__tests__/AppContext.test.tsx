@@ -15,6 +15,7 @@ vi.mock('../../hooks/useCapabilities', () => ({
         borderStyle: 'dashed',
         fontSize: '6',
         fontFamily: 'dejavu-sans',
+        foldGaps: false,
       },
     },
     capabilitiesLoading: false,

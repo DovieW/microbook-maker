@@ -299,41 +299,41 @@ export const StyledComponents = {
   CenteredContainer,
   SpaceBetweenContainer,
   InfoDisplayContainer,
-  
+
   // Form
   FormRow,
   FormField,
   NarrowField,
   MediumField,
   StyledFormControl,
-  
+
   // Buttons
   StyledIconButton,
   ActionButton,
-  
+
   // Loading
   LoadingOverlay,
   LoadingSpinner,
-  
+
   // Typography
   BoldText,
   StatusText,
-  
+
   // Containers
   MainFormContainer,
   ControlsContainer,
   ButtonContainer,
-  
+
   // Inputs
   HiddenFileInput,
-  
+
   // Background
   DarkBackground,
-  
+
   // Status
   StatusContainer,
   StatusButton,
-  
+
   // Utility
   OptionsContainer,
 

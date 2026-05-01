@@ -2,12 +2,12 @@
 <html>
   <head>
     <style>
-      
+
       @page {
         size: Letter portrait;
         margin: 0;
       }
-      
+
       body {
         margin: 0px;
         /* margin: -10px; */
@@ -50,7 +50,7 @@
 
       .grid-item {
         line-height: 1;
-        padding: 2px;
+        padding: 0 2px;
         box-sizing: border-box;
         overflow: hidden;
         font-family: Arial;
@@ -68,8 +68,8 @@
 
       /* Right border for all items except those in the 4th column */
       /* Removed hardcoded border styles - now injected dynamically */
-      /* .grid-item:nth-child(4n-2), 
-      .grid-item:nth-child(4n-1), 
+      /* .grid-item:nth-child(4n-2),
+      .grid-item:nth-child(4n-1),
       .grid-item:nth-child(4n-3) {
           border-right: 1px dashed black;
       } */
@@ -87,10 +87,10 @@
 
       /* Improved padding */
       .pad-bottom {
-        padding-bottom: 4px;
+        padding-bottom: 0;
       }
       .pad-top {
-        padding-top: 4px;
+        padding-top: 0;
       }
       .pad-left {
         padding-left: 2px;

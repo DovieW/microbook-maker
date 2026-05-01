@@ -61,6 +61,9 @@ RUN mkdir -p ./be/generated ./be/uploads
 
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD ["node", "-e", "fetch('http://127.0.0.1:7777/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"]
+
 EXPOSE 7777
 
 ENTRYPOINT ["./entrypoint.sh"]

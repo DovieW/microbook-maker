@@ -16,6 +16,7 @@ export interface UploadParams {
   bookName: string;
   borderStyle: string;
   fontFamily: string;
+  foldGaps?: boolean;
   headerInfo: HeaderInfo;
 }
 
@@ -31,6 +32,7 @@ export interface PdfOptions {
   fontSize: string;
   borderStyle: string;
   fontFamily: string;
+  foldGaps: boolean;
 }
 
 export interface FileState {
@@ -69,7 +71,8 @@ export type BookInfoAction =
 export type PdfOptionsAction =
   | { type: 'SET_FONT_SIZE'; payload: string }
   | { type: 'SET_BORDER_STYLE'; payload: string }
-  | { type: 'SET_FONT_FAMILY'; payload: string };
+  | { type: 'SET_FONT_FAMILY'; payload: string }
+  | { type: 'SET_FOLD_GAPS'; payload: boolean };
 
 export type FileStateAction =
   | { type: 'SET_FILE_NAME'; payload: string }
@@ -171,6 +174,7 @@ export interface Job {
   fontSize: string;
   fontFamily: string;
   borderStyle: string | null;
+  foldGaps?: boolean;
   author: string | null;
   year: string | null;
   series: string | null;
@@ -198,6 +202,7 @@ export interface CapabilitiesResponse {
     borderStyle: string;
     fontSize: string;
     fontFamily: string;
+    foldGaps: boolean;
   };
 }
 
@@ -207,7 +212,7 @@ export interface UseJobManagementReturn {
   error: Error | null;
   refreshJobs: () => Promise<void>;
   clearError: () => void;
-  addNewJob: (jobId: string, bookName: string, fontSize: string, fontFamily: string, originalFileName?: string, borderStyle?: string, author?: string, year?: string, series?: string) => void;
+  addNewJob: (jobId: string, bookName: string, fontSize: string, fontFamily: string, originalFileName?: string, borderStyle?: string, author?: string, year?: string, series?: string, foldGaps?: boolean) => void;
   deleteJob: (jobId: string) => Promise<void>;
   onScrollToTop: (callback: () => void) => void;
 }

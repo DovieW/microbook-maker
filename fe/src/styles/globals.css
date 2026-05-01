@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark light;
+
+    --color-ink: 220 25% 7%;
+    --color-ink-muted: 218 13% 72%;
+    --color-ink-soft: 216 14% 18%;
+
+    --color-paper: 43 62% 94%;
+    --color-paper-aged: 39 44% 87%;
+    --color-paper-warm: 34 64% 97%;
+
+    --color-brass: 39 48% 49%;
+    --color-brass-bright: 42 72% 70%;
+    --color-brass-muted: 39 30% 58%;
+
+    --color-panel: 216 20% 9%;
+    --color-panel-elevated: 214 18% 13%;
+    --color-panel-border: 42 20% 35%;
+
+    --color-oxblood: 354 44% 29%;
+    --color-success: 142 39% 44%;
+    --color-warning: 39 85% 53%;
+    --color-danger: 0 65% 55%;
+
+    --radius-ui: 0.45rem;
+    --radius-panel: 0.75rem;
+
+    --shadow-panel: 0 18px 60px hsl(220 40% 2% / 0.38), inset 0 1px 0 hsl(42 70% 86% / 0.14);
+    --shadow-brass: 0 0 0 1px hsl(var(--color-brass) / 0.42), 0 8px 28px hsl(39 70% 18% / 0.18);
+    --shadow-inset: inset 0 1px 0 hsl(42 70% 92% / 0.5), inset 0 -1px 0 hsl(38 22% 42% / 0.2);
+  }
+
+  html {
+    min-height: 100%;
+    text-rendering: geometricPrecision;
+  }
+
+  body {
+    min-height: 100%;
+    background: hsl(var(--color-ink));
+    font-family: 'Libre Franklin', system-ui, sans-serif;
+  }
+
+  * {
+    border-color: hsl(var(--color-panel-border) / 0.4);
+  }
+
+  ::selection {
+    background: hsl(var(--color-brass) / 0.35);
+    color: hsl(var(--color-paper-warm));
+  }
+}
+
+@layer utilities {
+  .paper-grain {
+    position: relative;
+  }
+
+  .paper-grain::before {
+    content: '';
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    opacity: 0.18;
+    background-image:
+      radial-gradient(circle at 12% 32%, hsl(38 50% 62% / 0.28) 0 1px, transparent 1px),
+      radial-gradient(circle at 72% 12%, hsl(25 30% 45% / 0.18) 0 1px, transparent 1px),
+      radial-gradient(circle at 36% 82%, hsl(0 0% 100% / 0.3) 0 1px, transparent 1px);
+    background-size: 18px 18px, 23px 23px, 29px 29px;
+  }
+
+  .hairline-brass {
+    box-shadow: inset 0 0 0 1px hsl(var(--color-brass) / 0.42);
+  }
+
+  .focus-ring {
+    outline: 2px solid hsl(var(--color-brass-bright) / 0.85);
+    outline-offset: 2px;
+  }
+}

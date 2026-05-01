@@ -38,6 +38,7 @@ vi.mock('../hooks/useCapabilities', () => ({
         borderStyle: 'dashed',
         fontSize: '6',
         fontFamily: 'arial',
+        foldGaps: false,
       },
     },
     capabilitiesLoading: false,
@@ -54,11 +55,12 @@ describe('App Integration Tests', () => {
   it('should render the main components', () => {
     render(<App />);
 
-    expect(screen.getByText('MicroBook Maker')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'MicroBook Maker' })).toBeInTheDocument();
     expect(screen.getByLabelText('Book Name')).toBeInTheDocument();
     expect(screen.getByLabelText('Author')).toBeInTheDocument();
     expect(screen.getByLabelText('Font Size')).toBeInTheDocument();
     expect(screen.getByText('Select File')).toBeInTheDocument();
+    expect(screen.getByText('History')).toBeInTheDocument();
   });
 
   it('should update book name when typed', () => {
@@ -99,7 +101,7 @@ describe('App Integration Tests', () => {
   it('should have Generate button disabled initially', () => {
     render(<App />);
 
-    const generateButton = screen.getByText('Generate');
+    const generateButton = screen.getByRole('button', { name: /Generate MicroBook/i });
     expect(generateButton).toBeDisabled();
   });
 
