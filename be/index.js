@@ -6,6 +6,11 @@ const puppeteer = require('puppeteer');
 
 const progressService = require('./services/progressService');
 const { JobQueueService } = require('./services/jobQueueService');
+const {
+  buildStaleJobProgress,
+  createQueuedProgress,
+  resolveJobState,
+} = require('./services/jobStateService');
 const { getCapabilities } = require('./services/capabilitiesService');
 const {
   parseUploadedDocument,
@@ -26,12 +31,13 @@ const {
   generateJobId,
   getSafeUploadFilename,
 } = require('./utils/fileUtils');
+const { createPageCrashMonitor } = require('./utils/pageCrashMonitor');
 const {
   calculateReadingTime,
   calculateSheetsCount,
   normalizeDisplayBookName,
 } = require('./utils/outputStats');
-const { getPuppeteerLaunchOptions } = require('./utils/browserUtils');
+const { getPuppeteerLaunchOptions, getPuppeteerTimeoutConfig } = require('./utils/browserUtils');
 
 const app = express();
 const port = 3001;
@@ -124,13 +130,18 @@ function normalizeBoolean(value, fallback = false) {
 }
 
 function setQueuedProgress(id, bookName) {
-  progressService.writeProgress(id, {
-    step: `Queued: ${bookName}`,
+  progressService.writeProgress(id, createQueuedProgress(`Queued: ${bookName}`));
+}
+
+function createPageCrashProgress(error) {
+  return {
+    step: 'Page error occurred',
     percentage: 0,
     isComplete: false,
-    isError: false,
-    phase: 'queued',
-  });
+    isError: true,
+    errorMessage: error.message,
+    phase: 'error',
+  };
 }
 
 async function executePdfJob({
@@ -152,6 +163,7 @@ async function executePdfJob({
 
   let browser = null;
   let page = null;
+  let pageCrashMonitor = null;
   const { inProgressPath, metadataPath, pdfPath } = getProgressPaths(id);
 
   const jobState = runningJobs.get(id);
@@ -201,6 +213,7 @@ async function executePdfJob({
       phase: 'setup',
     });
 
+    const timeoutConfig = getPuppeteerTimeoutConfig();
     const launchOptions = getPuppeteerLaunchOptions();
     if (process.env.PUPPETEER_EXECUTABLE_PATH && !launchOptions.executablePath) {
       console.warn(`PUPPETEER_EXECUTABLE_PATH is set but missing: ${process.env.PUPPETEER_EXECUTABLE_PATH}`);
@@ -233,20 +246,26 @@ async function executePdfJob({
     }
 
     page = await browser.newPage();
-    await page.setDefaultTimeout(60000);
-    await page.setDefaultNavigationTimeout(60000);
+    await page.setDefaultTimeout(timeoutConfig.pageTimeoutMs);
+    await page.setDefaultNavigationTimeout(timeoutConfig.navigationTimeoutMs);
 
-    page.on('error', (error) => {
-      console.error(`Page error for job ${id}:`, error);
-      progressService.writeProgress(id, {
-        step: 'Page error occurred',
-        percentage: 0,
-        isComplete: false,
-        isError: true,
-        errorMessage: error.message,
-        phase: 'error',
-      });
+    pageCrashMonitor = createPageCrashMonitor({
+      page,
+      onCrash: (error) => {
+        console.error(`Page error for job ${id}:`, error);
+        progressService.writeProgress(id, createPageCrashProgress(error));
+
+        const existingState = runningJobs.get(id);
+        if (existingState) {
+          runningJobs.set(id, {
+            ...existingState,
+            status: 'error',
+          });
+        }
+      },
     });
+
+    const runWithCrashGuard = (operation) => pageCrashMonitor.race(operation);
 
     page.on('pageerror', (error) => {
       console.error(`Page script error for job ${id}:`, error);
@@ -277,16 +296,16 @@ async function executePdfJob({
     const fontSizeNumber = Number(fontSize) || 6;
     const pretextModuleUrls = getPretextModuleUrls(__dirname, { baseUrl: rendererBaseUrl });
 
-    await page.goto(`${rendererBaseUrl}/__microbook-renderer/page.html`);
-    await page.addStyleTag({ content: `body { font-size: ${fontSizeNumber}px; }` });
-    await page.addStyleTag({
+    await runWithCrashGuard(() => page.goto(`${rendererBaseUrl}/__microbook-renderer/page.html`));
+    await runWithCrashGuard(() => page.addStyleTag({ content: `body { font-size: ${fontSizeNumber}px; }` }));
+    await runWithCrashGuard(() => page.addStyleTag({
       content: buildTokenStyles({
         selectedFontStack,
         borderStyle,
       }),
-    });
+    }));
 
-    const pretextLoadResult = await page.evaluate(async ({ layoutUrl, richInlineUrl, version }) => {
+    const pretextLoadResult = await runWithCrashGuard(() => page.evaluate(async ({ layoutUrl, richInlineUrl, version }) => {
       try {
         const [layoutModule, richInlineModule] = await Promise.all([
           import(layoutUrl),
@@ -309,7 +328,7 @@ async function executePdfJob({
 
         return window.__microbookPretext;
       }
-    }, pretextModuleUrls);
+    }, pretextModuleUrls));
 
     if (!pretextLoadResult.available) {
       throw new Error(`Failed to load Pretext in the PDF renderer: ${pretextLoadResult.error}`);
@@ -325,13 +344,14 @@ async function executePdfJob({
 
     writeLegacyProgress(id, `Creating: ${bookName}`);
 
-    await page.evaluate((payload) => {
+    await runWithCrashGuard(() => page.evaluate(async (payload) => {
       const {
         tokens,
         bookName,
         headerInfo,
         totalWords,
         foldGaps,
+        optimizationLimits,
       } = payload;
 
       let pageIndex = 0;
@@ -516,6 +536,10 @@ async function executePdfJob({
         return classes.join(' ');
       }
 
+      function collapseWhitespace(value) {
+        return String(value || '').replace(/\s+/g, ' ').trim();
+      }
+
       function buildNode(token) {
         if (token.type === 'break') {
           if (token.variant === 'separator') {
@@ -529,8 +553,6 @@ async function executePdfJob({
           breakSpan.textContent = ' ';
           return breakSpan;
         }
-
-        const collapseWhitespace = (value) => String(value || '').replace(/\s+/g, ' ').trim();
 
         if (token.type === 'link') {
           if (token.isImage) {
@@ -567,6 +589,27 @@ async function executePdfJob({
         span.className = buildTokenClass(token);
         span.textContent = collapseWhitespace(token.text);
         return span;
+      }
+
+      function getMergeableTextContainer(block, token) {
+        if (token?.type !== 'word') {
+          return null;
+        }
+
+        const lastElementChild = block.lastElementChild;
+        if (!lastElementChild || lastElementChild.tagName !== 'SPAN') {
+          return null;
+        }
+
+        if (lastElementChild.childElementCount > 0) {
+          return null;
+        }
+
+        if (lastElementChild.className !== buildTokenClass(token)) {
+          return null;
+        }
+
+        return lastElementChild;
       }
 
       function isTextLikeToken(token) {
@@ -1109,6 +1152,13 @@ async function executePdfJob({
         const blocks = Array.from(document.querySelectorAll('.grid-item')).filter((block) => block.isConnected);
         const populatedBlocks = blocks.filter((block) => block.textContent.trim() !== '');
         const blockReports = [];
+        const maxBlocks = Number.isFinite(Number(optimizationLimits?.maxBlocks))
+          ? Number(optimizationLimits.maxBlocks)
+          : 320;
+        const maxDurationMs = Number.isFinite(Number(optimizationLimits?.maxDurationMs))
+          ? Number(optimizationLimits.maxDurationMs)
+          : 4000;
+        let stopReason = null;
 
         const formatNumber = (value, digits = 2) => Number.isFinite(value)
           ? value.toFixed(digits)
@@ -1124,6 +1174,20 @@ async function executePdfJob({
         let estimatedLines = 0;
 
         populatedBlocks.forEach((block, index) => {
+          if (stopReason) {
+            return;
+          }
+
+          if (analyzedBlocks >= maxBlocks) {
+            stopReason = `Reached optimization block budget (${maxBlocks}).`;
+            return;
+          }
+
+          if ((performance.now() - startedAt) >= maxDurationMs) {
+            stopReason = `Reached optimization time budget (${maxDurationMs}ms).`;
+            return;
+          }
+
           if (!shouldOptimizeBlock(block)) {
             return;
           }
@@ -1199,6 +1263,9 @@ async function executePdfJob({
           pretextVersion: api.version || 'unknown',
           analyzedBlocks,
           populatedBlocks: populatedBlocks.length,
+          skippedBlocks: Math.max(0, populatedBlocks.length - analyzedBlocks),
+          truncated: Boolean(stopReason),
+          stopReason,
           verticallyJustifiedBlocks,
           horizontallyJustifiedBlocks,
           horizontalJustificationCandidateBlocks,
@@ -1223,10 +1290,18 @@ async function executePdfJob({
       let currentBlockIndex = 0;
       let currentBlock = blocks[currentBlockIndex];
       let lastPlacedToken = null;
+      const tokenYieldInterval = 400;
 
       const isHeadingVariant = (variant) => typeof variant === 'string' && variant.startsWith('heading-');
 
       for (let tokenIndex = 0; tokenIndex < tokens.length; tokenIndex += 1) {
+        if (tokenIndex > 0 && tokenIndex % tokenYieldInterval === 0) {
+          // Large novels can spend minutes in this loop. Yield periodically so Chromium can
+          // service its event loop and garbage collect instead of treating the renderer like
+          // a hostage situation.
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        }
+
         const token = tokens[tokenIndex];
         let placed = false;
         let retries = 0;
@@ -1240,20 +1315,47 @@ async function executePdfJob({
 
           const shouldAddLeadingSpace = !isHeadingBoundaryBreak
             && shouldInsertLeadingSpace(lastPlacedToken, token);
-          let spacerNode = null;
-          if (shouldAddLeadingSpace) {
-            spacerNode = document.createTextNode(' ');
-            currentBlock.appendChild(spacerNode);
-          }
 
-          const node = isHeadingBoundaryBreak
-            ? (() => {
-                const br = document.createElement('br');
-                br.className = 'token-break token-break-paragraph';
-                return br;
-              })()
-            : buildNode(token);
-          currentBlock.appendChild(node);
+          // Most novels are overwhelmingly plain body text. Merging adjacent word tokens into
+          // the same span keeps the DOM orders of magnitude smaller than one-span-per-word,
+          // which directly reduces Chromium renderer memory pressure on the NAS.
+          const mergeTarget = !isHeadingBoundaryBreak
+            ? getMergeableTextContainer(currentBlock, token)
+            : null;
+
+          let spacerNode = null;
+          let node = null;
+          let rollbackPlacement = null;
+
+          if (mergeTarget) {
+            const previousTextContent = mergeTarget.textContent;
+            mergeTarget.textContent = `${previousTextContent}${shouldAddLeadingSpace ? ' ' : ''}${collapseWhitespace(token.text)}`;
+            rollbackPlacement = () => {
+              mergeTarget.textContent = previousTextContent;
+            };
+          } else {
+            if (shouldAddLeadingSpace) {
+              spacerNode = document.createTextNode(' ');
+              currentBlock.appendChild(spacerNode);
+            }
+
+            node = isHeadingBoundaryBreak
+              ? (() => {
+                  const br = document.createElement('br');
+                  br.className = 'token-break token-break-paragraph';
+                  return br;
+                })()
+              : buildNode(token);
+            currentBlock.appendChild(node);
+            rollbackPlacement = () => {
+              if (spacerNode) {
+                spacerNode.remove();
+              }
+              if (node) {
+                node.remove();
+              }
+            };
+          }
 
           if (currentBlock.scrollHeight <= currentBlock.clientHeight) {
             placed = true;
@@ -1268,10 +1370,7 @@ async function executePdfJob({
             continue;
           }
 
-          if (spacerNode) {
-            spacerNode.remove();
-          }
-          node.remove();
+          rollbackPlacement();
           currentBlockIndex += 1;
 
           if (currentBlockIndex >= blocks.length) {
@@ -1334,6 +1433,7 @@ async function executePdfJob({
         }
       });
 
+      await new Promise((resolve) => setTimeout(resolve, 0));
       runPretextLayoutOptimization();
     }, {
       tokens,
@@ -1341,7 +1441,12 @@ async function executePdfJob({
       headerInfo: resolvedHeaderInfo,
       totalWords: normalizedWordCount,
       foldGaps,
-    });
+      optimizationLimits: {
+        // Keep optimization bounded so large books finish on lower-power NAS hardware.
+        maxBlocks: 320,
+        maxDurationMs: 4000,
+      },
+    }));
 
     if (runningJobs.get(id)?.cancelled) {
       return;
@@ -1355,8 +1460,8 @@ async function executePdfJob({
       phase: 'layout',
     });
 
-    const layoutReport = await page.evaluate(() => window.__microbookLayoutReport || null);
-    const pageCount = await page.evaluate(() => document.querySelectorAll('.page').length);
+    const layoutReport = await runWithCrashGuard(() => page.evaluate(() => window.__microbookLayoutReport || null));
+    const pageCount = await runWithCrashGuard(() => page.evaluate(() => document.querySelectorAll('.page').length));
     const estimatedSheets = Math.ceil(pageCount / 2);
     let finalMetadata = {
       ...metadata,
@@ -1402,7 +1507,7 @@ async function executePdfJob({
     writeLegacyProgress(id, 'Finished creating pages. Writing to file...');
     progressService.writeProgress(id, progressService.createPdfProgress());
 
-    const htmlContent = await page.content();
+    const htmlContent = await runWithCrashGuard(() => page.content());
     fs.writeFileSync(path.join(generatedDir, `output_${id}.html`), htmlContent);
 
     progressService.writeProgress(id, {
@@ -1416,10 +1521,10 @@ async function executePdfJob({
     try {
       finalMetadata = {
         ...finalMetadata,
-        screenshots: await captureFirstPageScreenshot(page, {
+        screenshots: await runWithCrashGuard(() => captureFirstPageScreenshot(page, {
           id,
           generatedDir,
-        }),
+        })),
       };
     } catch (screenshotError) {
       console.warn(`Failed to capture screenshot for job ${id}:`, screenshotError);
@@ -1443,13 +1548,13 @@ async function executePdfJob({
       phase: 'rendering',
     });
 
-    const pdf = await page.pdf({
+    const pdf = await runWithCrashGuard(() => page.pdf({
       format: 'Letter',
       printBackground: true,
       preferCSSPageSize: false,
-      timeout: 120000,
+      timeout: timeoutConfig.pdfTimeoutMs,
       omitBackground: false,
-    });
+    }));
 
     if (runningJobs.get(id)?.cancelled) {
       return;
@@ -1466,10 +1571,27 @@ async function executePdfJob({
       }
     }, 5000);
   } catch (error) {
-    console.error(error);
-    progressService.writeProgress(id, progressService.createErrorProgress(error.toString(), 'generation'));
-    writeLegacyProgress(id, `ERROR: ${error.toString()}`);
+    const resolvedError = pageCrashMonitor?.getError()
+      || (error instanceof Error ? error : new Error(String(error)));
+    console.error(resolvedError);
+
+    const existingProgress = progressService.readProgress(id);
+    if (!existingProgress?.isError || existingProgress.errorMessage !== resolvedError.message) {
+      progressService.writeProgress(
+        id,
+        progressService.createErrorProgress(
+          resolvedError.message,
+          pageCrashMonitor?.hasCrashed() ? 'error' : 'generation',
+        ),
+      );
+    }
+
+    writeLegacyProgress(id, `ERROR: ${resolvedError.message}`);
   } finally {
+    if (pageCrashMonitor) {
+      pageCrashMonitor.dispose();
+    }
+
     try {
       if (page) {
         await page.close();
@@ -1664,13 +1786,18 @@ app.get('/api/progress/:id', (req, res) => {
     if (runningJobs.get(id)?.status === 'queued' || jobQueue.isQueued(id)) {
       res.json({
         status: 'in_progress',
-        progress: {
-          step: 'Queued',
-          percentage: 0,
-          isComplete: false,
-          isError: false,
-          phase: 'queued',
-        },
+        progress: createQueuedProgress(),
+      });
+      return;
+    }
+
+    const metadata = readMetadata(id);
+    if (metadata) {
+      const staleProgress = buildStaleJobProgress(metadata);
+      res.json({
+        status: 'error',
+        progress: staleProgress,
+        message: staleProgress.errorMessage,
       });
       return;
     }
@@ -1717,58 +1844,34 @@ app.get('/api/jobs', (req, res) => {
       const { pdfPath, inProgressPath, structuredProgressPath } = getProgressPaths(id);
       const metadata = readMetadata(id) || {};
 
-      let status = 'queued';
-      let progress = {
-        step: 'Queued',
-        percentage: 0,
-        isComplete: false,
-        isError: false,
-      };
+      const pdfExists = fs.existsSync(pdfPath);
+      const completedAt = pdfExists ? fs.statSync(pdfPath).mtime.toISOString() : null;
+      const structuredProgress = progressService.readProgress(id);
+      let legacyProgress = null;
 
-      let completedAt = null;
-
-      if (fs.existsSync(pdfPath)) {
-        status = 'completed';
-        const stats = fs.statSync(pdfPath);
-        completedAt = stats.mtime.toISOString();
-        progress = {
-          step: 'Complete',
-          percentage: 100,
-          isComplete: true,
-          isError: false,
-        };
-      } else {
-        const structuredProgress = progressService.readProgress(id);
-        if (structuredProgress) {
-          status = structuredProgress.isError ? 'error' : (structuredProgress.isComplete ? 'completed' : 'in_progress');
-          progress = structuredProgress;
-        } else if (fs.existsSync(inProgressPath)) {
-          const progressText = fs.readFileSync(inProgressPath, 'utf8');
-          if (progressText.startsWith('ERROR:')) {
-            status = 'error';
-            progress = {
+      if (!structuredProgress && fs.existsSync(inProgressPath)) {
+        const progressText = fs.readFileSync(inProgressPath, 'utf8');
+        legacyProgress = progressText.startsWith('ERROR:')
+          ? {
               step: 'Error',
               percentage: 0,
               isComplete: false,
               isError: true,
               errorMessage: progressText.replace('ERROR: ', ''),
-            };
-          } else {
-            status = 'in_progress';
-            progress = progressService.parseLegacyProgress(progressText);
-          }
-        } else if (runningJobs.get(id)?.status === 'running') {
-          status = 'in_progress';
-          progress = {
-            step: 'Processing',
-            percentage: 1,
-            isComplete: false,
-            isError: false,
-          };
-        } else if (runningJobs.get(id)?.status === 'queued' || jobQueue.isQueued(id)) {
-          status = 'queued';
-        }
+              phase: 'error',
+            }
+          : progressService.parseLegacyProgress(progressText);
       }
+
+      const resolvedState = resolveJobState({
+        metadata,
+        pdfExists,
+        completedAt,
+        structuredProgress,
+        legacyProgress,
+        runningStatus: runningJobs.get(id)?.status || null,
+        isQueued: jobQueue.isQueued(id),
+      });
 
       const createdAt = metadata.createdAt || (() => {
         if (fs.existsSync(structuredProgressPath)) {
@@ -1795,10 +1898,10 @@ app.get('/api/jobs', (req, res) => {
         year: metadata.year || null,
         series: metadata.series || null,
         foldGaps: Boolean(metadata.foldGaps),
-        status,
-        progress,
+        status: resolvedState.status,
+        progress: resolvedState.progress,
         createdAt,
-        completedAt,
+        completedAt: resolvedState.completedAt,
         originalFileName: metadata.originalFileName || null,
         uploadPath: metadata.uploadPath || null,
         screenshots: metadata.screenshots || null,
@@ -1843,6 +1946,12 @@ app.get('/api/download', (req, res) => {
 
   if (fs.existsSync(inProgressPath)) {
     res.send(fs.readFileSync(inProgressPath, 'utf8'));
+    return;
+  }
+
+  const metadata = readMetadata(String(id));
+  if (metadata) {
+    res.send(buildStaleJobProgress(metadata).errorMessage);
     return;
   }
 

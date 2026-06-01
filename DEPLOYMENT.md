@@ -17,6 +17,8 @@ If you ignore everything else in this file, these are the settings that matter m
 | Deployment shape | single container/custom app |
 | Observed NAS shell hostname | `truenas` |
 | Observed LAN/service hostname used in prior debugging | `truenas-scale` |
+| Observed working SSH login from Linux workstation | `ssh truenas_admin@truenas-scale` |
+| Resolved FQDN seen from Linux workstation | `truenas-scale.barn-chameleon.ts.net` |
 | Published port | `7777` |
 | App URL used in prior debugging | `http://truenas-scale:7777/` |
 | Health URL | `http://127.0.0.1:7777/health` |
@@ -32,6 +34,7 @@ The previous deployment session showed **two different hostnames** in use:
 
 - `truenas` — this appeared in the NAS shell prompt as the machine hostname
 - `truenas-scale` — this was used successfully as the LAN/browser/API hostname
+- `truenas-scale.barn-chameleon.ts.net` — this resolved from the Linux workstation during the successful SSH session
 
 So the practical rule is:
 
@@ -43,8 +46,15 @@ Examples:
 - NAS-local health check: `http://127.0.0.1:7777/health`
 - NAS-local backend check: `http://127.0.0.1:7777/api/capabilities`
 - LAN app URL seen in the prior session: `http://truenas-scale:7777/`
+- Working SSH login from the Linux workstation: `ssh truenas_admin@truenas-scale`
 
 If `truenas-scale` no longer resolves on your network, then the shell hostname `truenas` is still a strong clue about the box name, but you may need to use its current LAN DNS name or IP address instead.
+
+One extra SSH-specific wrinkle from the successful CLI deploy: the Linux workstation already had a stored host key for the short alias `truenas-scale`, but not for the fully-qualified Tailscale/MagicDNS hostname. If only the FQDN resolves on your machine, this exact command reuses the trusted short-host key entry cleanly:
+
+```bash
+ssh -o HostKeyAlias=truenas-scale truenas_admin@truenas-scale.barn-chameleon.ts.net
+```
 
 ### What to put into the TrueNAS app config
 
@@ -346,6 +356,7 @@ From the prior conversation, the deployment was accessed in two ways:
 
 - NAS shell prompt: `truenas_admin@truenas[~]`
 - HTTP/API access from another machine: `http://truenas-scale:7777/`
+- SSH from the Linux workstation: `ssh truenas_admin@truenas-scale`
 
 That means I do have host information from the prior session; I just had not made it explicit enough in this doc.
 
@@ -353,6 +364,32 @@ For debugging:
 
 - use `127.0.0.1:7777` from commands run **on the NAS itself**
 - use `truenas-scale:7777` from **another machine on the network**, assuming that hostname still resolves
+
+### The CLI / SSH path that actually worked
+
+From the Linux workstation in this repo session, SSH access to the NAS **did** work once I used the correct user:
+
+```bash
+ssh truenas_admin@truenas-scale
+```
+
+If the short hostname does not resolve locally but the Tailscale/MagicDNS FQDN does, this also worked:
+
+```bash
+ssh -o HostKeyAlias=truenas-scale truenas_admin@truenas-scale.barn-chameleon.ts.net
+```
+
+The earlier failed SSH attempt used the wrong user/host combination, so it looked like access was missing when the real problem was simply targeting the wrong login path.
+
+### The real TrueNAS custom-app files used by the CLI deploy
+
+This app is currently installed as a **TrueNAS Custom App**, and the CLI deploy succeeded by updating these files on the NAS:
+
+- canonical custom-app config: `/mnt/.ix-apps/app_configs/microbook-maker/versions/1.0.0/user_config.yaml`
+- rendered compose used by Docker Compose: `/mnt/.ix-apps/app_configs/microbook-maker/versions/1.0.0/templates/rendered/docker-compose.yaml`
+- active compose project name: `ix-microbook-maker`
+
+That project name matters. If you run `docker compose -f <rendered-file> up -d` without `-p ix-microbook-maker`, Docker infers the project name from the `rendered/` directory and tries to create a **second** stack named `rendered`, which then fails with a port `7777` collision.
 
 ### How to tell what image the NAS is really running
 
@@ -414,6 +451,75 @@ If you are using the TrueNAS custom app UI instead of a shell-based compose flow
 - force a fresh image pull
 - redeploy/update the app
 - make sure the app is recreated, not merely restarted
+
+### The exact CLI redeploy workflow that succeeded for this app
+
+For the current `microbook-maker` TrueNAS custom app, these were the working deployment mechanics:
+
+1. SSH to the NAS as `truenas_admin`
+2. Back up both the custom-app source config and the rendered compose file
+3. Update **both** files so they agree on:
+   - image: `dovieuu/microbook-maker:queuefix-2026-06-01`
+   - healthcheck: Node `fetch()` against `http://127.0.0.1:7777/health`
+4. Recreate the app with the **real** TrueNAS compose project name
+5. Verify `/health`, `/api/capabilities`, and Docker health state on the NAS
+
+The exact files that were patched during the successful SSH deploy were:
+
+```bash
+/mnt/.ix-apps/app_configs/microbook-maker/versions/1.0.0/user_config.yaml
+/mnt/.ix-apps/app_configs/microbook-maker/versions/1.0.0/templates/rendered/docker-compose.yaml
+```
+
+The stale config on the NAS was still overriding health with the old broken probe:
+
+```yaml
+test:
+  - CMD
+  - wget
+  - --no-verbose
+  - --tries=1
+  - --spider
+  - http://localhost:7777
+```
+
+That override mattered more than the image itself, because Compose was explicitly replacing the container's built-in Docker `HEALTHCHECK`.
+
+The fixed healthcheck used by the successful CLI redeploy was:
+
+```yaml
+test:
+  - CMD
+  - node
+  - -e
+  - fetch('http://127.0.0.1:7777/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))
+```
+
+And the exact working recreate commands were:
+
+```bash
+COMPOSE=/mnt/.ix-apps/app_configs/microbook-maker/versions/1.0.0/templates/rendered/docker-compose.yaml
+sudo docker compose -p ix-microbook-maker -f "$COMPOSE" pull
+sudo docker compose -p ix-microbook-maker -f "$COMPOSE" up -d --force-recreate
+```
+
+Then verify with:
+
+```bash
+sudo docker ps --filter name=ix-microbook-maker-microbook-maker-1
+curl -fsS http://127.0.0.1:7777/health
+curl -fsS http://127.0.0.1:7777/api/capabilities
+CID=$(sudo docker ps -q --filter name=ix-microbook-maker-microbook-maker-1 | head -n1)
+sudo docker inspect "$CID" --format '{{json .State.Health}}'
+```
+
+During the successful SSH deploy, the recreated container came up on:
+
+- image ref: `dovieuu/microbook-maker:queuefix-2026-06-01`
+- container name: `ix-microbook-maker-microbook-maker-1`
+- status: `healthy`
+
+If you want to keep using `latest` later, you still can — but the CLI session above is why I strongly recommend versioned tags or digests for TrueNAS custom apps. They make remote debugging dramatically less haunted.
 
 ### If the app stays in “Deploying”
 
@@ -601,7 +707,14 @@ Check:
 
 - `PUPPETEER_EXECUTABLE_PATH`
 - that `/usr/bin/chromium` exists inside the container
+- whether Docker is still giving Chromium the default tiny `/dev/shm` mount (`64M` is common)
 - backend logs for Chromium launch errors
+
+If the failure specifically looks like **`Page crashed!`** during large-book layout, the most useful checks are:
+
+- confirm Chromium is launched with `--disable-dev-shm-usage`
+- confirm the image includes the renderer-stability flags/changes from the current backend
+- remember that very large jobs stress the browser-side layout loop far more than `/health` suggests
 
 Relevant code:
 
