@@ -20,6 +20,7 @@ RUN apt-get update && \
     chromium \
     git \
     fontconfig \
+    fonts-croscore \
     fonts-liberation \
     fonts-dejavu-core \
     --no-install-recommends && \

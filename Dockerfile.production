@@ -32,6 +32,7 @@ RUN apt-get update && apt-get install -y \
     libfreetype6-dev \
     libharfbuzz0b \
     ca-certificates \
+    fonts-croscore \
     fonts-freefont-ttf \
     fonts-liberation \
     fonts-dejavu-core \

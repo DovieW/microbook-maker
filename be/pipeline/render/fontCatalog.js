@@ -4,14 +4,14 @@ const FONT_OPTIONS = [
   {
     value: 'arial',
     label: 'Arial',
-    stack: "Arial, 'Liberation Sans', 'Nimbus Sans L', sans-serif",
-    detectionFamilies: ['Arial'],
+    stack: "Arial, Arimo, 'Liberation Sans', 'Nimbus Sans L', sans-serif",
+    detectionFamilies: ['Arial', 'Arimo'],
   },
   {
     value: 'times-new-roman',
     label: 'Times New Roman',
-    stack: "'Times New Roman', 'Liberation Serif', serif",
-    detectionFamilies: ['Times New Roman'],
+    stack: "'Times New Roman', Tinos, 'Liberation Serif', serif",
+    detectionFamilies: ['Times New Roman', 'Tinos'],
   },
   {
     value: 'georgia',
@@ -22,8 +22,8 @@ const FONT_OPTIONS = [
   {
     value: 'courier-new',
     label: 'Courier New',
-    stack: "'Courier New', 'Liberation Mono', monospace",
-    detectionFamilies: ['Courier New'],
+    stack: "'Courier New', Cousine, 'Liberation Mono', monospace",
+    detectionFamilies: ['Courier New', 'Cousine'],
   },
   {
     value: 'dejavu-sans',

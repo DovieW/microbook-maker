@@ -31,6 +31,17 @@ test('getAvailableFontOptions filters catalog to installed families', () => {
   );
 });
 
+test('getAvailableFontOptions recognizes Croscore family aliases for core office fonts', () => {
+  const available = getAvailableFontOptions({
+    installedFamilies: new Set(['arimo', 'tinos', 'cousine']),
+  });
+
+  assert.deepEqual(
+    available.map((option) => option.value),
+    ['arial', 'times-new-roman', 'courier-new']
+  );
+});
+
 test('getDefaultFontFamily prefers arial when available and falls back to first available', () => {
   assert.equal(getDefaultFontFamily([
     { value: 'dejavu-sans', label: 'DejaVu Sans' },

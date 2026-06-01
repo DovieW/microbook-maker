@@ -15,3 +15,12 @@ test('getCapabilities includes font options and default font family', () => {
 
   assert.equal(capabilities.defaults.fontFamily, 'dejavu-sans');
 });
+
+test('getCapabilities keeps Arial available when Arimo is installed in the container', () => {
+  const capabilities = getCapabilities({
+    installedFamilies: new Set(['arimo', 'dejavu sans']),
+  });
+
+  assert.ok(capabilities.fontOptions.some((option) => option.value === 'arial' && option.label === 'Arial'));
+  assert.equal(capabilities.defaults.fontFamily, 'arial');
+});
