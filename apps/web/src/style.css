@@ -2288,3 +2288,5 @@ summary > span {
   min-width: 0;
   max-width: 58%;
 }
+
+.hosted-notice{font-size:12px;line-height:1.45;color:var(--text-muted,#a5b5bc);margin:0 0 14px;overflow-wrap:anywhere}

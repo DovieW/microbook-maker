@@ -92,3 +92,26 @@ it('does not expose provider internals on failure', async () => {
     expect(bindings.BROWSER.quickAction).toHaveBeenCalledTimes(1);
   }
 });
+
+it('public mode serves the app but never exposes a shared Library or accepts cross-origin rendering', async () => {
+  const bindings = {
+    ...env(),
+    PUBLIC_MODE: 'true',
+    ASSETS: { fetch: vi.fn().mockResolvedValue(new Response('app')) },
+  };
+  expect(await (await worker.fetch(new Request('https://microbook.example/'), bindings)).text()).toBe('app');
+  expect((await worker.fetch(new Request('https://microbook.example/api/documents'), bindings)).status).toBe(
+    404,
+  );
+  const print = (origin: string) =>
+    new Request('https://microbook.example/_cloud/print', {
+      method: 'POST',
+      headers: { Origin: origin, 'Content-Type': 'text/html', 'X-Microbook-Bookmarks': 'true' },
+      body: '<h1>Chapter</h1>',
+    });
+  expect((await worker.fetch(print('https://outside.example'), bindings)).status).toBe(401);
+  expect(bindings.BROWSER.quickAction).not.toHaveBeenCalled();
+  bindings.BROWSER.quickAction.mockResolvedValue(new Response('%PDF-test'));
+  expect((await worker.fetch(print('https://microbook.example'), bindings)).status).toBe(200);
+  expect(bindings.BROWSER.quickAction.mock.calls[0][1].pdfOptions.outline).toBe(true);
+});

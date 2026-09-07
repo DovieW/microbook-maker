@@ -23,6 +23,7 @@ export function BooksPane({ w }: { w: Workspace }) {
     `${modeLabels[r.settings.mode]} · ${r.settings.fontSizePx} px · ${r.createdAt?.slice(0, 10) || 'Earlier version'}`;
   return (
     <div className="books-pane">
+      {import.meta.env.VITE_HOSTED === '1' && <p className="hosted-notice">Temporary workspace. Books and PDFs stay in this browser and expire after 24 hours. Expired data is removed when the app is open or next opened. Cloudflare processes each print document without saving it in a Library. Keep versions does not extend expiry. Only process books you are authorized to use.</p>}
       {w.preview && (
         <button
           className="keep-current"

@@ -3,8 +3,8 @@ import { execFileSync } from 'node:child_process';
 import assert from 'node:assert/strict';
 const args = process.argv.slice(2);
 assert.ok(
-  args.every((arg) => arg === '--deploy'),
-  'Usage: node tools/deploy-cloudflare.mjs [--deploy]',
+  args.every((arg) => ['--deploy', '--app'].includes(arg)),
+  'Usage: node tools/deploy-cloudflare.mjs [--app] [--deploy]',
 );
 const account = process.env.CLOUDFLARE_ACCOUNT_ID;
 assert.match(account || '', /^[a-f0-9]{32}$/, 'Set CLOUDFLARE_ACCOUNT_ID explicitly');
@@ -21,7 +21,9 @@ assert.ok(
   'A Workers/browser subscription exists. This deployment only supports the verified Free account configuration. No billing changes were made.',
 );
 console.log('Free-account guard passed. No subscriptions or billable storage will be provisioned.');
-execFileSync(process.execPath, ['tools/build-cloudflare.mjs'], { stdio: 'inherit' });
+execFileSync(process.execPath, ['tools/build-cloudflare.mjs', ...(args.includes('--app') ? ['--app'] : [])], {
+  stdio: 'inherit',
+});
 const deployArgs = ['deploy', '--prebuilt'];
 if (process.env.MICROBOOK_CLOUDFLARE_SECRETS_FILE)
   deployArgs.push('--secrets-file', process.env.MICROBOOK_CLOUDFLARE_SECRETS_FILE);

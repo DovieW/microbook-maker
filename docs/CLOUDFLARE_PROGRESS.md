@@ -1,6 +1,8 @@
-# Cloudflare renderer milestone
+# Cloudflare beta verification
 
-7 September 2026. **The gated renderer works; the hosted MicroBook application is not ready for visitors.** TrueNAS remains the full personal application. Both live in this repository; no separate product fork is needed.
+7 September 2026. The complete hosted app is deployed at **https://microbook.dovieweinstock.workers.dev**. See [architecture, privacy, limits, and deployment](PUBLIC_HOSTING.md).
+
+Browser-side EPUB import, image processing/cache, shared Basic/Rich layout engines, temporary History, PDF viewing/search, and print/download now use the same workspace. Live synthetic EPUB verification passed Rich and Basic rendering, full source coverage, no overflow, mode caching, reload, separate-browser isolation, and deletion. This is a beta; it does not imply that every EPUB or browser engine has been verified. Physical Brother-printer output remains a manual check.
 
 ## Verified on the account
 
@@ -35,48 +37,13 @@ The local browser reported Chromium 148; Cloudflare reported Chromium 128. The s
 
 Local evidence (gitignored): `.artifacts/cloudflare-proof/` contains the two PDFs, Worker PDF, layout reports, screenshots, and PDF comparison JSON. Its `secrets.json` is a local credential file and must never be uploaded as a CI artifact.
 
-## Architecture supported by the experiment
 
-Keep the personal Node/Chromium server unchanged. For the hosted mode:
+The earlier gated renderer URL is only a development proof, not the visitor application. No private Library content is used in public test fixtures.
 
-1. Import EPUBs and process/cache images in the visitor's browser, reusing the core interpretation rules through an I/O adapter.
-2. Keep the temporary Library and previews on that device, with explicit expiry/deletion behavior. Do not expose the personal server or use a public shared Library.
-3. Lay out complete sheets with the existing compositor and pinned fonts, then send a self-contained prepared print document to the Cloudflare PDF transport.
-4. Return the PDF to the same workspace. Preserve source maps, search, image overlays, Apply/cancel, and per-mode state. The snapshot and map must come from the same layout.
+## Final rollout checks
 
-The cloud transport disables document JavaScript and outbound resources; images and fonts must be embedded. Browser-side font/image loading must finish before snapshotting. Different client engines need fidelity checks before enabling them. If the browser layout does not match reliably, move composition into Cloudflare's browser instead of silently accepting different wrapping.
+The local hosted workflow also passes cancellation, opening another workspace during a render, removal of PDF access after deletion, and a narrow-screen empty state. The final live recheck successfully rendered Rich with bookmarks, then received Cloudflare's Free-capacity 429 during Basic. Earlier live Rich and Basic conversions passed. This capacity response is an expected provider limit, not a paid fallback; the Worker does not automatically retry it.
 
-## Remaining before sharing an application link
+The personal packaged build passed 56 unit tests and 30 frozen Basic tests. The quick rendering checks and 33/35 browser checks passed on the first run; the two image checks timed out while other builds were running, then both passed in isolation (25 s and 18 s). TrueNAS was upgraded only after testing a copied Library. All 86 historical PDFs and 238 original files were preserved, including eight PDFs whose original source is unavailable. A rollback image and consistent volume backup were retained.
 
-- Browser import adapter, bounded archive/font handling, and image processing parity. Avoid duplicating heading/content logic.
-- Temporary browser storage and deletion UI; document exactly what survives closing a tab and what expires on return.
-- Frontend API/output adapter, Basic pipeline, and full-sheet source map/overlay verification.
-- Visitor-safe request handling to replace the development credential. Never ship that credential to the frontend.
-- Cancellation/disconnect behavior and larger payload/long-book/mobile validation.
-- Free-only GitHub Actions deployment with a narrowly scoped CI token; this has not been configured.
-- Final public privacy/usage copy, then a usable app URL. The renderer health URL is not the application.
-
-## Repeatable commands
-
-Build only: `node tools/build-cloudflare.mjs`.
-
-Dry run with a verified free account:
-
-```sh
-export CLOUDFLARE_ACCOUNT_ID=your_account_id
-node tools/deploy-cloudflare.mjs
-```
-
-To deploy, add `--deploy`. For the initial gate, set `MICROBOOK_CLOUDFLARE_SECRETS_FILE` to a private JSON file containing `RENDER_KEY`. Never place a live secret in a checked-in configuration file. Without a configured key, all render requests remain denied.
-
-Direct browser comparison uses only the generated fixture:
-
-```sh
-node --import tsx tools/cloudflare-proof.mjs ACCOUNT_ID PINNED_CROSCORE_FONT_DIRECTORY
-```
-
-Use `CHROMIUM_PATH` for a local engine executable or `LOCAL_BROWSER_URL` for a disposable engine's DevTools URL. The script closes both browser sessions. It supports the default `cf` OAuth profile or `CLOUDFLARE_API_TOKEN`; do not point it at a personal interactive browser.
-
-Run `npx vitest run tests/cloudflare.test.ts` for the transport's local tests.
-
-Official references: [Cloudflare PDF Quick Action and binding](https://developers.cloudflare.com/browser-run/quick-actions/pdf-endpoint/), [remote Puppeteer](https://developers.cloudflare.com/browser-run/cdp/puppeteer/), [Free limits](https://developers.cloudflare.com/browser-run/limits/), [pricing](https://developers.cloudflare.com/browser-run/pricing/).
+GitHub deployment automation is included. It requires the repository's Cloudflare API-token secret; local CLI OAuth authentication is not copied into GitHub.

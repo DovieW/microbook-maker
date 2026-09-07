@@ -1,6 +1,4 @@
-import { createHash } from 'node:crypto';
-import fs from 'node:fs/promises';
-import path from 'node:path';
+import { createHash, fs, path } from './import-platform.ts';
 // @ts-expect-error Fontkit's runtime supports all four web/print font formats.
 import { create } from 'fontkit';
 import type { PublisherFont } from './index.ts';

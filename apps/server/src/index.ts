@@ -318,6 +318,13 @@ app.get('/api/documents/:id/assets/:asset', async (req, res) => {
 });
 app.post('/api/documents/:id/renders', async (req, res) => {
   const doc = getDocument(req.params.id);
+  if (doc.diagnostics.some((d) => d.code === 'legacy-source-unavailable'))
+    return res
+      .status(422)
+      .json({
+        error:
+          'The original source is unavailable. You can still print this PDF; open the original book to create a new layout.',
+      });
   const settings = effectiveSettings(settingsSchema.parse(req.body.settings));
   if (
     settings.selectedSections &&

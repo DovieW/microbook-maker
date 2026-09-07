@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { importDocument, IMPORT_REVISION } from '@microbook/core/import';
 import { defaultSettings, type BookDocument, type RenderJob } from '@microbook/core';
@@ -127,11 +127,24 @@ export class Storage {
   }
   // The old flat files stay in place, including the original /history URLs.
   async readLegacy() {
-    for (const file of await fs.readdir(this.generated)) {
-      const match = file.match(/^METADATA_([\w-]+)\.json$/);
-      if (!match) continue;
-      const legacyId = match[1];
-      const id = `legacy-${legacyId}`;
+    const files = await fs.readdir(this.generated);
+    const uploads = (await fs.readdir(this.uploads, { withFileTypes: true }))
+      .filter((f) => f.isFile())
+      .map((f) => f.name);
+    const ids = new Set(
+      files.flatMap((file) =>
+        file.startsWith('METADATA_') && file.endsWith('.json')
+          ? [file.slice(9, -5)]
+          : file.endsWith('.pdf')
+            ? [file.slice(0, -4)]
+            : [],
+      ),
+    );
+    for (const legacyId of ids) {
+      const file = `METADATA_${legacyId}.json`;
+      const id = safeId(`legacy-${legacyId}`)
+        ? `legacy-${legacyId}`
+        : `legacy-${createHash('sha256').update(legacyId).digest('hex').slice(0, 32)}`;
       if (this.documents.has(id)) continue;
       if (
         await fs.access(path.join(this.generated, `REMOVED_${legacyId}.json`)).then(
@@ -141,23 +154,48 @@ export class Storage {
       )
         continue;
       try {
-        const metadata = JSON.parse(await fs.readFile(path.join(this.generated, file), 'utf8'));
-        const sourcePath = path.join(this.uploads, path.basename(metadata.uploadPath || ''));
-        const source = await fs.readFile(sourcePath);
+        const metadata = files.includes(file)
+          ? JSON.parse(await fs.readFile(path.join(this.generated, file), 'utf8'))
+          : {};
+        const candidates = uploads.filter((name) => name.startsWith(legacyId.split('_')[0] + '_'));
+        const named = metadata.uploadPath ? path.basename(metadata.uploadPath) : undefined;
+        const uploadName =
+          named && uploads.includes(named) ? named : candidates.length === 1 ? candidates[0] : undefined;
+        const source = uploadName
+          ? await fs.readFile(path.join(this.uploads, uploadName))
+          : Buffer.from(
+              'The original source file is unavailable. The historical PDF is preserved. Open the original book to create a new layout.',
+            );
         const doc = await importDocument(
           source,
-          metadata.originalFileName || path.basename(sourcePath),
+          uploadName ? metadata.originalFileName || uploadName : 'historical-pdf.txt',
           id,
           this.documentDir(id),
         );
         doc.metadata = {
-          title: metadata.bookName || doc.metadata.title,
+          title:
+            metadata.bookName ||
+            legacyId
+              .replace(/^\d+_/, '')
+              .replace(/_\d+(?:\.\d+)?$/, '')
+              .replaceAll('_', ' '),
           author: String(metadata.author || ''),
           year: String(metadata.year || ''),
           series: String(metadata.series || ''),
           language: 'en',
         };
-        doc.createdAt = metadata.createdAt || doc.createdAt;
+        if (!uploadName)
+          doc.diagnostics.push({
+            code: 'legacy-source-unavailable',
+            message:
+              'Original source unavailable. This historical PDF can be viewed, printed, and downloaded. Open the original book to change its layout.',
+          });
+        doc.originalName = metadata.originalFileName || uploadName || `${legacyId}.pdf`;
+        doc.createdAt =
+          metadata.createdAt ||
+          (
+            await fs.stat(path.join(this.generated, files.includes(file) ? file : `${legacyId}.pdf`))
+          ).mtime.toISOString();
         doc.legacyId = legacyId;
         const pdf = path.join(this.generated, `${legacyId}.pdf`);
         try {

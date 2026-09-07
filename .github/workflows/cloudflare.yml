@@ -1,0 +1,38 @@
+name: Deploy Cloudflare beta
+on:
+  workflow_run:
+    workflows: [Verify]
+    types: [completed]
+    branches: [master]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: cloudflare-beta
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - name: Check deployment credentials
+        run: |
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo 'Set repository variable CLOUDFLARE_ACCOUNT_ID'; exit 1; }
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo 'Set repository secret CLOUDFLARE_API_TOKEN'; exit 1; }
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm install --global cf@0.9.1
+      - run: npm run typecheck && npm test
+      - name: Build and deploy only on a verified Free account
+        run: node tools/deploy-cloudflare.mjs --app --deploy
+      - name: Verify deployed service
+        run: curl --fail --silent --show-error https://microbook.dovieweinstock.workers.dev/_cloud/health

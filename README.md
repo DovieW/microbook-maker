@@ -6,7 +6,7 @@ Turn EPUB, Markdown, and plain-text books into compact PDFs for printing and fol
 
 ![MicroBook with illustrated Alice loaded on its first printed side](docs/images/workspace.png)
 
-[View the sample PDF](samples/alice-microbook.pdf) · [Install](#run-it-yourself) · [Print guide](docs/PRINT_REFINEMENTS.md) · [Release notes](RELEASE_NOTES.md)
+[Try the hosted beta](https://microbook.dovieweinstock.workers.dev) · [View the sample PDF](samples/alice-microbook.pdf) · [Install](#run-it-yourself) · [Print guide](docs/PRINT_REFINEMENTS.md) · [Release notes](RELEASE_NOTES.md)
 
 _Screenshot and sample: Lewis Carroll’s Alice’s Adventures in Wonderland, illustrated by Arthur Rackham. This edition is public domain in the United States. [Source and attribution](samples/README.md)._
 
@@ -47,7 +47,7 @@ Books and PDFs persist in the `mbm-uploads` and `mbm-generated` Docker volumes. 
 
 **Upgrading?** Back up both volumes and test their copies before switching images. Keep the old image and backup for rollback. See [deployment and upgrades](DEPLOYMENT.md).
 
-MicroBook currently provides a **single shared Library per installation, without accounts**. Use it locally or behind private-network/access protection. Do not expose this build as an anonymous public upload service. [Public hosting design](docs/PUBLIC_HOSTING.md) describes the separate work needed.
+MicroBook currently provides a **single shared Library per installation, without accounts**. Use it locally or behind private-network/access protection. Do not expose this build as an anonymous public upload service. The [Cloudflare beta](docs/PUBLIC_HOSTING.md) uses separate temporary browser storage and stateless cloud PDF creation.
 
 ## A short tour
 
@@ -59,7 +59,7 @@ MicroBook currently provides a **single shared Library per installation, without
 
 Rich supports reflowable EPUB 2/3. DRM-protected books are not supported; complex publisher layouts may need adjustment. Default paper is Letter, with 16 physical cells per printed side. Basic/Rich use the same folding geometry.
 
-Print processing and storage happen on the server you run. Metadata lookup is an explicit optional action. Use books you have permission to process; public-domain status varies by country.
+In the personal edition, print processing and storage happen on the server you run. In the hosted beta, books stay in temporary browser storage and prepared pages are sent to Cloudflare for PDF creation. Metadata lookup is an explicit optional action. Use books you have permission to process; public-domain status varies by country.
 
 ## Development and verification
 

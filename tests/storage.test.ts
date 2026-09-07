@@ -191,3 +191,43 @@ it('retains saved exports and active preview leases when pruning superseded arti
   await restarted.prune('doc');
   expect([...restarted.jobs.keys()].sort()).toEqual(['book-latest', 'classic-latest', 'saved']);
 });
+
+it('recovers filenames with spaces, metadata without paths, and PDF-only historical records', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'mb-oldest-'));
+  directories.push(root);
+  const store = new Storage(root);
+  await fs.mkdir(store.uploads, { recursive: true });
+  await fs.mkdir(store.generated, { recursive: true });
+  for (const id of ['20200101_A title_6', '20200202_No source_6'])
+    await fs.copyFile('tests/baseline/classic.txt.pdf', path.join(store.generated, id + '.pdf'));
+  await fs.copyFile('tests/fixtures/classic.txt', path.join(store.uploads, '20200101_original.txt'));
+  await atomicJson(path.join(store.generated, 'METADATA_20200101_A title_6.json'), {
+    bookName: 'A title',
+    originalFileName: 'original.txt',
+  });
+  await store.init();
+  expect(store.documents.size).toBe(2);
+  expect(store.jobs.size).toBe(2);
+  const docs = [...store.documents.values()];
+  expect(
+    docs
+      .find((d) => d.metadata.title === 'A title')
+      ?.diagnostics.some((d) => d.code === 'legacy-source-unavailable'),
+  ).toBe(false);
+  expect(
+    docs
+      .find((d) => d.metadata.title === 'No source')
+      ?.diagnostics.some((d) => d.code === 'legacy-source-unavailable'),
+  ).toBe(true);
+  for (const job of store.jobs.values())
+    expect(await fs.readFile(path.join(store.renderDir(job.id), 'output.pdf'))).toEqual(
+      await fs.readFile('tests/baseline/classic.txt.pdf'),
+    );
+  const restored = new Storage(root);
+  await restored.init();
+  expect(restored.documents.size).toBe(2);
+  await restored.remove(docs[0].id);
+  const removed = new Storage(root);
+  await removed.init();
+  expect(removed.documents.size).toBe(1);
+});

@@ -1,10 +1,12 @@
 // Stateless PDF transport for the hosted edition. No Library, upload bucket, or paid binding.
-// Keep gated until the browser-side import/storage adapter is ready.
+// Public mode uses browser-local temporary storage; the proof endpoint stays gated.
 interface Env {
   BROWSER: {
     quickAction(action: 'pdf', options: Record<string, unknown>): Promise<Response>;
   };
   RENDER_KEY?: string;
+  PUBLIC_MODE?: string;
+  ASSETS?: { fetch(request: Request): Promise<Response> };
 }
 const MAX_HTML_BYTES = 24 * 1024 * 1024;
 const privateHeaders = { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' };
@@ -14,17 +16,62 @@ const problem = (message: string, status: number) =>
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
-    if (request.method === 'GET' && url.pathname === '/api/health') {
+    if (request.method === 'GET' && ['/api/health', '/_cloud/health'].includes(url.pathname)) {
       return Response.json(
-        { service: 'microbook-cloudflare', stage: 'renderer-preview', storage: 'none' },
+        {
+          service: 'microbook-cloudflare',
+          stage: env.PUBLIC_MODE === 'true' ? 'app' : 'renderer-preview',
+          storage: 'none',
+        },
         {
           headers: privateHeaders,
         },
       );
     }
-    if (url.pathname !== '/api/render' || request.method !== 'POST') return problem('Not found', 404);
+    const publicMode = env.PUBLIC_MODE === 'true';
+    if (publicMode && request.method === 'GET' && url.pathname === '/_cloud/metadata') {
+      const title = (url.searchParams.get('title') || '').trim();
+      if (!title || title.length > 500) return problem('Enter a title of up to 500 characters', 400);
+      const lookup = new URL('https://openlibrary.org/search.json');
+      lookup.search = new URLSearchParams({
+        title,
+        fields: 'title,author_name,first_publish_year',
+        limit: '5',
+      }).toString();
+      try {
+        const response = await fetch(lookup, { signal: AbortSignal.timeout(8000) });
+        if (!response.ok) throw Error('Lookup failed');
+        const data = (await response.json()) as {
+          docs?: { title?: string; author_name?: string[]; first_publish_year?: number }[];
+        };
+        return Response.json(
+          (data.docs || []).map((item) => ({
+            title: String(item.title || '').slice(0, 500),
+            author: (item.author_name || []).join(', ').slice(0, 500),
+            year: item.first_publish_year ? String(item.first_publish_year) : '',
+          })),
+          { headers: privateHeaders },
+        );
+      } catch {
+        return problem('Metadata lookup is unavailable. Your details are unchanged.', 502);
+      }
+    }
+    if (url.pathname !== (publicMode ? '/_cloud/print' : '/api/render') || request.method !== 'POST') {
+      if (
+        publicMode &&
+        env.ASSETS &&
+        !url.pathname.startsWith('/api/') &&
+        !url.pathname.startsWith('/_cloud/')
+      )
+        return env.ASSETS.fetch(request);
+      return problem('Not found', 404);
+    }
     // This temporary machine credential is never shipped in client JavaScript.
-    if (!env.RENDER_KEY || request.headers.get('Authorization') !== `Bearer ${env.RENDER_KEY}`)
+    if (
+      publicMode
+        ? request.headers.get('Origin') !== url.origin
+        : !env.RENDER_KEY || request.headers.get('Authorization') !== `Bearer ${env.RENDER_KEY}`
+    )
       return problem('Renderer preview is not open to visitors yet', 401);
     if (request.headers.get('Content-Type')?.split(';')[0].trim() !== 'text/html')
       return problem('Expected a prepared HTML print document', 415);
@@ -57,6 +104,7 @@ export default {
         pdfOptions: {
           format: 'letter',
           printBackground: true,
+          outline: request.headers.get('X-Microbook-Bookmarks') === 'true',
           preferCSSPageSize: false,
           displayHeaderFooter: false,
           margin: { top: 0, bottom: 0, left: 0, right: 0 },
