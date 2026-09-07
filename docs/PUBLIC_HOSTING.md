@@ -4,7 +4,7 @@ Status: design only. Public upload isolation is not implemented in the current p
 
 ## Requirements
 
-Zero hosting spend; free visitor access; private uploads with automatic deletion; GitHub Actions deployment; a US operator.
+Zero hosting spend; private uploads with automatic deletion; GitHub Actions deployment; a US operator. Initial access is by links shared with testers. No custom per-user usage quota or account system is requested. Cloudflare’s own Free-plan limits must fail cleanly without enabling paid services.
 
 ## Host selection
 
@@ -26,7 +26,7 @@ GitHub Actions can deploy; it is not the application host. A static site cannot 
 
 1. **Private ownership:** issue an unguessable HttpOnly/Secure/SameSite session cookie and authorize every document, image, render, PDF, download and mutation. Random document IDs are not authorization. Disable or protect legacy routes. Verify that visitor A cannot access visitor B's files.
 2. **Retention:** provisionally delete after one hour of inactivity, with a 24-hour hard lifetime. Show expiry and Delete now. Include sources, PDFs, thumbnails, processed caches, jobs and leases; sweep orphans on restart. Do not preserve ephemeral visitor files in backups.
-3. **Resource limits:** bound upload bytes, expanded EPUB size, image pixels, render time, queue depth and disk use. Start with one active render, rate limits and an honest busy response.
+3. **Resource limits:** bound upload bytes, expanded EPUB size, image pixels, render time, queue depth and disk use. Start with one active render and an honest busy response. This protects the process; it is not a per-user usage allowance.
 4. **Process isolation:** restrict imported content's outbound access and audit ZIP parsing, fonts, SVGs and external resource loading. Keep rendering separated from host services.
 5. **Privacy:** exclude book text, titles, filenames and asset URLs from routine analytics/logs. Describe provider logging and deletion limits accurately.
 6. **Failure tests:** cover expiry, restart, interrupted uploads, deletion during rendering and cleanup errors. Test multi-visitor isolation independently of the UI.
@@ -51,4 +51,4 @@ Host selection and a public URL remain open. Public hosting is a separate milest
 
 ## Recommended next experiment
 
-Test Cloudflare’s free browser execution with a synthetic short book before committing to a hosted architecture. Measure end-to-end browser seconds, output fidelity, fonts, upload limits and whether import/image processing can be moved into the visitor browser. Close the cloud browser immediately after each job; explain the shared daily quota in the UI and stop accepting jobs when exhausted. This can be a genuinely zero-charge but limited demo, not an unlimited public converter. Do not enable paid Workers or billable storage implicitly.
+Test Cloudflare’s free browser execution with a synthetic short book before committing to a hosted architecture. Measure end-to-end browser seconds, output fidelity, fonts, upload limits and whether import/image processing can be moved into the visitor browser. Close the cloud browser immediately after each job; handle the provider’s limit response clearly without implementing a separate usage quota. This can be a genuinely zero-charge but limited demo, not an unlimited public converter. Do not enable paid Workers or billable storage implicitly.
