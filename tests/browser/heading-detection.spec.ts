@@ -1,0 +1,27 @@
+import { test, expect } from '@playwright/test';
+import { ready, tab, upload, applied } from './helpers';
+test('custom heading matches remain drafts until Apply and survive reload', async ({ page }) => {
+  await page.goto('/');
+  await upload(page, 'classic.md');
+  await ready(page);
+  await page.getByRole('button', { name: 'Rich', exact: true }).click();
+  const original = await ready(page);
+  await tab(page, 'Layout');
+  await page.getByText('Headings', { exact: true }).click();
+  await page.getByText('Heading detection', { exact: true }).click();
+  await page.getByRole('button', { name: 'Add heading rule', exact: true }).click();
+  await page.getByLabel('Heading pattern 1', { exact: true }).fill('*');
+  await page.getByLabel('Heading type 1', { exact: true }).selectOption('part');
+  await expect(page.locator('.heading-detection')).toContainText('matching headings');
+  await expect(page.locator('[aria-label="Print preview"]:visible')).toHaveAttribute('data-render-id', original);
+  await applied(page);
+  const rendered = await ready(page);
+  expect(rendered).not.toBe(original);
+  await page.reload();
+  await ready(page);
+  await tab(page, 'Layout');
+  await page.getByText('Headings', { exact: true }).click();
+  await page.getByText('Heading detection', { exact: true }).click();
+  await expect(page.getByLabel('Heading pattern 1', { exact: true })).toHaveValue('*');
+  await expect(page.getByLabel('Heading type 1', { exact: true })).toHaveValue('part');
+});

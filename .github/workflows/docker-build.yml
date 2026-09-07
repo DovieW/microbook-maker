@@ -1,76 +1,53 @@
-name: Build and Push Docker Image
-
+name: Verify and publish release
 on:
   push:
-    tags:
-      - 'v*'
+    tags: ['v*']
   workflow_dispatch:
-
+permissions:
+  contents: read
 env:
-  REGISTRY: docker.io
   IMAGE_NAME: dovieuu/microbook-maker
-  DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-  DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-
 jobs:
-  build-and-push:
+  release:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          fetch-depth: 0
-
-      - name: Check if tag is on the master branch
-        id: check_branch
-        run: |
-          if git branch -r --contains ${{ github.ref_name }} | grep -qw "origin/master"; then
-            echo "is_master=true" >> $GITHUB_OUTPUT
-          else
-            echo "is_master=false" >> $GITHUB_OUTPUT
-            echo "❌ Tag is not on the master branch. Skipping the rest of the job."
-          fi
-
-      - name: Set up Docker Buildx
-        if: steps.check_branch.outputs.is_master == 'true'
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Docker Hub
-        if: steps.check_branch.outputs.is_master == 'true'
-        uses: docker/login-action@v3
+          node-version: 24
+      - uses: actions/cache@v4
         with:
-          username: ${{ env.DOCKER_USERNAME }}
-          password: ${{ env.DOCKER_PASSWORD }}
-
-      - name: Extract metadata
+          path: .cache/public-books
+          key: public-books-${{ hashFiles('tests/public-books.json') }}
+      - name: Quick checks
+        run: npm run mb -- check --out .artifacts/release-quick
+      - name: Full corpus and browser checks
+        run: npm run mb -- test --no-build --suite full --out .artifacts/release-full
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-verification
+          path: .artifacts/release-*
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - uses: docker/metadata-action@v5
         id: meta
-        if: steps.check_branch.outputs.is_master == 'true'
-        uses: docker/metadata-action@v5
         with:
           images: ${{ env.IMAGE_NAME }}
           tags: |
             type=semver,pattern={{version}}
-            type=raw,value=latest,enable=true
-
-      - name: Build and push Docker image
-        id: build
-        if: steps.check_branch.outputs.is_master == 'true'
-        uses: docker/build-push-action@v6
+            type=sha
+      - uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./Dockerfile.production
-          platforms: linux/amd64,linux/arm64
+          file: ./Dockerfile
+          target: runtime
+          platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          build-args: |
-            BUILDKIT_INLINE_CACHE=1
-
-      - name: Image digest
-        if: steps.check_branch.outputs.is_master == 'true'
-        run: echo ${{ steps.build.outputs.digest }}

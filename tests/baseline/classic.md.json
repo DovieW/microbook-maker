@@ -1,0 +1,87 @@
+{
+  "id": "20260906045343_79d33e28-ffdb-42d7-a21c-76f5883c1f67",
+  "bookName": "classic.md",
+  "borderStyle": "dashed",
+  "fontSize": "6",
+  "fontFamily": "arial",
+  "foldGaps": false,
+  "author": null,
+  "year": null,
+  "series": null,
+  "wordCount": 823,
+  "sheetsCount": 1,
+  "readTime": "4 minutes",
+  "createdAt": "2026-09-06T04:53:43.757Z",
+  "originalFileName": "classic.md",
+  "uploadPath": "20260906045343_classic.md",
+  "mimeType": "application/octet-stream",
+  "layout": {
+    "engine": "pretext",
+    "pretextVersion": "0.0.6",
+    "analyzedBlocks": 1,
+    "populatedBlocks": 2,
+    "skippedBlocks": 1,
+    "truncated": false,
+    "stopReason": null,
+    "verticallyJustifiedBlocks": 1,
+    "horizontallyJustifiedBlocks": 0,
+    "horizontalJustificationCandidateBlocks": 1,
+    "estimatedLines": 59,
+    "durationMs": 34.2,
+    "blocks": [
+      {
+        "index": 0,
+        "textLength": 2504,
+        "wordCount": 427,
+        "width": 199,
+        "fixedLineCount": 59,
+        "variableLineCount": 59,
+        "richInlineLineCount": 59,
+        "lineHeightRatio": 1.0208,
+        "slackBefore": 0,
+        "slackAfter": 0,
+        "visualTopSlackBefore": 47,
+        "visualTopSlackAfter": 48,
+        "visualSlackBefore": 4.3,
+        "visualSlackAfter": 0.55,
+        "verticalTargetEdgeSlack": 0.5,
+        "verticalAverageLineGap": 0.11,
+        "horizontalJustified": false,
+        "horizontalJustificationCandidate": true,
+        "horizontalFillRatio": 0.96,
+        "horizontalDenseLineShare": 1,
+        "horizontalShortestCoreLineRatio": 0.904,
+        "horizontalAverageWordsPerLine": 12.2,
+        "horizontalAverageCharactersPerLine": 71.54,
+        "verticalJustified": true,
+        "verticalBaselineOnly": false
+      }
+    ],
+    "pageCount": 1,
+    "sheetCount": 1,
+    "estimatedCellsPerSheet": 32,
+    "estimatedLinesPerSheet": 59
+  },
+  "screenshots": {
+    "firstPage": {
+      "fileName": "screenshot_20260906045343_79d33e28-ffdb-42d7-a21c-76f5883c1f67_page1.png",
+      "path": "/app/be/generated/screenshot_20260906045343_79d33e28-ffdb-42d7-a21c-76f5883c1f67_page1.png",
+      "url": "/history/screenshot_20260906045343_79d33e28-ffdb-42d7-a21c-76f5883c1f67_page1.png",
+      "relativePath": "screenshot_20260906045343_79d33e28-ffdb-42d7-a21c-76f5883c1f67_page1.png",
+      "width": 816,
+      "height": 1056,
+      "clip": {
+        "x": 0,
+        "y": 0,
+        "width": 816,
+        "height": 1056
+      },
+      "viewport": {
+        "width": 800,
+        "height": 600
+      },
+      "bytes": 55404,
+      "capturedAt": "2026-09-06T04:53:44.397Z"
+    }
+  }
+}

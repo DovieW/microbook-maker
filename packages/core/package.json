@@ -1,0 +1,16 @@
+{
+  "name": "@microbook/core",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "exports": {
+    ".": "./src/index.ts",
+    "./import": "./src/import.ts"
+  },
+  "dependencies": {
+    "@xmldom/xmldom": "0.9.12",
+    "markdown-it": "^14.3.1",
+    "yauzl": "3.4.0",
+    "zod": "4.5.4"
+  }
+}

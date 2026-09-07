@@ -1,26 +1,17 @@
 services:
   microbook-maker:
-    image: dovieuu/microbook-maker:latest
+    image: ${MICROBOOK_IMAGE:-microbook-maker:local}
+    build:
+      context: .
+      target: runtime
     ports:
       - "7777:7777"
     volumes:
       - mbm-generated:/app/be/generated
       - mbm-uploads:/app/be/uploads
-    environment:
-      - NODE_ENV=production
+    init: true
     restart: unless-stopped
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "node",
-          "-e",
-          "fetch('http://127.0.0.1:7777/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))",
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+    stop_grace_period: 10s
 
 volumes:
   mbm-generated:

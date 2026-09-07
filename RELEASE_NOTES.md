@@ -1,0 +1,77 @@
+# Rebuild verification — 6 September 2026
+
+The current interface is described in [Workspace redesign](docs/WORKSPACE_REDESIGN.md): a compact shared sidebar, continuous searchable PDF, native Print, Books and kept versions. The implementation and verification notes below record the original rebuild and its earlier interface.
+
+
+**Later updates:** see [UI and rendering refinements](docs/UI_REFINEMENTS.md) for the current Sheet/fold defaults, themed menus, connection fix, Classic batching measurements, the horizontal-justification fix, and persistent previews for both modes. The paper-use and timing tables below describe the original no-gap defaults and precede the intentional alignment correction.
+
+The rebuild is implemented and verified in this workspace. A release candidate runs at [localhost:7780](http://localhost:7780) with separate storage under `.artifacts/release-data`. The existing TrueNAS production instance has not been changed, and no image has been published.
+
+The interface provides the navy workspace, exact PDF preview, Cell/Sheet navigation, Apply and Apply & Export, browser preferences, chapter navigation, source-position preservation, and a compact Library. Book imports EPUB 2/3 structure, images, captions, nested formatting, lists, poetry, simple tables, page labels, and typed endnotes. Small source images are not enlarged. Classic retains the original import/normalization/tokenization/pagination boundary and physical output.
+
+## Paper use
+
+These are complete, pinned public-domain editions, including their reading-order front matter and licensing text. Both modes use Arial/Arimo at **6 CSS px / 4.5 pt**, Letter paper, 16 cells per printed side. Book includes illustrations. There is no automatic fitting or density target.
+
+| Book | Words | Classic sheets | Book sheets | Printed sides, Classic / Book | Occupied cells, Classic / Book |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Illustrated Alice | 30,245 | 2 | 4 | 4 / 7 | 54 / 109 |
+| Frankenstein | 78,106 | 5 | 5 | 9 / 10 | 142 / 154 |
+| Moby Dick | 215,845 | 13 | 14 | 25 / 27 | 398 / 431 |
+
+Ordinary prose used about 8% more occupied cells in Book for Frankenstein and Moby Dick. Duplex rounding leaves Frankenstein at five sheets in both modes. The illustrated edition costs more paper because illustrations and structure remain present. Counts are measured, not estimates based on word count.
+
+The full-corpus Book renders took 1.27 s, 1.69 s, and 4.93 s respectively. They are separate outputs from Classic; these numbers do not claim an equivalent-layout Classic speedup.
+
+## Repeated timings
+
+Three cold/warm/cached runs per mode used the same complete Frankenstein EPUB, metadata, and physical text size on an **AMD Ryzen 5 3600, 12 logical CPUs, 16 GiB RAM, Linux amd64**. Values below are medians of elapsed API time, including polling (up to 250 ms); artifact/report generation is excluded.
+
+| Mode | Cold render | Warm forced render | Cached result |
+| --- | ---: | ---: | ---: |
+| Classic | 30.90 s | 30.88 s | 7 ms |
+| Book | 2.03 s | 1.52 s | 8 ms |
+
+Application/Chromium startup is measured separately (roughly 0.6–0.9 s). Cold restarts the application and browser; warm forces real equivalent work in the same browser; cached reuses a completed result. Book's warm measurement cache recorded 149 hits and zero misses on each repetition. The font size never changes during a render.
+
+Phase timings, source/settings/font hashes, all PDFs and side images, content checks, source ranges, and sampled container memory are retained in the JSON/HTML reports. Memory includes container filesystem caches and verification processes; it is not a measurement of the renderer alone. Timings describe this machine, not an untested TrueNAS host.
+
+## Checks passed
+
+- 16 Vitest logic/integration tests, 30 retained Classic parser/font/style tests, and 7 Playwright browser workflows; TypeScript and production build pass.
+- Classic TXT, Markdown, and a 42-cell duplex fixture match the original PDFs in extracted text and rendered pixels. All three duplex reference sides are checked, including cell transitions at 16 and 32.
+- All three public EPUBs match an independent source-spine extraction. Generated Book PDFs independently match selected text; final cell bounds report no overflow. Nested formatting, sentinels, captions, note uniqueness, long tokens, table-row splits, and paragraph treatments are covered.
+- Browser tests cover drafts/reload, Apply, cancellation/retry, stale responses, metadata precedence, exact PDF/download bytes, source-position preservation, narrow layouts, focus restoration, and a pixel comparison between Cell view and a complete PDF side.
+- Worker failure, queued-job restart recovery, atomic records, incomplete artifacts, retained exports, cleanup leases, and legacy migration/deletion are exercised.
+- Docker-backed setup, doctor, dev on an isolated port, render, compare with a settings file and paths containing spaces, full verification, and repeated benchmarks work without host rendering dependencies.
+- The actual runtime image migrated a copy of two original-format reference exports. Historical PDF URLs and original uploads retain identical bytes. New Book and Classic rendering, exact export/cache reuse, Library, preview, Settings, and restart persistence pass in that image.
+- The runtime Classic PDF also matches the original reference pixels. Runtime and verification renderer/font fingerprints match. The dependency audit reported zero known vulnerabilities at verification time.
+
+## Reproduce and review
+
+```sh
+npm run mb -- setup
+npm run mb -- check
+npm run mb -- test --no-build --suite full
+npm run mb -- render --no-build --input /absolute/path/book.epub --out /tmp/microbook-report
+npm run mb -- compare --no-build --input /absolute/path/book.epub --out /tmp/microbook-comparison
+npm run mb -- bench --no-build --input /absolute/path/book.epub --mode book --runs 3
+```
+
+The final combined verification used `npm run mb -- check --no-build --suite full --out .artifacts/final-verification`. Local evidence is available at:
+
+- [.artifacts/final-verification](.artifacts/final-verification): full corpus, Classic goldens, browser screenshots, and JSON/HTML comparisons.
+- [Book benchmark](.artifacts/benchmark-book/benchmark.html) and [Classic benchmark](.artifacts/benchmark-classic/benchmark.html).
+- [Candidate report](.artifacts/release-candidate-check/report.json), PDFs, and runtime UI screenshots.
+
+Generated reports are intentionally ignored by Git. The controlled baseline PDFs and small offline fixtures are part of the source tree; public-book inputs are cached with exact checksums.
+
+## Runtime and rollback
+
+The candidate image is `microbook-maker:release-candidate`, local digest `sha256:aa2acc30b015a2e2b58875eb80310f8fd0e9d695e44007a8054dea8780177f7c`. It runs Express plus one render worker and Chromium, with no Nginx or PM2 process. Production remains on port 7777; the local candidate uses port 7780.
+
+Controlled engine: Node 24.16.0, Chromium 148.0.7778.178, Classic Pretext 0.0.6, Book Pretext 0.0.8. Print-font fingerprint: `7606fe0425eda366d281765073c2cb42c06b3806ed4accc881a2972b0d4aa533`. Renderer/source fingerprint: `f0f99979eecc4b81e1791693dcfb495aafade2360fd2354be6d84e75c45b5c06`.
+
+The original reference image remains pinned by digest in `tests/baseline/manifest.json` and the Dockerfile. The copied reference volumes were backed up before candidate migration. Before a production switch, back up the **actual production volumes**, retain its installed image digest, and test a copy of that data as described in [DEPLOYMENT.md](DEPLOYMENT.md). The local reference-data check is not a claim that the user's live production library has been migrated or tested.
+
+**Physical-print validation remains:** print a targeted duplex sheet at 100% / actual size, using the same duplex edge setting as the existing Classic workflow, then fold/cut and compare the cell order. The automated three-side reference proves software geometry/order, but cannot establish a real printer's feed direction, unprintable margins, ink legibility at 4.5 pt, or the physical fold result. No private book is required.

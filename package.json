@@ -1,0 +1,39 @@
+{
+  "name": "microbook-maker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "mb": "node tools/mb.mjs",
+    "dev": "tsx apps/server/src/index.ts",
+    "build": "node tools/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run && npm run test:classic",
+    "test:ui": "playwright test",
+    "check": "npm run typecheck && npm test && npm run build",
+    "test:classic": "node --test tests/classic/*.test.cjs",
+    "format": "prettier --write apps packages/core/src packages/renderer/src tools tests/*.ts tests/browser"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/express": "^5.0.0",
+    "@types/markdown-it": "^14.1.2",
+    "@types/multer": "^2.0.0",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/yauzl": "^2.10.3",
+    "esbuild": "^0.28.0",
+    "prettier": "^3.9.6",
+    "tsx": "^4.21.0",
+    "typescript": "7.0.2",
+    "vitest": "5.0.0"
+  }
+}

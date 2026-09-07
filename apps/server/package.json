@@ -1,0 +1,12 @@
+{
+  "name": "@microbook/server",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "dependencies": {
+    "@microbook/core": "*",
+    "@microbook/renderer": "*",
+    "express": "5.2.1",
+    "multer": "2.3.0"
+  }
+}

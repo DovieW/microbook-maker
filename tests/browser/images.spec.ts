@@ -1,0 +1,89 @@
+import { test, expect } from '@playwright/test';
+import { preview, ready, upload, tab, applied } from './helpers';
+
+test('image inclusion applies, persists, restores cached bytes and stays with its document', async ({
+  page,
+  request,
+}) => {
+  await page.goto('/');
+  await upload(page, 'two-cell-images.epub');
+  const original = await ready(page, request);
+  const doc = await (await request.get(`/api/documents/${original.documentId}`)).json();
+  const images = doc.blocks.filter((b: any) => b.kind === 'image' && !b.imageHeading);
+  await tab(page, 'Images');
+  await expect(page.locator('.image-choice')).toHaveCount(images.length);
+  await expect
+    .poll(() =>
+      page
+        .locator('.image-choice img')
+        .first()
+        .evaluate((img: HTMLImageElement) => img.naturalWidth),
+    )
+    .toBeGreaterThan(0);
+  await page.getByLabel('Include image 1', { exact: true }).uncheck();
+  await expect(preview(page)).toHaveAttribute('data-render-id', original.id);
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Apply & Print', exact: true })).toBeEnabled();
+  await tab(page, 'Images');
+  await expect(page.getByLabel('Include image 1', { exact: true })).not.toBeChecked();
+  await applied(page);
+  const next = await ready(page, request);
+  expect(next.settings.excludedImageIds).toEqual([images[0].id]);
+  expect(next.result.cells.some((c: any) => c.blockIds.includes(images[0].id))).toBe(false);
+  expect(next.result.cells.some((c: any) => c.blockIds.includes(images[1].id))).toBe(true);
+  await page.getByLabel('Include image 1', { exact: true }).check();
+  await applied(page);
+  expect((await ready(page, request)).id).toBe(original.id);
+  await page.getByLabel('Include image 1', { exact: true }).uncheck();
+  await upload(page, 'publisher-alternatives.epub');
+  await ready(page);
+  await tab(page, 'Images');
+  await expect(page.getByLabel('Include image 1', { exact: true })).toBeChecked();
+  await expect(page.locator('.image-choice')).toHaveCount(4);
+});
+
+test('selected image controls override and reset the global one/two-cell layout', async ({
+  page,
+  request,
+}) => {
+  await page.goto('/');
+  await upload(page, 'two-cell-images.epub');
+  const original = await ready(page, request);
+  const doc = await (await request.get(`/api/documents/${original.documentId}`)).json();
+  const images = doc.blocks.filter((b: any) => b.kind === 'image' && !b.imageHeading);
+  const span = (j: any, id: string) =>
+    j.result.cells.find((c: any) => c.blockIds.includes(id) && c.continuationOf === undefined)?.span || 1;
+  await tab(page, 'Images');
+  await page.getByRole('button', { name: 'Show image 1', exact: true }).click();
+  await page.getByLabel('Two cells for image 1', { exact: true }).check();
+  await expect(page.getByLabel('Two cells for image 2', { exact: true })).toHaveCount(0);
+  await applied(page);
+  const mixed = await ready(page, request);
+  expect(span(mixed, images[0].id)).toBe(2);
+  expect(span(mixed, images[1].id)).toBe(1);
+  await page.reload();
+  await ready(page);
+  await tab(page, 'Images');
+  await expect(page.getByLabel('Two cells for image 1', { exact: true })).toBeChecked();
+  await page.locator('.image-defaults summary').click();
+  await page.getByLabel('Two-cell images', { exact: true }).check();
+  await page.getByRole('button', { name: 'Show image 2', exact: true }).click();
+  await page.getByLabel('Two cells for image 2', { exact: true }).uncheck();
+  await applied(page);
+  const wide = await ready(page, request);
+  expect(span(wide, images[0].id)).toBe(2);
+  expect(span(wide, images[1].id)).toBe(1);
+  expect(span(wide, images[2].id)).toBe(2);
+  await page.getByLabel('Include image 2', { exact: true }).uncheck();
+  await expect(page.getByLabel('Two cells for image 2', { exact: true })).toBeDisabled();
+  await page.getByLabel('Include image 2', { exact: true }).check();
+  await expect(page.getByLabel('Two cells for image 2', { exact: true })).not.toBeChecked();
+  await page.getByRole('button', { name: 'Use book setting for image 2', exact: true }).click();
+  await applied(page);
+  expect(span(await ready(page, request), images[1].id)).toBe(2);
+  await page.screenshot({
+    path: `${process.env.MB_REPORT_DIR || 'test-results'}/individual-image-layout.png`,
+  });
+  await upload(page, 'publisher-alternatives.epub');
+  expect((await ready(page, request)).settings.imageCellSpans).toEqual({});
+});

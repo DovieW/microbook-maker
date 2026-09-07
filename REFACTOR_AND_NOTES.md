@@ -1,3 +1,5 @@
+> Historical notes for the pre-rebuild application. Current architecture and verification are documented in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/VERIFICATION.md](docs/VERIFICATION.md).
+
 # Refactor And Notes
 
 ## Context

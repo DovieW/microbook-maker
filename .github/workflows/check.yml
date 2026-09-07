@@ -1,0 +1,23 @@
+name: Verify
+on:
+  pull_request:
+  push:
+    branches: [master, main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  quick:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Controlled quick suite
+        run: npm run mb -- check --out .artifacts/ci-quick
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: quick-verification
+          path: .artifacts/ci-quick

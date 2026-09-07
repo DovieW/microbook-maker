@@ -1,0 +1,5 @@
+[
+  {"id":"alice","title":"Alice's Adventures in Wonderland (illustrated)","source":"https://www.gutenberg.org/ebooks/28885","url":"https://www.gutenberg.org/cache/epub/28885/pg28885-images-3.epub","sha256":"17bb2c40e514a7cf4f0c6d0139aadad45c82a535a2a2202aa3da3c4501186e64","license":"Public domain in the USA; Project Gutenberg license retained in source EPUB."},
+  {"id":"frankenstein","title":"Frankenstein","source":"https://www.gutenberg.org/ebooks/84","url":"https://www.gutenberg.org/cache/epub/84/pg84-images-3.epub","sha256":"2c29669a2cc1a726d6264178a2e8e86529208fd61ef92ca627b1612b2d98b2bd","license":"Public domain in the USA; Project Gutenberg license retained in source EPUB."},
+  {"id":"moby-dick","title":"Moby Dick","source":"https://www.gutenberg.org/ebooks/2701","url":"https://www.gutenberg.org/cache/epub/2701/pg2701-images-3.epub","sha256":"4775057549025fefb024582ffda8dc2b8a2396c92afa95f3f90f76a5795993a7","license":"Public domain in the USA; Project Gutenberg license retained in source EPUB."}
+]
