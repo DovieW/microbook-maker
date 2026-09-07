@@ -92,19 +92,24 @@ export function ImagesPane({ w }: { w: Workspace }) {
                 {asset && <img src={`/api/documents/${doc.id}/assets/${asset.id}`} alt="Repeated artwork" />}
                 <span>{group.length} occurrences</span>
                 <button
-                  disabled={!!w.kept || applied}
+                  disabled={!!w.kept}
                   onClick={() =>
                     w.edit({
                       imageTreatments: {
                         ...draft.imageTreatments,
                         ...Object.fromEntries(
-                          group.map((b) => [b.id, { kind: 'flourish' as const, widthEm: 4, gapEm: 0.25 }]),
+                          group.map((b) => [
+                            b.id,
+                            applied
+                              ? { kind: 'image' as const }
+                              : { kind: 'flourish' as const, widthEm: 4, gapEm: 0.25 },
+                          ]),
                         ),
                       },
                     })
                   }
                 >
-                  {applied ? 'Flourishes' : 'Use as flourishes'}
+                  {applied ? 'Use as illustrations' : 'Use as flourishes'}
                 </button>
               </div>
             );

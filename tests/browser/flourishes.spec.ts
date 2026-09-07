@@ -21,6 +21,17 @@ test('repeated flourishes preserve source placement, bulk controls, overrides, a
   expect(compact.result.coverage.complete).toBe(true);
   expect(compact.result.coverage.overflows).toBe(0);
   expect(compact.result.imageRegions).toHaveLength(20);
+  await page.getByRole('button', { name: 'Use as illustrations', exact: true }).click();
+  await expect(preview(page)).toHaveAttribute('data-render-id', compact.id);
+  await applied(page);
+  const illustrations = await ready(page, request);
+  expect(illustrations.result.pages).toBe(original.result.pages);
+  expect(Object.values(illustrations.settings.imageTreatments).every((t: any) => t.kind === 'image')).toBe(
+    true,
+  );
+  await page.getByRole('button', { name: 'Use as flourishes', exact: true }).click();
+  await applied(page);
+  expect((await ready(page, request)).id).toBe(compact.id);
   const doc = await (await request.get(`/api/documents/${compact.documentId}`)).json();
   const images = doc.blocks.filter((b: any) => b.kind === 'image');
   for (const image of images) {
