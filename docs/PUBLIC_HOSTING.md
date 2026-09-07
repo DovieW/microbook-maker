@@ -1,6 +1,6 @@
 # Public hosting proposal
 
-Status: design only. Public upload isolation is not implemented in the current personal/self-hosted application.
+Status: the [gated Cloudflare renderer experiment](CLOUDFLARE_PROGRESS.md) passes its first PDF fidelity check. The public application and visitor upload handling are not implemented. The personal/self-hosted application remains private.
 
 ## Requirements
 
@@ -20,9 +20,11 @@ On 7 September 2026 the isolated current container used about 500 MiB after rend
 
 Sources checked that day: [Render compute plans](https://render.com/docs/compute-plans), [free-service limitations](https://render.com/docs/free), [Cloud Run pricing](https://cloud.google.com/run/pricing), [Cloudflare Browser Run limits](https://developers.cloudflare.com/browser-run/limits/).
 
-GitHub Actions can deploy; it is not the application host. A static site cannot execute this server's Chromium renderer. No provider or paid service has been provisioned.
+GitHub Actions can deploy; it is not the application host. A static site cannot execute this server's Chromium renderer. A gated Free Cloudflare renderer Worker has been deployed; no paid service or storage was provisioned.
 
-## Required hosted-mode changes
+## Initial server-storage requirements
+
+These requirements apply if visitor files are stored server-side. The first renderer experiment supports a simpler approach: temporary on-device storage and stateless Cloudflare PDF creation. The [current progress document](CLOUDFLARE_PROGRESS.md) records that direction and its remaining verification work.
 
 1. **Private ownership:** issue an unguessable HttpOnly/Secure/SameSite session cookie and authorize every document, image, render, PDF, download and mutation. Random document IDs are not authorization. Disable or protect legacy routes. Verify that visitor A cannot access visitor B's files.
 2. **Retention:** provisionally delete after one hour of inactivity, with a 24-hour hard lifetime. Show expiry and Delete now. Include sources, PDFs, thumbnails, processed caches, jobs and leases; sweep orphans on restart. Do not preserve ephemeral visitor files in backups.
@@ -47,8 +49,8 @@ Reference: [US Copyright Office Section 512 guidance](https://www.copyright.gov/
 
 Test changes without deployment credentials. Publish a verified immutable container digest, deploy through a protected environment with narrowly scoped credentials, run health and synthetic-conversion checks, and roll back if they fail. Keep personal Library data and visitor uploads out of CI artifacts.
 
-Host selection and a public URL remain open. Public hosting is a separate milestone from the v2 self-hosted release.
+Cloudflare is the selected hosted target. A usable public application URL remains open. Public hosting is a separate milestone from the v2 self-hosted release.
 
-## Recommended next experiment
+## Renderer experiment
 
-Test Cloudflare’s free browser execution with a synthetic short book before committing to a hosted architecture. Measure end-to-end browser seconds, output fidelity, fonts, upload limits and whether import/image processing can be moved into the visitor browser. Close the cloud browser immediately after each job; handle the provider’s limit response clearly without implementing a separate usage quota. This can be a genuinely zero-charge but limited demo, not an unlimited public converter. Do not enable paid Workers or billable storage implicitly.
+The synthetic free-browser check and deployed Worker PDF check passed; see the [measured results](CLOUDFLARE_PROGRESS.md). Import/image processing in the visitor browser, long books, Basic compatibility, and the final visitor workflow still need implementation and testing. Handle provider limit responses clearly without a separate usage quota. Do not enable paid Workers or billable storage implicitly.
