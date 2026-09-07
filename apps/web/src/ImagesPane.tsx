@@ -20,7 +20,8 @@ export function ImagesPane({ w }: { w: Workspace }) {
       src,
       alt,
       title,
-      processedSrc: src + imageOutputQuery(draft.imageOutputOverrides[blockId] ?? draft.imageOutput),
+      blockId,
+      output: draft.imageOutputOverrides[blockId] ?? draft.imageOutput,
     });
   };
   const doc = w.doc!;
@@ -39,7 +40,22 @@ export function ImagesPane({ w }: { w: Workspace }) {
   return (
     <div className="images-pane" ref={root}>
       <ImagePreview
-        image={previewImage}
+        image={
+          previewImage && {
+            ...previewImage,
+            output: draft.imageOutputOverrides[previewImage.blockId] ?? draft.imageOutput,
+          }
+        }
+        onChoose={
+          w.kept
+            ? undefined
+            : (output) => {
+                if (previewImage)
+                  w.edit({
+                    imageOutputOverrides: { ...draft.imageOutputOverrides, [previewImage.blockId]: output },
+                  });
+              }
+        }
         onClose={() => setPreviewImage(undefined)}
         returnFocus={() => previewTrigger.current?.focus()}
       />

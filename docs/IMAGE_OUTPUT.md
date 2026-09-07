@@ -33,3 +33,7 @@ Validation on the packaged application included the full technical book (162 ren
 There are three **Image output** modes. Selecting **Laser optimized** reveals **Laser contrast**: Gentle, Standard or Strong, with a plain-language description of each. The comparison sheet groups those three levels under Laser optimized and prints the path **Images → Defaults → Image output**, followed by **Laser contrast** and **Apply**. Labels and level descriptions come from shared definitions.
 
 **SVG rendering** is a separate collapsed compatibility control, shown only when the book has SVG artwork using Original color (including per-image overrides). It is hidden when no SVG can be affected; it is not an additional color or laser setting.
+
+## Comparing one image
+
+The enlarged preview fits inside the visible viewport, including its footer. Wide dialogs show Original color, Grayscale and Laser optimized together; medium dialogs show Original color beside the chosen processed version; phones show one selectable version. Laser contrast can be auditioned without editing the draft. “Use this version” stores the output for that image only, keeps the dialog open, and leaves the displayed PDF and reading position unchanged until Apply. Kept versions support comparison but cannot be edited. Fit and zoom work in each responsive layout.

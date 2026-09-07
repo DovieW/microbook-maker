@@ -1,26 +1,66 @@
 import { useEffect, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Minus, Plus, X } from 'lucide-react';
+import { imageOutputQuery, imageOutputModes, laserContrastLevels, type ImageOutput } from '@microbook/core';
 import { IconButton } from './ui';
-export type PreviewImage = { src: string; processedSrc?: string; alt: string; title: string };
+export type PreviewImage = { src: string; blockId: string; output: ImageOutput; alt: string; title: string };
+function ComparisonImage({ src, alt, zoom }: { src: string; alt: string; zoom: number }) {
+  const [status, setStatus] = useState('Preparing image…');
+  return (
+    <>
+      <div className="image-preview-stage" tabIndex={0} aria-label={`${alt} pan area`}>
+        <div style={{ width: `${zoom * 100}%`, height: `${zoom * 100}%` }}>
+          <img
+            src={src}
+            alt={alt}
+            draggable={false}
+            onLoad={() => setStatus('')}
+            onError={() => setStatus('Image could not load. Close and retry.')}
+          />
+        </div>
+      </div>
+      <span className="image-processing-status" role="status">
+        {status}
+      </span>
+    </>
+  );
+}
 export function ImagePreview({
   image,
   onClose,
   returnFocus,
+  onChoose,
 }: {
   image?: PreviewImage;
   onClose: () => void;
   returnFocus: () => void;
+  onChoose?: (output: ImageOutput) => void;
 }) {
-  const [processed, setProcessed] = useState(true);
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
-  const src = processed ? image?.processedSrc || image?.src : image?.src;
-  useEffect(() => setStatus('loading'), [src]);
+  const [element, setElement] = useState<HTMLDivElement | null>(null);
+  const [width, setWidth] = useState(0);
   const [zoom, setZoom] = useState(1);
+  const [version, setVersion] = useState<ImageOutput['mode']>('laser');
+  const [strength, setStrength] = useState<ImageOutput['strength']>('gentle');
   useEffect(() => {
+    if (!image) return;
     setZoom(1);
-    setProcessed(true);
+    setVersion(image.output.mode);
+    setStrength(image.output.strength);
   }, [image?.src]);
+  useEffect(() => {
+    if (!element) return;
+    const observer = new ResizeObserver((entries) => setWidth(entries[0].contentRect.width));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [element]);
+  const shown =
+    width >= 1050
+      ? imageOutputModes
+      : width >= 700
+        ? imageOutputModes.filter(
+            (m) => m.value === 'original' || m.value === (version === 'original' ? 'laser' : version),
+          )
+        : imageOutputModes.filter((m) => m.value === version);
   return (
     <Dialog.Root
       open={!!image}
@@ -31,10 +71,11 @@ export function ImagePreview({
       <Dialog.Portal>
         <Dialog.Overlay className="image-preview-overlay" />
         <Dialog.Content
+          ref={setElement}
           className="image-preview-dialog redesign"
           aria-describedby="image-preview-description"
-          onCloseAutoFocus={(event) => {
-            event.preventDefault();
+          onCloseAutoFocus={(e) => {
+            e.preventDefault();
             returnFocus();
           }}
         >
@@ -49,38 +90,84 @@ export function ImagePreview({
               </IconButton>
             </Dialog.Close>
           </header>
-          <div className="image-preview-stage" tabIndex={0} aria-label="Image pan area">
-            <div style={{ width: `${zoom * 100}%`, height: `${zoom * 100}%` }}>
-              {image && (
-                <img
-                  key={src}
-                  src={src}
-                  alt={image.alt}
-                  draggable={false}
-                  onLoad={() => setStatus('ready')}
-                  onError={() => setStatus('error')}
-                />
-              )}
-            </div>
+          <div className="image-comparison-toolbar">
+            {width < 1050 && (
+              <label>
+                {width >= 700 ? 'Compare with' : 'Preview version'}{' '}
+                <select
+                  aria-label="Preview version"
+                  value={width >= 700 && version === 'original' ? 'laser' : version}
+                  onChange={(e) => {
+                    setVersion(e.target.value as ImageOutput['mode']);
+                    setZoom(1);
+                  }}
+                >
+                  {imageOutputModes
+                    .filter((m) => width < 700 || m.value !== 'original')
+                    .map((m) => (
+                      <option key={m.value} value={m.value}>
+                        {m.label}
+                      </option>
+                    ))}
+                </select>
+              </label>
+            )}
+            {shown.some((m) => m.value === 'laser') && (
+              <label>
+                Laser contrast{' '}
+                <select
+                  aria-label="Preview laser contrast"
+                  value={strength}
+                  onChange={(e) => setStrength(e.target.value as ImageOutput['strength'])}
+                >
+                  {laserContrastLevels.map((l) => (
+                    <option key={l.value} value={l.value}>
+                      {l.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </div>
+          <div
+            className="image-comparison-panels"
+            style={{ gridTemplateColumns: `repeat(${shown.length}, minmax(0, 1fr))` }}
+          >
+            {image &&
+              shown.map((mode) => {
+                const output: ImageOutput = { mode: mode.value, strength };
+                const selected =
+                  image.output.mode === mode.value &&
+                  (mode.value !== 'laser' || image.output.strength === strength);
+                const src = image.src + imageOutputQuery(output);
+                return (
+                  <section
+                    key={mode.value}
+                    className="image-comparison-panel"
+                    aria-label={`${mode.label} preview`}
+                  >
+                    <div className="image-comparison-heading">
+                      <h3>{mode.label}</h3>
+                      {onChoose && (
+                        <button
+                          disabled={selected}
+                          aria-label={`Use ${mode.label} for this image`}
+                          onClick={() => onChoose(output)}
+                        >
+                          {selected ? 'Selected' : 'Use this version'}
+                        </button>
+                      )}
+                    </div>
+                    <ComparisonImage key={src} src={src} alt={mode.label} zoom={zoom} />
+                  </section>
+                );
+              })}
           </div>
           <footer>
-            {image?.processedSrc !== image?.src && (
-              <button
-                className="image-compare-toggle"
-                aria-pressed={!processed}
-                onClick={() => setProcessed((p) => !p)}
-              >
-                {processed ? 'Show original' : 'Show processed'}
-              </button>
-            )}
-            <span className="image-processing-status" role="status">
-              {status === 'loading'
-                ? 'Preparing image…'
-                : status === 'error'
-                  ? 'Image could not load. Close and retry.'
-                  : processed && image?.processedSrc !== image?.src
-                    ? 'Processed'
-                    : 'Original'}
+            <span className="image-preview-hint">
+              {onChoose
+                ? 'Choose a version here, then Apply in the sidebar to update the PDF.'
+                : 'Preview only · kept version'}{' '}
             </span>
             <IconButton
               label="Zoom image out"

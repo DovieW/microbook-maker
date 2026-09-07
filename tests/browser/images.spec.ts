@@ -102,15 +102,35 @@ test('image output previews draft pixels without navigation and applies per-imag
   await expect(preview(page)).toHaveAttribute('data-render-id', original.id);
   await page.getByRole('button', { name: 'Enlarge image 1', exact: true }).click();
   const modal = page.getByRole('dialog', { name: 'Image preview', exact: true });
-  await expect(modal.locator('img')).toHaveAttribute('src', /output=grayscale/);
-  await expect(modal.getByRole('status')).toHaveText('Processed');
-  await modal.getByRole('button', { name: 'Show original', exact: true }).click();
-  await expect(modal.locator('img')).not.toHaveAttribute('src', /output=/);
+  await expect(modal.locator('.image-comparison-panel')).toHaveCount(3);
+  await expect(
+    modal.getByRole('region', { name: 'Grayscale preview', exact: true }).locator('img'),
+  ).toHaveAttribute('src', /output=grayscale/);
+  await expect(
+    modal.getByRole('region', { name: 'Original color preview', exact: true }).locator('img'),
+  ).not.toHaveAttribute('src', /output=/);
+  await modal.getByLabel('Preview laser contrast', { exact: true }).selectOption('strong');
+  await expect(
+    modal.getByRole('region', { name: 'Laser optimized preview', exact: true }).locator('img'),
+  ).toHaveAttribute('src', /strength=strong/);
+  await expect(preview(page)).toHaveAttribute('data-render-id', original.id);
+  await modal.getByRole('button', { name: 'Use Laser optimized for this image', exact: true }).click();
+  await expect(
+    modal.getByRole('button', { name: 'Use Laser optimized for this image', exact: true }),
+  ).toBeDisabled();
+  await modal.getByRole('button', { name: 'Use Grayscale for this image', exact: true }).click();
+  const bounds = await modal.evaluate((el) => {
+    const footer = el.querySelector('footer')!.getBoundingClientRect();
+    return { bottom: el.getBoundingClientRect().bottom, footerBottom: footer.bottom, viewport: innerHeight };
+  });
+  expect(bounds.bottom).toBeLessThanOrEqual(bounds.viewport);
+  expect(bounds.footerBottom).toBeLessThanOrEqual(bounds.bottom);
+
   await modal.getByRole('button', { name: 'Close image preview', exact: true }).click();
   await applied(page);
   const changed = await ready(page, request);
   expect(Object.values(changed.settings.imageOutputOverrides)).toEqual([
-    { mode: 'grayscale', strength: 'gentle' },
+    { mode: 'grayscale', strength: 'strong' },
   ]);
   await page.reload();
   await ready(page);
