@@ -172,3 +172,40 @@ test('image output explains laser contrast and only offers SVG rendering when ap
   await page.getByLabel('Default image output', { exact: true }).selectOption('grayscale');
   await expect(defaults.locator('summary').filter({ hasText: 'SVG rendering' })).toHaveCount(0);
 });
+
+test('rotation previews independently and applies to the PDF with swapped dimensions', async ({
+  page,
+  request,
+}) => {
+  await page.goto('/');
+  await upload(page, 'two-cell-images.epub');
+  const original = await ready(page, request);
+  await tab(page, 'Images');
+  await page.getByRole('button', { name: 'Image 1 details', exact: true }).click();
+  await page.getByRole('button', { name: 'Rotate image right', exact: true }).click();
+  await expect(page.locator('.image-large-preview').first()).toHaveAttribute('src', /rotation=90/);
+  await expect(preview(page)).toHaveAttribute('data-render-id', original.id);
+  await page.getByRole('button', { name: 'Enlarge image 1', exact: true }).click();
+  const modal = page.getByRole('dialog', { name: 'Image preview' });
+  await expect(
+    modal.getByRole('region', { name: 'Original color preview', exact: true }).locator('img'),
+  ).not.toHaveAttribute('src', /rotation=/);
+  await expect(
+    modal.getByRole('region', { name: 'Laser optimized preview', exact: true }).locator('img'),
+  ).toHaveAttribute('src', /rotation=90/);
+  await modal.getByRole('button', { name: 'Close image preview', exact: true }).click();
+  await applied(page);
+  const changed = await ready(page, request);
+  expect(Object.values(changed.settings.imageRotations)).toEqual([90]);
+  const before = original.result.imageRegions[0];
+  const after = changed.result.imageRegions[0];
+  expect(after.width / after.height).toBeCloseTo(before.height / before.width, 1);
+  await page.reload();
+  await ready(page);
+  await tab(page, 'Images');
+  await expect(page.locator('.image-large-preview').first()).toHaveAttribute('src', /rotation=90/);
+  await page.getByRole('button', { name: 'Reset orientation', exact: true }).click();
+  await applied(page);
+  const reset = await ready(page, request);
+  expect(reset.result.imageRegions[0].width).toBeCloseTo(before.width, 1);
+});

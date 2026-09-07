@@ -519,8 +519,8 @@ export async function renderBook(payload: {
       const img = document.createElement('img');
       const output = s.imageOutputOverrides?.[block.id] ??
         s.imageOutput ?? { mode: 'original' as const, strength: 'gentle' as const };
-      const imageUrl = `${assetBase}/${encodeURIComponent(asset.id)}${imageOutputQuery(output)}`;
-      if (output.mode === 'original') img.src = imageUrl;
+      const imageUrl = `${assetBase}/${encodeURIComponent(asset.id)}${imageOutputQuery(output, s.imageRotations?.[block.id] ?? 0)}`;
+      if (output.mode === 'original' && !s.imageRotations?.[block.id]) img.src = imageUrl;
       else {
         // Embed the exact cached output. Reusing an image URL with different output
         // queries can fail decode in the warm Chromium print page.

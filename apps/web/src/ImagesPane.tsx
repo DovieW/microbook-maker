@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { repeatedImageGroups, imageOutputQuery, settingsSchema } from '@microbook/core';
 import { ImageOutputControls } from './ImageOutputControls';
+import { ImageRotationControls } from './ImageRotationControls';
 import { ImagePreview, type PreviewImage } from './ImagePreview';
 import { RichFeatures } from './RichFeatures';
 import { ImageTreatmentControls } from './ImageTreatmentControls';
@@ -43,6 +44,7 @@ export function ImagesPane({ w }: { w: Workspace }) {
         image={
           previewImage && {
             ...previewImage,
+            rotation: draft.imageRotations[previewImage.blockId] ?? 0,
             output: draft.imageOutputOverrides[previewImage.blockId] ?? draft.imageOutput,
           }
         }
@@ -54,6 +56,14 @@ export function ImagesPane({ w }: { w: Workspace }) {
                   w.edit({
                     imageOutputOverrides: { ...draft.imageOutputOverrides, [previewImage.blockId]: output },
                   });
+              }
+        }
+        onRotate={
+          w.kept
+            ? undefined
+            : (rotation) => {
+                if (previewImage)
+                  w.edit({ imageRotations: { ...draft.imageRotations, [previewImage.blockId]: rotation } });
               }
         }
         onClose={() => setPreviewImage(undefined)}
@@ -245,13 +255,36 @@ export function ImagesPane({ w }: { w: Workspace }) {
                     >
                       <img
                         className="image-large-preview"
-                        src={`/api/documents/${doc.id}/assets/${asset.id}${imageOutputQuery(draft.imageOutputOverrides[block.id] ?? draft.imageOutput)}`}
+                        src={`/api/documents/${doc.id}/assets/${asset.id}${imageOutputQuery(draft.imageOutputOverrides[block.id] ?? draft.imageOutput, draft.imageRotations[block.id] ?? 0)}`}
                         alt={asset.alt || `Image ${i + 1}`}
                       />
                     </button>
                   )}
                   <fieldset className="image-detail" disabled={!!w.kept}>
                     <ImageTreatmentControls w={w} block={block} heading={heading} />
+                    {!heading && (
+                      <ImageRotationControls
+                        rotation={draft.imageRotations[block.id] ?? 0}
+                        onChange={(rotation) =>
+                          w.edit({ imageRotations: { ...draft.imageRotations, [block.id]: rotation } })
+                        }
+                        count={
+                          doc.blocks.filter((b) => b.kind === 'image' && b.assetId === block.assetId).length
+                        }
+                        onMatch={() =>
+                          w.edit({
+                            imageRotations: {
+                              ...draft.imageRotations,
+                              ...Object.fromEntries(
+                                doc.blocks
+                                  .filter((b) => b.kind === 'image' && b.assetId === block.assetId)
+                                  .map((b) => [b.id, draft.imageRotations[block.id] ?? 0]),
+                              ),
+                            },
+                          })
+                        }
+                      />
+                    )}
                     {!heading && <ImageOutputControls w={w} blockId={block.id} />}
                     {!heading && draft.imageTreatments[block.id]?.kind !== 'flourish' && (
                       <div className="image-layout-choice">
@@ -315,6 +348,29 @@ export function ImagesPane({ w }: { w: Workspace }) {
                   </button>
                   <fieldset disabled={!!w.kept}>
                     <ImageTreatmentControls w={w} block={block} heading={heading} />
+                    {!heading && (
+                      <ImageRotationControls
+                        rotation={draft.imageRotations[block.id] ?? 0}
+                        onChange={(rotation) =>
+                          w.edit({ imageRotations: { ...draft.imageRotations, [block.id]: rotation } })
+                        }
+                        count={
+                          doc.blocks.filter((b) => b.kind === 'image' && b.assetId === block.assetId).length
+                        }
+                        onMatch={() =>
+                          w.edit({
+                            imageRotations: {
+                              ...draft.imageRotations,
+                              ...Object.fromEntries(
+                                doc.blocks
+                                  .filter((b) => b.kind === 'image' && b.assetId === block.assetId)
+                                  .map((b) => [b.id, draft.imageRotations[block.id] ?? 0]),
+                              ),
+                            },
+                          })
+                        }
+                      />
+                    )}
                     {!heading && <ImageOutputControls w={w} blockId={block.id} />}
                     <ImageHeadingControls doc={doc} block={block} draft={draft} onEdit={w.edit} />
                   </fieldset>

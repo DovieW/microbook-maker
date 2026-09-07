@@ -80,4 +80,14 @@ test('repeated flourishes preserve source placement, bulk controls, overrides, a
   await page.getByLabel('Include image 1', { exact: true }).check();
   await applied(page);
   expect((await ready(page, request)).id).toBe(restored.id);
+  await page.getByRole('button', { name: 'Rotate image right', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Apply orientation to all 20 matching images', exact: true })
+    .click();
+  await applied(page);
+  const rotated = await ready(page, request);
+  expect(Object.values(rotated.settings.imageRotations)).toEqual(Array(20).fill(90));
+  for (const region of rotated.result.imageRegions) {
+    expect(region.width / region.height).toBeCloseTo(14 / 27, 1);
+  }
 });

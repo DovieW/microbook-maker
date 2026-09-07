@@ -2,8 +2,16 @@ import { useEffect, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Minus, Plus, X } from 'lucide-react';
 import { imageOutputQuery, imageOutputModes, laserContrastLevels, type ImageOutput } from '@microbook/core';
+import { ImageRotationControls } from './ImageRotationControls';
 import { IconButton } from './ui';
-export type PreviewImage = { src: string; blockId: string; output: ImageOutput; alt: string; title: string };
+export type PreviewImage = {
+  src: string;
+  blockId: string;
+  output: ImageOutput;
+  rotation?: number;
+  alt: string;
+  title: string;
+};
 function ComparisonImage({ src, alt, zoom }: { src: string; alt: string; zoom: number }) {
   const [status, setStatus] = useState('Preparing image…');
   return (
@@ -30,10 +38,12 @@ export function ImagePreview({
   onClose,
   returnFocus,
   onChoose,
+  onRotate,
 }: {
   image?: PreviewImage;
   onClose: () => void;
   returnFocus: () => void;
+  onRotate?: (rotation: 0 | 90 | 180 | 270) => void;
   onChoose?: (output: ImageOutput) => void;
 }) {
   const [element, setElement] = useState<HTMLDivElement | null>(null);
@@ -91,6 +101,9 @@ export function ImagePreview({
             </Dialog.Close>
           </header>
           <div className="image-comparison-toolbar">
+            {image && onRotate && (
+              <ImageRotationControls rotation={image.rotation ?? 0} onChange={onRotate} />
+            )}
             {width < 1050 && (
               <label>
                 {width >= 700 ? 'Compare with' : 'Preview version'}{' '}
@@ -139,7 +152,8 @@ export function ImagePreview({
                 const selected =
                   image.output.mode === mode.value &&
                   (mode.value !== 'laser' || image.output.strength === strength);
-                const src = image.src + imageOutputQuery(output);
+                const src =
+                  image.src + imageOutputQuery(output, mode.value === 'original' ? 0 : (image.rotation ?? 0));
                 return (
                   <section
                     key={mode.value}

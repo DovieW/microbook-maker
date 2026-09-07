@@ -6,7 +6,8 @@ export const imageOutputSchema = z.object({
   strength: z.enum(['gentle', 'standard', 'strong']).default('gentle'),
 });
 export type ImageOutput = z.infer<typeof imageOutputSchema>;
-export function imageOutputQuery(output: ImageOutput): string {
+export function imageOutputQuery(output: ImageOutput, rotation = 0): string {
+  if (rotation) return (imageOutputQuery(output) || '?output=original') + '&rotation=' + rotation;
   if (output.mode === 'original') return '';
   return `?output=${output.mode}&strength=${output.mode === 'laser' ? output.strength : 'gentle'}&algorithm=${IMAGE_OUTPUT_VERSION}`;
 }

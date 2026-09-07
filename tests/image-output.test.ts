@@ -118,3 +118,17 @@ test('processed JPEGs preserve the orientation shown by the browser', async () =
   const metadata = await sharp(result).metadata();
   expect([metadata.width, metadata.height]).toEqual([30, 20]);
 });
+test('rotation swaps dimensions, preserves source bytes and reuses cached orientation', async () => {
+  const { source, cache } = await fixture();
+  const bytes = await fs.readFile(source);
+  const rotated = await cache.rotate(source, 90);
+  const metadata = await sharp(rotated).metadata();
+  expect([metadata.width, metadata.height]).toEqual([1, 6]);
+  const pixels = await sharp(rotated).raw().toBuffer();
+  expect(pixels.some((value) => value > 0)).toBe(true);
+  expect(await cache.rotate(source, 90)).toBe(rotated);
+  expect(await cache.rotate(source, 0)).toBe(source);
+  expect(await fs.readFile(source)).toEqual(bytes);
+  expect(settingsSchema.parse({}).imageRotations).toEqual({});
+  expect(settingsSchema.safeParse({ imageRotations: { b1: 45 } }).success).toBe(false);
+});

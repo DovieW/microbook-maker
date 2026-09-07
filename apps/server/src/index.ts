@@ -296,9 +296,16 @@ app.get('/api/documents/:id/assets/:asset', async (req, res) => {
   if (!asset) return res.sendStatus(404);
   res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox");
   const output = imageOutputSchema.parse({ mode: req.query.output, strength: req.query.strength });
-  const file = await imageCache.process(path.join(store.documentDir(doc.id), asset.path), output);
+  const rotation = Number(req.query.rotation || 0);
+  if (![0, 90, 180, 270].includes(rotation)) return res.status(400).json({ error: 'Invalid image rotation' });
+  const file = await imageCache.rotate(
+    await imageCache.process(path.join(store.documentDir(doc.id), asset.path), output),
+    rotation,
+  );
   res.setHeader('Cache-Control', 'private, max-age=3600');
-  res.type(output.mode === 'original' ? asset.mediaType : 'image/png').sendFile(file, { dotfiles: 'allow' });
+  res
+    .type(rotation ? 'image/svg+xml' : output.mode === 'original' ? asset.mediaType : 'image/png')
+    .sendFile(file, { dotfiles: 'allow' });
 });
 app.post('/api/documents/:id/renders', async (req, res) => {
   const doc = getDocument(req.params.id);

@@ -40,6 +40,31 @@ export class ImageOutputCache {
       this.pending.delete(key);
     }
   }
+  async rotate(source: string, rotation: number): Promise<string> {
+    if (!rotation) return source;
+    const bytes = await fs.readFile(source);
+    const metadata = await sharp(bytes).metadata();
+    const w = metadata.width!,
+      h = metadata.height!;
+    const swap = rotation === 90 || rotation === 270;
+    const mime =
+      metadata.format === 'svg'
+        ? 'image/svg+xml'
+        : metadata.format === 'jpeg'
+          ? 'image/jpeg'
+          : 'image/' + metadata.format;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${swap ? h : w}" height="${swap ? w : h}" viewBox="0 0 ${swap ? h : w} ${swap ? w : h}"><g transform="translate(${swap ? h / 2 : w / 2} ${swap ? w / 2 : h / 2}) rotate(${rotation})"><image x="${-w / 2}" y="${-h / 2}" width="${w}" height="${h}" xlink:href="data:${mime};base64,${bytes.toString('base64')}"/></g></svg>`;
+    const target = path.join(this.directory, createHash('sha256').update(svg).digest('hex') + '.svg');
+    await fs.mkdir(this.directory, { recursive: true });
+    try {
+      await fs.access(target);
+    } catch {
+      const temporary = target + '.' + randomUUID() + '.tmp';
+      await fs.writeFile(temporary, svg);
+      await fs.rename(temporary, target);
+    }
+    return target;
+  }
   private async generate(bytes: Buffer, target: string, output: ImageOutput) {
     if (this.running >= 2) await new Promise<void>((resolve) => this.waiting.push(resolve));
     else this.running++;

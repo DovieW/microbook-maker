@@ -80,6 +80,9 @@ export const settingsSchema = z
       )
       .default({}),
     imageOutput: imageOutputSchema.default(() => imageOutputSchema.parse({})),
+    imageRotations: z
+      .record(z.string().max(200), z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)]))
+      .default({}),
     imageOutputOverrides: z.record(z.string().max(200), imageOutputSchema).default({}),
     imageScale: z.number().min(0.2).max(1).default(1),
     includeImages: z.boolean().default(true),

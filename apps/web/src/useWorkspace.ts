@@ -441,6 +441,7 @@ export function useWorkspace() {
         rich: newRichFeatures(),
         imageOutput: { mode: 'laser' as const, strength: 'gentle' as const },
         imageOutputOverrides: {},
+        imageRotations: {},
       };
       const initialSettings = mode === 'book' ? bookSettings : state.settings[mode];
       state.document(document.id, {

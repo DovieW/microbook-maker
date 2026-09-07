@@ -37,3 +37,5 @@ There are three **Image output** modes. Selecting **Laser optimized** reveals **
 ## Comparing one image
 
 The enlarged preview fits inside the visible viewport, including its footer. Wide dialogs show Original color, Grayscale and Laser optimized together; medium dialogs show Original color beside the chosen processed version; phones show one selectable version. Laser contrast can be auditioned without editing the draft. “Use this version” stores the output for that image only, keeps the dialog open, and leaves the displayed PDF and reading position unchanged until Apply. Kept versions support comparison but cannot be edited. Fit and zoom work in each responsive layout.
+
+Per-image orientation offers 90° left/right turns and reset. Rotation is separate from two-cell sheet placement and uses the rotated dimensions for fitting flourishes and illustrations. Original comparison images remain unchanged; processed comparisons and sidebar previews use the draft orientation. Apply updates the PDF. Matching artwork can receive the same orientation in one action. Rotation is cached without modifying source files and does not carry into newly imported books.

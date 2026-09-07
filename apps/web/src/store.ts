@@ -77,6 +77,7 @@ export const usePreferences = create<Preferences>()(
               imageCellSpans: {},
               imageTreatments: {},
               imageOutputOverrides: {},
+              imageRotations: {},
             },
           },
           documents: {
@@ -162,6 +163,7 @@ export const usePreferences = create<Preferences>()(
               imageCellSpans: {},
               imageTreatments: {},
               imageOutputOverrides: {},
+              imageRotations: {},
             };
         }
         const documents: Record<string, DocumentPreferences> = {};
