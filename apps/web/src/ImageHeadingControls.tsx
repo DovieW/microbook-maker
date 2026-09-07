@@ -1,12 +1,5 @@
 import { useEffect, useState } from 'react';
-import {
-  automaticImageHeadings,
-  headingLabel,
-  imageHeadingTreatment,
-  type Block,
-  type BookDocument,
-  type RenderSettings,
-} from '@microbook/core';
+import { imageHeadingTreatment, type Block, type BookDocument, type RenderSettings } from '@microbook/core';
 import { Dropdown } from './ui';
 
 export function ImageHeadingControls({
@@ -32,25 +25,6 @@ export function ImageHeadingControls({
     onEdit({ imageTreatments: { ...draft.imageTreatments, [block.id]: value } });
   return (
     <div className="image-heading-controls">
-      <label className="check-field">
-        <span>Treat as heading</span>
-        <input
-          type="checkbox"
-          aria-label="Treat as heading"
-          checked={!!heading}
-          onChange={(e) =>
-            change(
-              e.target.checked
-                ? {
-                    kind: 'heading',
-                    text: initial.slice(0, 500),
-                    headingKind: headingLabel(initial)?.kind || 'chapter',
-                  }
-                : { kind: 'image' },
-            )
-          }
-        />
-      </label>
       {heading && (
         <>
           <label>
@@ -81,18 +55,6 @@ export function ImageHeadingControls({
             }
           />
         </>
-      )}
-      {draft.imageTreatments?.[block.id] && (
-        <button
-          className="image-location"
-          onClick={() => {
-            const imageTreatments = { ...draft.imageTreatments };
-            delete imageTreatments[block.id];
-            onEdit({ imageTreatments });
-          }}
-        >
-          Reset to {automaticImageHeadings(doc).has(block.id) ? 'detected heading' : 'image'}
-        </button>
       )}
     </div>
   );

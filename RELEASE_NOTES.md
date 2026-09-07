@@ -1,3 +1,11 @@
+# Images panel polish — 7 September 2026
+
+Larger thumbnails and an expanded inline preview make images easier to inspect. Tapping the image opens a separate zoomable preview with focus restoration; tapping the title or row expands settings without moving the PDF. Only location/context buttons navigate. Treatment replaces the redundant heading disclosure and checkbox, while retaining heading text/type and reset controls. Native checkboxes now use a consistent mint mark and a 44px touch target throughout the workspace.
+
+The quick suite passed, including all 32 browser tests, 39 unit tests, and 30 Basic tests. Mobile modal zoom/close/focus, unchanged PDF position, image controls, and copied-Library screenshots were checked. The candidate was updated with a volume backup and rollback image `microbook-maker:before-image-panel-polish`; original source/PDF bytes were preserved. Reports: `.artifacts/image-panel-polish/`.
+
+---
+
 # Configurable Rich EPUB features — 7 September 2026
 
 Implemented configurable generated contents, PDF bookmarks, clickable/printable links, note placement, original page references, chapter position labels, semantic passages, publisher heading fonts, SVG compatibility, and drop caps. Settings and source-dependent limits are documented in [Rich EPUB features](docs/RICH_EPUB_FEATURES.md).

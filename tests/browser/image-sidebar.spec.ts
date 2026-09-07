@@ -16,7 +16,7 @@ test('image locations, exact overlays and context jumps survive zoom, Apply, exc
   const images = doc.blocks.filter((b: any) => b.kind === 'image' && !b.imageHeading);
   await tab(page, 'Images');
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Show image 18', exact: true }).click();
+  await page.getByRole('button', { name: /^Show image 18:/ }).click();
   const target = initial.result.cells.find((c: any) => c.blockIds.includes(images[17].id));
   await expect(page.getByLabel('Printed side', { exact: true })).toHaveValue(String(target.page + 1));
   const check = async (job: any) => {
@@ -50,7 +50,7 @@ test('image locations, exact overlays and context jumps survive zoom, Apply, exc
   await ready(page);
   await expect(preview(page).locator('.image-hit.selected')).toHaveCount(0);
   await page.getByRole('button', { name: 'Go to context for image 18', exact: true }).click();
-  await page.getByRole('button', { name: 'Show image 17', exact: true }).click();
+  await page.getByRole('button', { name: /^Show image 17:/ }).click();
   await expect(page.locator('.image-choice.selected')).toHaveAttribute('data-image-id', images[16].id);
   await tab(page, 'Layout');
   const edit = preview(page).locator('.image-hit.selected button');
@@ -65,7 +65,31 @@ test('image locations, exact overlays and context jumps survive zoom, Apply, exc
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await tab(page, 'Images');
-  await page.getByRole('button', { name: 'Show image 1', exact: true }).click();
+  const sideBefore = await page.getByLabel('Printed side', { exact: true }).inputValue();
+  await page.getByRole('button', { name: 'Image 1 details', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(1);
+  await expect(page.getByLabel('Printed side', { exact: true })).toHaveValue(sideBefore);
+  const expanded = page.locator('.image-choice.selected');
+  await expect(expanded.locator('.image-large-preview')).toBeVisible();
+  expect((await expanded.locator('.image-large-preview').boundingBox())!.width).toBeGreaterThan(250);
+  expect(
+    (await expanded.getByLabel('Include image 1', { exact: true }).boundingBox())!.width,
+  ).toBeGreaterThanOrEqual(44);
+  await expect(expanded.locator('summary').filter({ hasText: /^Heading$/ })).toHaveCount(0);
+  const thumbnail = expanded.getByRole('button', { name: 'Preview image 1', exact: true });
+  await thumbnail.click();
+  const imageDialog = page.getByRole('dialog', { name: 'Image preview', exact: true });
+  await expect(imageDialog).toBeVisible();
+  await imageDialog.getByRole('button', { name: 'Zoom image in', exact: true }).click();
+  expect(
+    await imageDialog.locator('.image-preview-stage').evaluate((el) => el.scrollWidth > el.clientWidth),
+  ).toBe(true);
+  await expect(page.getByLabel('Printed side', { exact: true })).toHaveValue(sideBefore);
+  await page.keyboard.press('Escape');
+  await expect(imageDialog).toHaveCount(0);
+  await expect(page.getByRole('dialog')).toHaveCount(1);
+  await expect(thumbnail).toBeFocused();
+  await page.getByRole('button', { name: /^Show image 1:/ }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByLabel('Printed side', { exact: true })).toHaveValue('1');
   await tab(page, 'Images');
@@ -113,7 +137,7 @@ test('legacy Cell preferences and unidentified image regions migrate without ren
   await expect(preview(page)).toHaveAttribute('data-render-id', id);
   await expect(page.getByRole('button', { name: 'Fit to width', exact: true })).toHaveText('125%');
   await tab(page, 'Images');
-  await page.getByRole('button', { name: 'Show image 18', exact: true }).click();
+  await page.getByRole('button', { name: /^Show image 18:/ }).click();
   await expect(page.getByLabel('Printed side', { exact: true })).not.toHaveValue('1');
   await expect(preview(page).locator('.image-hit')).toHaveCount(0);
   expect(renders).toBe(1);

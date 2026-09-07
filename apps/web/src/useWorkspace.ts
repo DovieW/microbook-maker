@@ -84,6 +84,9 @@ export function useWorkspace() {
     () => (doc ? imageLocations(doc, preview?.result, kept?.settings || draft) : []),
     [doc, preview, draft, kept],
   );
+  const selectImage = (id: string) => {
+    if (doc) prefs.document(doc.id, { selectedImageId: id });
+  };
   const jumpImage = (id: string) => {
     if (!doc) return;
     const entry = imageLocations(doc, preview?.result, draft, true).find((i) => i.block.id === id);
@@ -96,7 +99,7 @@ export function useWorkspace() {
   };
   const openImages = (id?: string) => {
     if (!doc) return;
-    if (id) jumpImage(id);
+    if (id) selectImage(id);
     else if (
       !imageLocations(doc, preview?.result, draft, true).some((i) => i.block.id === docPrefs?.selectedImageId)
     ) {
@@ -249,10 +252,6 @@ export function useWorkspace() {
                 : undefined,
             )
           : sourceLocation(preview?.documentId === document.id ? preview.result?.cells[cell] : undefined);
-      if (settings.mode === 'book' && imagesOpen) {
-        const selectedId = usePreferences.getState().documents[document.id]?.selectedImageId;
-        if (selectedId) location.current = { ...location.current, block: selectedId, offset: 0 };
-      }
       try {
         if (!equal(meta, document.metadata)) {
           const updated = await api<BookDocument>(`/api/documents/${document.id}`, {
@@ -616,7 +615,8 @@ export function useWorkspace() {
     onReading,
     selectCell,
     openImages,
-    selectImage: jumpImage,
+    selectImage,
+    jumpImage,
     mobileOpen,
     setMobileOpen,
     imageButton,

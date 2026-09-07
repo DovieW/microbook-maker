@@ -1,4 +1,4 @@
-import { headingLabel, matchingImageBlocks, type Block } from '@microbook/core';
+import { automaticImageHeadings, headingLabel, matchingImageBlocks, type Block } from '@microbook/core';
 import { Dropdown } from './ui';
 import type { Workspace } from './LayoutControls';
 
@@ -118,7 +118,7 @@ export function ImageTreatmentControls({
           </button>
         </details>
       )}
-      {treatment && treatment.kind !== 'heading' && (
+      {treatment && (
         <button
           className="image-location"
           onClick={() => {
@@ -127,7 +127,7 @@ export function ImageTreatmentControls({
             w.edit({ imageTreatments });
           }}
         >
-          Reset treatment
+          Reset to {automaticImageHeadings(w.doc!).has(block.id) ? 'detected heading' : 'image'}
         </button>
       )}
     </div>

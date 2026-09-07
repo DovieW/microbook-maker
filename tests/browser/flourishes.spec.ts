@@ -36,7 +36,7 @@ test('repeated flourishes preserve source placement, bulk controls, overrides, a
     expect(cells[0].index).toBeGreaterThanOrEqual(prev);
     expect(cells[0].index).toBeLessThanOrEqual(next);
   }
-  await page.getByRole('button', { name: 'Show image 1', exact: true }).click();
+  await page.getByRole('button', { name: 'Image 1 details', exact: true }).click();
   await page.getByLabel('Flourish width', { exact: true }).fill('6');
   await applied(page);
   const changed = await ready(page, request);

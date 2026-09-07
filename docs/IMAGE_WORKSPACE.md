@@ -4,15 +4,17 @@ The unified left-sidebar design in [Workspace redesign](WORKSPACE_REDESIGN.md) s
 
 The preview always shows a complete printed side. The editable **Printed side** number moves through PDF pages; zoom changes only the preview. Cell view and cell-click enlargement have been removed. Physical cells remain part of the print layout and image-size controls.
 
-In Rich mode, **Images** opens a 360px sidebar beside the preview at desktop widths (960px and above). Below that width it opens a full-screen dialog. Image thumbnails, EPUB section titles, and **Sheet N · Front/Back** location buttons follow source order. Previous/next image buttons do not wrap. Clicking an image or location navigates to its printed side and highlights the image; on small screens it closes the dialog to reveal the preview.
+In Rich mode, the **Images** tab uses the shared left sidebar (full-screen tools on mobile). Images follow source order. Tapping a title or the row's empty area expands its options without navigating the PDF. Thumbnails are larger, and the selected row includes a full-width image preview. Tapping either image opens a separate large preview with zoom, pan, Fit, Escape/Close, and focus restoration. Only the **Sheet N · Front/Back** location or **Go to context** button jumps in the PDF; on mobile, that jump closes the tools drawer.
+
+Treatment is the single control for Illustration, Flourish, or Heading. Heading text/type appear directly for Heading treatment; the duplicate Heading disclosure and checkbox have been removed. Checkboxes throughout the workspace retain native semantics with a consistent mint mark, keyboard focus, disabled states, and a 44px touch target.
 
 The image buttons shown on hover, keyboard focus, or touch open the editor at the corresponding image. Highlights and controls are HTML overlays, never PDF content. Older PDFs without identified image regions still support sidebar jumps through their existing cell maps; their precise overlays appear after an ordinary Apply.
 
-Individual inclusion and two-cell controls remain independent of navigation. The collapsed **Defaults** section contains global illustration inclusion, two-cell layout and image scale. All image controls have moved out of Settings. Apply uses the same shared draft as the toolbar and Settings, including pending typography or metadata changes. It keeps the sidebar open and anchors the selection to its source image across repagination. Failure or cancellation keeps the prior preview.
+Individual inclusion and two-cell controls remain independent of navigation. The collapsed **Defaults** section contains global illustration inclusion, two-cell layout and image scale. All image controls have moved out of Settings. Apply uses the same shared draft as the toolbar and Settings, including pending typography or metadata changes. It keeps the sidebar open and preserves the actual reading position across repagination. Merely inspecting a different image does not change that position. Failure or cancellation keeps the prior preview.
 
 Excluded images remain listed. **Not in preview → Go to context** navigates to the nearest following rendered source block, or the preceding block when there is no following content. With no rendered context the button is disabled. Until Apply succeeds, locations refer to the existing PDF, including images pending exclusion.
 
-Image choices and selected image are remembered per document. The sidebar starts closed after reload. Preference version 4 drops the old Cell/Sheet view choice while preserving print settings, zoom, saved previews and reading positions. Basic hides the image editor and image overlays.
+Image choices and selected image are remembered per document. The shared sidebar preferences preserve its width and active tab. Mobile tools start closed after reload; opening a preview does not change saved print settings or reading positions. Basic hides the image editor and image overlays.
 
 ## Verification
 

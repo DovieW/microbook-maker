@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { repeatedImageGroups } from '@microbook/core';
+import { ImagePreview, type PreviewImage } from './ImagePreview';
 import { RichFeatures } from './RichFeatures';
 import { ImageTreatmentControls } from './ImageTreatmentControls';
 import { RotateCcw } from 'lucide-react';
@@ -9,6 +10,13 @@ import { ImageHeadingControls } from './ImageHeadingControls';
 import type { Workspace } from './LayoutControls';
 export function ImagesPane({ w }: { w: Workspace }) {
   const root = useRef<HTMLDivElement>(null);
+  const [previewImage, setPreviewImage] = useState<PreviewImage>();
+  const previewTrigger = useRef<HTMLElement | null>(null);
+  const showPreview = (trigger: HTMLElement, blockId: string, src: string, alt: string, title: string) => {
+    previewTrigger.current = trigger;
+    w.selectImage(blockId);
+    setPreviewImage({ src, alt, title });
+  };
   const doc = w.doc!;
   const draft = w.kept?.settings || w.draft;
   const images = imageLocations(doc, w.preview?.result, draft);
@@ -24,6 +32,11 @@ export function ImagesPane({ w }: { w: Workspace }) {
   }, [w.docPrefs?.selectedImageId]);
   return (
     <div className="images-pane" ref={root}>
+      <ImagePreview
+        image={previewImage}
+        onClose={() => setPreviewImage(undefined)}
+        returnFocus={() => previewTrigger.current?.focus()}
+      />
       <details className="image-defaults">
         <summary>Defaults</summary>
         <fieldset disabled={!!w.kept}>
@@ -98,17 +111,38 @@ export function ImagesPane({ w }: { w: Workspace }) {
               data-image-id={block.id}
               aria-current={active ? true : undefined}
               key={block.id}
+              onClick={(event) => {
+                if (
+                  !(event.target as HTMLElement).closest('button, input, select, label, fieldset, summary, a')
+                )
+                  w.selectImage(block.id);
+              }}
             >
               <div className="image-choice-main">
                 <button
                   className="image-thumbnail"
-                  aria-label={`Show image ${i + 1}`}
-                  onClick={() => w.selectImage(block.id)}
+                  aria-label={`Preview image ${i + 1}`}
+                  onClick={(event) =>
+                    asset &&
+                    showPreview(
+                      event.currentTarget,
+                      block.id,
+                      `/api/documents/${doc.id}/assets/${asset.id}`,
+                      asset.alt,
+                      section,
+                    )
+                  }
                 >
                   {asset && <img src={`/api/documents/${doc.id}/assets/${asset.id}`} alt="" loading="lazy" />}
                 </button>
                 <div className="image-description">
-                  <button className="image-title" onClick={() => w.selectImage(block.id)} title={section}>
+                  <button
+                    className="image-title"
+                    aria-label={`Image ${i + 1} details`}
+                    aria-expanded={active}
+                    onClick={() => w.selectImage(block.id)}
+                    title={section}
+                  >
                     {section || `Image ${i + 1}`}
                   </button>
                   <small>
@@ -124,7 +158,7 @@ export function ImagesPane({ w }: { w: Workspace }) {
                         : `Go to context for image ${i + 1}`
                     }
                     disabled={!cell && !context}
-                    onClick={() => w.selectImage(block.id)}
+                    onClick={() => w.jumpImage(block.id)}
                   >
                     {cell ? printedLocation(cell.page) : 'Go to context'}
                   </button>
@@ -144,48 +178,68 @@ export function ImagesPane({ w }: { w: Workspace }) {
                 />
               </div>
               {active && (
-                <fieldset className="image-detail" disabled={!!w.kept}>
-                  <ImageTreatmentControls w={w} block={block} heading={heading} />
-                  {!heading && draft.imageTreatments[block.id]?.kind !== 'flourish' && (
-                    <div className="image-layout-choice">
-                      <label>
-                        <span>Use two cells</span>
-                        <input
-                          type="checkbox"
-                          aria-label={`Two cells for image ${i + 1}`}
-                          checked={(draft.imageCellSpans[block.id] ?? (draft.twoCellImages ? 2 : 1)) === 2}
-                          disabled={!included}
-                          onChange={(e) =>
-                            w.edit({
-                              imageCellSpans: {
-                                ...draft.imageCellSpans,
-                                [block.id]: e.target.checked ? 2 : 1,
-                              },
-                            })
-                          }
-                        />
-                      </label>
-                      {draft.imageCellSpans[block.id] !== undefined && (
-                        <IconButton
-                          label={`Use book setting for image ${i + 1}`}
-                          onClick={() => {
-                            const imageCellSpans = { ...draft.imageCellSpans };
-                            delete imageCellSpans[block.id];
-                            w.edit({ imageCellSpans });
-                          }}
-                        >
-                          <RotateCcw size={13} />
-                        </IconButton>
-                      )}
-                    </div>
+                <div className="image-expanded">
+                  {asset && (
+                    <button
+                      className="image-preview-button"
+                      aria-label={`Enlarge image ${i + 1}`}
+                      onClick={(event) =>
+                        showPreview(
+                          event.currentTarget,
+                          block.id,
+                          `/api/documents/${doc.id}/assets/${asset.id}`,
+                          asset.alt,
+                          section,
+                        )
+                      }
+                    >
+                      <img
+                        className="image-large-preview"
+                        src={`/api/documents/${doc.id}/assets/${asset.id}`}
+                        alt={asset.alt || `Image ${i + 1}`}
+                      />
+                    </button>
                   )}
-                  {draft.imageTreatments[block.id]?.kind !== 'flourish' && (
-                    <details>
-                      <summary>Heading</summary>
+                  <fieldset className="image-detail" disabled={!!w.kept}>
+                    <ImageTreatmentControls w={w} block={block} heading={heading} />
+                    {!heading && draft.imageTreatments[block.id]?.kind !== 'flourish' && (
+                      <div className="image-layout-choice">
+                        <label>
+                          <span>Use two cells</span>
+                          <input
+                            type="checkbox"
+                            aria-label={`Two cells for image ${i + 1}`}
+                            checked={(draft.imageCellSpans[block.id] ?? (draft.twoCellImages ? 2 : 1)) === 2}
+                            disabled={!included}
+                            onChange={(e) =>
+                              w.edit({
+                                imageCellSpans: {
+                                  ...draft.imageCellSpans,
+                                  [block.id]: e.target.checked ? 2 : 1,
+                                },
+                              })
+                            }
+                          />
+                        </label>
+                        {draft.imageCellSpans[block.id] !== undefined && (
+                          <IconButton
+                            label={`Use book setting for image ${i + 1}`}
+                            onClick={() => {
+                              const imageCellSpans = { ...draft.imageCellSpans };
+                              delete imageCellSpans[block.id];
+                              w.edit({ imageCellSpans });
+                            }}
+                          >
+                            <RotateCcw size={13} />
+                          </IconButton>
+                        )}
+                      </div>
+                    )}
+                    {heading && (
                       <ImageHeadingControls doc={doc} block={block} draft={draft} onEdit={w.edit} />
-                    </details>
-                  )}
-                </fieldset>
+                    )}
+                  </fieldset>
+                </div>
               )}
             </div>
           );
@@ -204,11 +258,12 @@ export function ImagesPane({ w }: { w: Workspace }) {
                   <button
                     className="image-location"
                     disabled={!cell && !context}
-                    onClick={() => w.selectImage(block.id)}
+                    onClick={() => w.jumpImage(block.id)}
                   >
                     {cell ? printedLocation(cell.page) : 'Go to context'}
                   </button>
                   <fieldset disabled={!!w.kept}>
+                    <ImageTreatmentControls w={w} block={block} heading={heading} />
                     <ImageHeadingControls doc={doc} block={block} draft={draft} onEdit={w.edit} />
                   </fieldset>
                 </>

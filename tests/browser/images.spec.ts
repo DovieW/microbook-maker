@@ -54,7 +54,7 @@ test('selected image controls override and reset the global one/two-cell layout'
   const span = (j: any, id: string) =>
     j.result.cells.find((c: any) => c.blockIds.includes(id) && c.continuationOf === undefined)?.span || 1;
   await tab(page, 'Images');
-  await page.getByRole('button', { name: 'Show image 1', exact: true }).click();
+  await page.getByRole('button', { name: 'Image 1 details', exact: true }).click();
   await page.getByLabel('Two cells for image 1', { exact: true }).check();
   await expect(page.getByLabel('Two cells for image 2', { exact: true })).toHaveCount(0);
   await applied(page);
@@ -67,7 +67,7 @@ test('selected image controls override and reset the global one/two-cell layout'
   await expect(page.getByLabel('Two cells for image 1', { exact: true })).toBeChecked();
   await page.locator('.image-defaults summary').click();
   await page.getByLabel('Two-cell images', { exact: true }).check();
-  await page.getByRole('button', { name: 'Show image 2', exact: true }).click();
+  await page.getByRole('button', { name: 'Image 2 details', exact: true }).click();
   await page.getByLabel('Two cells for image 2', { exact: true }).uncheck();
   await applied(page);
   const wide = await ready(page, request);
