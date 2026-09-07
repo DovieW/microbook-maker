@@ -159,8 +159,25 @@ export function RichFeatures({
         </label>
       </>
     );
-  return select('vectors', 'Vector illustrations', [
-    ['preserve', 'Preserve vector'],
-    ['raster', 'Raster compatibility'],
-  ]);
+  const draft = w.kept?.settings || w.draft;
+  const originalSvg = w.doc?.blocks.some(
+    (block) =>
+      block.kind === 'image' &&
+      w.doc?.assets.some((asset) => asset.id === block.assetId && asset.mediaType === 'image/svg+xml') &&
+      (draft.imageOutputOverrides?.[block.id]?.mode ?? draft.imageOutput?.mode ?? 'original') === 'original',
+  );
+  if (!originalSvg) return null;
+  return (
+    <details>
+      <summary>SVG rendering</summary>
+      {select('vectors', 'SVG rendering', [
+        ['preserve', 'Keep vector detail'],
+        ['raster', 'Rasterize for compatibility'],
+      ])}
+      <p className="image-output-help">
+        Only affects SVG images using Original color. Grayscale and Laser optimized convert SVG artwork to
+        pixels.
+      </p>
+    </details>
+  );
 }

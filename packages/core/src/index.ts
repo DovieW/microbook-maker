@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { imageOutputSchema } from './image-output.ts';
 export {
+  imageOutputModes,
+  laserContrastLevels,
   imageOutputSchema,
   imageOutputQuery,
   IMAGE_OUTPUT_VERSION,

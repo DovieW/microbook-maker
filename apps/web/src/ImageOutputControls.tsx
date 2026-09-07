@@ -1,4 +1,4 @@
-import { settingsSchema, type ImageOutput } from '@microbook/core';
+import { settingsSchema, imageOutputModes, laserContrastLevels, type ImageOutput } from '@microbook/core';
 import type { Workspace } from './LayoutControls';
 export function ImageOutputControls({ w, blockId }: { w: Workspace; blockId?: string }) {
   const draft = w.kept ? settingsSchema.parse(w.kept.settings) : w.draft;
@@ -26,24 +26,45 @@ export function ImageOutputControls({ w, blockId }: { w: Workspace; blockId?: st
           }}
         >
           {blockId && <option value="inherit">Use book setting</option>}
-          <option value="original">Original color</option>
-          <option value="grayscale">Grayscale</option>
-          <option value="laser">Laser optimized</option>
+          {imageOutputModes.map((m) => (
+            <option key={m.value} value={m.value}>
+              {m.label}
+            </option>
+          ))}
         </select>
       </label>
+      {blockId && !override && (
+        <p className="image-output-help">
+          Using book setting: {imageOutputModes.find((m) => m.value === output.mode)?.label}
+          {output.mode === 'laser'
+            ? ` · ${laserContrastLevels.find((l) => l.value === output.strength)?.label}`
+            : ''}
+          . Choose an output above to change this image.
+        </p>
+      )}
+      <p className="image-output-help">
+        {imageOutputModes.find((m) => m.value === output.mode)?.description}
+      </p>
       {output.mode === 'laser' && (!blockId || override) && (
-        <label className="field">
-          <span>Contrast</span>
-          <select
-            aria-label={blockId ? 'Contrast for this image' : 'Default image contrast'}
-            value={output.strength}
-            onChange={(e) => change({ ...output, strength: e.target.value as ImageOutput['strength'] })}
-          >
-            <option value="gentle">Gentle</option>
-            <option value="standard">Standard</option>
-            <option value="strong">Strong</option>
-          </select>
-        </label>
+        <>
+          <label className="field">
+            <span>Laser contrast</span>
+            <select
+              aria-label={blockId ? 'Laser contrast for this image' : 'Default laser contrast'}
+              value={output.strength}
+              onChange={(e) => change({ ...output, strength: e.target.value as ImageOutput['strength'] })}
+            >
+              {laserContrastLevels.map((l) => (
+                <option key={l.value} value={l.value}>
+                  {l.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="image-output-help">
+            {laserContrastLevels.find((l) => l.value === output.strength)?.description}
+          </p>
+        </>
       )}
       {!blockId && (
         <p className="image-output-help">

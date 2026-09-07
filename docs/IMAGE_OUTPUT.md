@@ -27,3 +27,9 @@ This copies at most three originals, records provenance, and refuses to replace 
 Physical Brother HL-L6200DW output still needs user comparison with Toner Save off. Screen preview and browser-generated PDFs cannot establish which contrast level is best for a particular paper/driver/printer combination.
 
 Validation on the packaged application included the full technical book (162 rendered images, complete character coverage, zero overflows, Letter geometry and embedded text fonts), original/processed mobile comparison, and a one-side Letter landscape test PDF. A local benchmark of the three test images in four processed variants took 327 ms cold and 3 ms cached; these timings are illustrative, not a performance guarantee for other EPUBs.
+
+## Reading the controls and comparison sheet
+
+There are three **Image output** modes. Selecting **Laser optimized** reveals **Laser contrast**: Gentle, Standard or Strong, with a plain-language description of each. The comparison sheet groups those three levels under Laser optimized and prints the path **Images → Defaults → Image output**, followed by **Laser contrast** and **Apply**. Labels and level descriptions come from shared definitions.
+
+**SVG rendering** is a separate collapsed compatibility control, shown only when the book has SVG artwork using Original color (including per-image overrides). It is hidden when no SVG can be affected; it is not an additional color or laser setting.

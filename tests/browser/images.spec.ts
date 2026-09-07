@@ -126,3 +126,28 @@ test('image output previews draft pixels without navigation and applies per-imag
   expect(next.settings.imageOutput.mode).toBe('original');
   expect(next.settings.imageOutputOverrides).toEqual({});
 });
+
+test('image output explains laser contrast and only offers SVG rendering when applicable', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await upload(page, 'two-cell-images.epub');
+  await ready(page);
+  await tab(page, 'Images');
+  await page.locator('.image-defaults summary').first().click();
+  const defaults = page.locator('.image-defaults');
+  await expect(page.getByLabel('Default laser contrast', { exact: true })).toHaveValue('gentle');
+  await expect(
+    defaults.getByText('Small contrast increase. Recommended starting point.', { exact: true }),
+  ).toBeVisible();
+  await expect(defaults.locator('summary').filter({ hasText: 'SVG rendering' })).toHaveCount(0);
+  await page.getByLabel('Default laser contrast', { exact: true }).selectOption('strong');
+  await expect(
+    defaults.getByText('Most contrast. May lose pale lines or shadow detail.', { exact: true }),
+  ).toBeVisible();
+  await page.getByLabel('Default image output', { exact: true }).selectOption('original');
+  await expect(page.getByLabel('Default laser contrast', { exact: true })).toHaveCount(0);
+  await expect(defaults.locator('summary').filter({ hasText: 'SVG rendering' })).toBeVisible();
+  await page.getByLabel('Default image output', { exact: true }).selectOption('grayscale');
+  await expect(defaults.locator('summary').filter({ hasText: 'SVG rendering' })).toHaveCount(0);
+});
