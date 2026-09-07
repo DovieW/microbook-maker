@@ -118,6 +118,16 @@ export function WorkspaceSidebar({ w, narrow }: { w: Workspace; narrow: boolean 
                           : 'Apply'}
                       </button>
                     </div>
+                  ) : w.updateAvailable ? (
+                    <div className="apply-actions">
+                      <span>Update layout available</span>
+                      <button
+                        className="primary"
+                        onClick={() => w.doc && w.metadata && void w.apply(w.doc, w.draft, w.metadata)}
+                      >
+                        Update layout
+                      </button>
+                    </div>
                   ) : (
                     <button className="primary idle-apply" disabled>
                       Apply

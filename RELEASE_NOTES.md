@@ -1,3 +1,17 @@
+# Configurable Rich EPUB features — 7 September 2026
+
+Implemented configurable generated contents, PDF bookmarks, clickable/printable links, note placement, original page references, chapter position labels, semantic passages, publisher heading fonts, SVG compatibility, and drop caps. Settings and source-dependent limits are documented in [Rich EPUB features](docs/RICH_EPUB_FEATURES.md).
+
+New Rich imports use compact defaults. Existing books preserve their settings and completed PDFs; **Use new Rich defaults → Apply** opts in. **Update layout** explicitly rebuilds an outdated PDF without forcing regeneration just to open or print it.
+
+Validation: 39 unit tests, 30 frozen Basic tests, the quick render/recovery/boundary suite, and 32 browser tests passed. Eight relevant PDF/navigation/cache browser checks were rerun after the guide/page-marker compatibility fixes. Actual PDFs were checked for outlines, annotations, full URLs, note deduplication, Letter geometry, embedded fonts, vector artwork, and source coverage. Three copied Library books rendered successfully; all existing source and PDF bytes remained unchanged. The long linked-index regression includes 700 entries.
+
+Candidate updated with a rollback image (`microbook-maker:before-rich-features`) and volume backup at `.artifacts/rich-features/before-volumes.tar`. Deployment and verification reports are under `.artifacts/rich-features/`. TrueNAS production is unchanged.
+
+The phone route is **http://100.79.27.109:36243/**. The IdeaPad is offline, so its **http://localhost:36243/** forwarding route could not be verified from that device. Physical Brother HL-L6200DW print quality remains unverified; no physical print job was sent.
+
+---
+
 # Rebuild verification — 6 September 2026
 
 The current interface is described in [Workspace redesign](docs/WORKSPACE_REDESIGN.md): a compact shared sidebar, continuous searchable PDF, native Print, Books and kept versions. The implementation and verification notes below record the original rebuild and its earlier interface.

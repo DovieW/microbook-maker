@@ -1863,8 +1863,13 @@ summary > span {
   white-space: nowrap;
 }
 @media (max-width: 650px) {
-  .redesign .print-action span { display: none; }
-  .redesign .header-actions { flex-shrink: 0; gap: 2px; }
+  .redesign .print-action span {
+    display: none;
+  }
+  .redesign .header-actions {
+    flex-shrink: 0;
+    gap: 2px;
+  }
 }
 /* History rows share a fixed left edge regardless of title length. */
 .books-pane .book-open {
@@ -1874,11 +1879,54 @@ summary > span {
 .books-pane .kept-versions {
   margin-left: 0;
 }
-.heading-detection p { font-size: 12px; line-height: 1.5; }
-.heading-detection label { display: grid; gap: 5px; margin: 8px 0; }
-.heading-detection input, .heading-detection select { width: 100%; min-width: 0; }
-.heading-rule { border-bottom: 1px solid var(--line); padding-bottom: 10px; margin-bottom: 10px; }
-.heading-detection ul { padding-left: 18px; max-height: 220px; overflow: auto; font-size: 12px; overflow-wrap: anywhere; }
-.heading-detection small { display: block; color: var(--muted); }
-.preview-empty > .render-activity { width: min(300px, calc(100% - 32px)); }
-.preview-activity { position: absolute; bottom: 48px; left: 12px; right: 12px; z-index: 10; background: var(--surface); padding: 10px; border: 1px solid var(--line); border-radius: 6px; }
+.heading-detection p {
+  font-size: 12px;
+  line-height: 1.5;
+}
+.heading-detection label {
+  display: grid;
+  gap: 5px;
+  margin: 8px 0;
+}
+.heading-detection input,
+.heading-detection select {
+  width: 100%;
+  min-width: 0;
+}
+.heading-rule {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+}
+.heading-detection ul {
+  padding-left: 18px;
+  max-height: 220px;
+  overflow: auto;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.heading-detection small {
+  display: block;
+  color: var(--muted);
+}
+.preview-empty > .render-activity {
+  width: min(300px, calc(100% - 32px));
+}
+.preview-activity {
+  position: absolute;
+  bottom: 48px;
+  left: 12px;
+  right: 12px;
+  z-index: 10;
+  background: var(--surface);
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.layout-controls .feature-field {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 5px;
+}
+.layout-controls .feature-field button {
+  width: 100%;
+}

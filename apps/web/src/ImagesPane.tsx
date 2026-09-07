@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { repeatedImageGroups } from '@microbook/core';
+import { RichFeatures } from './RichFeatures';
 import { ImageTreatmentControls } from './ImageTreatmentControls';
 import { RotateCcw } from 'lucide-react';
 import { IconButton } from './ui';
@@ -26,6 +27,7 @@ export function ImagesPane({ w }: { w: Workspace }) {
       <details className="image-defaults">
         <summary>Defaults</summary>
         <fieldset disabled={!!w.kept}>
+          <RichFeatures w={w} group="images" />
           <label className="check-field">
             <span>Illustrations</span>
             <input

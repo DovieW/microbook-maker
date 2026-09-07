@@ -2,6 +2,7 @@ import { Download, RotateCcw } from 'lucide-react';
 import { defaultSettings, fonts, modeLabels, type RenderSettings } from '@microbook/core';
 import { Dropdown } from './ui';
 import { HeadingDetection } from './HeadingDetection';
+import { RichFeatures } from './RichFeatures';
 import { MetadataEditor } from './MetadataEditor';
 import type { useWorkspace } from './useWorkspace';
 export type Workspace = ReturnType<typeof useWorkspace>;
@@ -86,6 +87,8 @@ export function LayoutControls({ w }: { w: Workspace }) {
         {check('foldGaps', 'Space at folds')}
         {rich && (
           <>
+            <RichFeatures w={w} group="navigation" />
+            <RichFeatures w={w} group="references" />
             {check('positionHeaders', 'Position headers')}
             {number('lineHeight', 'Line height', '×', 1, 1.6, 0.05)}
             <details>
@@ -108,6 +111,7 @@ export function LayoutControls({ w }: { w: Workspace }) {
               </label>
               {number('paragraphIndentEm', 'Indent', 'em', 0, 3, 0.1)}
               {number('paragraphGapEm', 'Paragraph gap', 'em', 0, 2, 0.1)}
+              <RichFeatures w={w} group="passages" />
             </details>
             <details>
               <summary>Headings</summary>
@@ -146,6 +150,7 @@ export function LayoutControls({ w }: { w: Workspace }) {
               {number('headingScale', 'Other headings', '×', 0.65, 2.5, 0.05)}
               {check('headingRules', 'Divider lines')}
               <HeadingDetection w={w} settings={s} />
+              <RichFeatures w={w} group="headings" />
             </details>
           </>
         )}

@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@xmldom/xmldom": "0.9.12",
+    "fontkit": "^2.0.4",
     "markdown-it": "^14.3.1",
     "yauzl": "3.4.0",
     "zod": "4.5.4"

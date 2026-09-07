@@ -1,13 +1,7 @@
+import { prepareRichContent } from '../../core/src/rich-content.ts';
 import { prepareWithSegments, layoutWithLines } from '@chenglou/pretext';
 import type { BookDocument, RenderSettings, Block, Inline, CellMap } from '@microbook/core';
-import {
-  bookBlockText,
-  selectedDocumentBlocks,
-  wordCount,
-  fontStacks,
-  headingLabel,
-  normalizedText,
-} from '@microbook/core';
+import { bookBlockText, wordCount, fontStacks, headingLabel, normalizedText } from '@microbook/core';
 
 let activeDocument = '';
 const preparations = new Map<string, ReturnType<typeof prepareWithSegments>>();
@@ -43,11 +37,44 @@ export async function renderBook(payload: {
   let overflows = 0;
   let cacheHits = 0;
   let cacheMisses = 0;
-  const selected = selectedDocumentBlocks(book, s).map((block): Block =>
-    block.imageHeading
-      ? { ...block, kind: 'heading', align: 'left', inlines: [{ text: block.imageHeading }] }
-      : block,
-  );
+  const preparedContent = prepareRichContent(book, s);
+  const selected = preparedContent.blocks;
+  const featureDiagnostics = preparedContent.diagnostics;
+  const featureStyle = document.createElement('style');
+  featureStyle.textContent = `
+    a{color:#000;text-decoration:none}
+    [data-generated-inline]{text-indent:0}
+    .reference-location{display:inline-block;width:34ch;max-width:100%;height:1.15em;line-height:1.15;font-size:.8em;white-space:nowrap;text-indent:0;vertical-align:middle;overflow:hidden}
+    .compact-toc{display:grid;grid-template-columns:minmax(0,1fr) 17ch;gap:4px;text-align:left;line-height:1.1;margin-bottom:.15em}
+    .compact-toc-title{overflow-wrap:anywhere}
+    .compact-toc-location{font-size:.65em;white-space:nowrap;align-self:end}
+    .special-passage{display:block!important;margin:${s.rich.passageGapEm}em 0!important;text-indent:0!important;text-align:left!important;text-align-last:left!important}
+    .passage-poetry,.passage-letter{white-space:pre-line}
+    .passage-quote,.passage-aside{padding-left:${s.rich.passageIndentEm}em}
+    .drop-cap{float:left;font-size:${s.rich.dropCapLines}em;line-height:1;margin-right:.12em}
+  `;
+  document.head.append(featureStyle);
+  const loadedFonts = new Map<string, string>();
+  if (s.rich.headingFonts === 'publisher') {
+    for (const font of book.publisherFonts || []) {
+      try {
+        const family = loadedFonts.get(font.family) || 'Publisher' + font.id.replace(/-/g, '');
+        const face = new FontFace(family, `url("${assetBase.replace(/assets$/, 'fonts')}/${font.id}")`, {
+          weight: font.weight,
+          style: font.style,
+        });
+        await face.load();
+        document.fonts.add(face);
+        loadedFonts.set(font.family, family);
+      } catch {
+        featureDiagnostics.push({
+          code: 'publisher-font',
+          message: 'A publisher heading font could not load; using the print fallback.',
+        });
+      }
+    }
+    await document.fonts.ready;
+  }
   if (!selected.length) throw new Error('Select at least one section containing content');
   let completedBlocks = 0;
   let lastProgress = 0;
@@ -127,7 +154,7 @@ export async function renderBook(payload: {
   title.textContent = book.metadata.title;
   const info = document.createElement('div');
   info.className = 'book-info';
-  const words = wordCount(selected.map(bookBlockText).join('\n\n'));
+  const words = wordCount(preparedContent.source.map(bookBlockText).join('\n\n'));
   const minutes = Math.ceil(words / 215);
   const readTime = `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
   let sheetsValue: HTMLElement;
@@ -209,7 +236,19 @@ export async function renderBook(payload: {
   }
   function appendInlines(parent: HTMLElement, inlines: Inline[]) {
     for (const inline of inlines) {
-      const span = document.createElement('span');
+      const external = inline.href && /^(https?:|mailto:|tel:|\/\/)/i.test(inline.href);
+      const href = inline.targetKey?.startsWith('@')
+        ? '#destination-' + inline.targetKey.slice(1)
+        : external
+          ? inline.href
+          : undefined;
+      const span = document.createElement(s.rich.clickableLinks && href ? 'a' : 'span');
+      if (span instanceof HTMLAnchorElement && href) span.href = href;
+      if (inline.generated) span.dataset.generatedInline = 'true';
+      if (inline.locationTarget) {
+        span.className = 'reference-location';
+        span.dataset.location = inline.locationTarget;
+      }
       span.textContent = inline.text;
       for (const mark of inline.marks || []) {
         if (mark === 'strong') span.style.fontWeight = '700';
@@ -226,10 +265,17 @@ export async function renderBook(payload: {
       parent.append(span);
     }
   }
+  let awaitingDropCap = false;
+  const blockTextForToc = (block: Block) => block.inlines.map((i) => i.text).join('');
   function makeBlock(block: Block) {
+    const navEntry = preparedContent.navigation.find((n) => n.blockId === block.id);
     const tag =
       block.kind === 'heading'
-        ? `h${block.level || 2}`
+        ? s.rich.bookmarks
+          ? navEntry
+            ? `h${Math.min(6, navEntry.depth + 1)}`
+            : 'div'
+          : `h${block.level || 2}`
         : block.kind === 'pre'
           ? 'pre'
           : block.kind === 'quote'
@@ -239,6 +285,29 @@ export async function renderBook(payload: {
               : 'p';
     const node = document.createElement(tag);
     node.dataset.block = block.id;
+    if (block.generated) node.dataset.generated = 'true';
+    if (block.kind === 'heading' && tag === 'div') {
+      node.style.fontWeight = '700';
+      node.style.fontSize = s.headingScale + 'em';
+      node.style.textAlign = 'left';
+      node.style.margin = '.2em 0 .1em';
+    }
+    if (s.rich.passages && block.passage && s.rich.passageTypes.includes(block.passage))
+      node.classList.add('special-passage', 'passage-' + block.passage);
+    if (block.destination) {
+      node.className = 'compact-toc';
+      const link = document.createElement(s.rich.clickableLinks ? 'a' : 'span');
+      link.className = 'compact-toc-title';
+      if (link instanceof HTMLAnchorElement) link.href = '#destination-' + block.destination;
+      link.textContent = blockTextForToc(block);
+      link.style.paddingLeft = Math.min(3, block.tocDepth || 0) * 0.5 + 'em';
+      const location = document.createElement('span');
+      location.className = 'compact-toc-location';
+      location.dataset.location = block.destination;
+      location.textContent = 'Sheet 0000 · Back · Cell 16';
+      node.append(link, location);
+      return node;
+    }
     if (block.inlines.some((inline) => inline.marks?.includes('break'))) {
       node.style.textAlign = 'left';
       node.style.textAlignLast = 'left';
@@ -266,11 +335,16 @@ export async function renderBook(payload: {
         node.append(tr, document.createTextNode('\n'));
       }
     } else appendInlines(node, block.inlines);
+    if (block.kind === 'heading' && s.rich.headingFonts === 'publisher' && block.publisherFont) {
+      const family = loadedFonts.get(block.publisherFont.toLowerCase());
+      if (family) node.style.fontFamily = `"${family}", ${fontStacks['times-new-roman']}`;
+    }
     const headingText = node.textContent || '';
-    const numericLabel = block.headingKind === 'chapter'
-      ? headingText.match(/^\s*\d{1,4}\s*[:.–—-]\s*/u)
-      : undefined;
-    const label = headingLabel(headingText) || (numericLabel ? { kind: 'chapter' as const, length: numericLabel[0].length } : undefined);
+    const numericLabel =
+      block.headingKind === 'chapter' ? headingText.match(/^\s*\d{1,4}\s*[:.–—-]\s*/u) : undefined;
+    const label =
+      headingLabel(headingText) ||
+      (numericLabel ? { kind: 'chapter' as const, length: numericLabel[0].length } : undefined);
     const kind = block.headingKind || label?.kind;
     if (block.kind === 'heading' && (kind || block.imageHeading || (block.level || 2) <= 2)) {
       node.classList.add('literary-heading');
@@ -286,6 +360,36 @@ export async function renderBook(payload: {
         title.className = 'heading-title';
         title.append(...fragment(node, label.length, text.length).childNodes);
         node.replaceChildren(prefix, title);
+      }
+    }
+    if (block.headingKind === 'chapter') awaitingDropCap = true;
+    if (
+      s.rich.dropCaps &&
+      awaitingDropCap &&
+      block.kind === 'paragraph' &&
+      !block.generated &&
+      !block.passage &&
+      !block.note
+    ) {
+      awaitingDropCap = false;
+      if (
+        node.textContent &&
+        node.textContent.length > 80 &&
+        /^[\s“”‘’"'(]*[A-Za-zÀ-ž]/u.test(node.textContent)
+      ) {
+        const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+        const first = walker.nextNode() as Text | null;
+        if (first) {
+          const match = first.textContent?.match(/^[\s“”‘’"'(]*[A-Za-zÀ-ž]/u);
+          if (match) {
+            const cap = document.createElement('span');
+            cap.className = 'drop-cap';
+            cap.textContent = match[0];
+            first.deleteData(0, match[0].length);
+            first.parentNode!.insertBefore(cap, first);
+            node.classList.add('special-passage');
+          }
+        }
       }
     }
     return node;
@@ -310,11 +414,42 @@ export async function renderBook(payload: {
     if (start > 0) {
       node.style.textIndent = '0';
       delete node.dataset.marker;
+      node.querySelectorAll('.drop-cap').forEach((cap) => {
+        (cap as HTMLElement).style.float = 'none';
+        (cap as HTMLElement).style.fontSize = '1em';
+      });
     }
     return node;
   }
   const consumed = new Map<string, number>();
+  const displayConsumed = new Map<string, number>();
+  const renderedSources = new Map<string, string>();
+  function sourceFragment(block: Block, start: number, end: number, fallback: string) {
+    if (block.generated) return '';
+    const inlines: Inline[] =
+      block.kind === 'table'
+        ? (block.rows || []).flatMap((row) => [
+            ...row.flatMap((cell, i) => [...cell, ...(i < row.length - 1 ? [{ text: ' ' }] : [])]),
+            { text: '\n' },
+          ])
+        : block.inlines;
+    if (!inlines.some((i) => i.generated)) return fallback;
+    let offset = 0,
+      text = '';
+    for (const inline of inlines) {
+      const next = offset + inline.text.length;
+      if (!inline.generated)
+        text += inline.text.slice(Math.max(0, start - offset), Math.max(0, Math.min(next, end) - offset));
+      offset = next;
+    }
+    return text;
+  }
   function register(block: Block, text: string) {
+    const displayStart = displayConsumed.get(block.id) || 0;
+    displayConsumed.set(block.id, displayStart + text.length);
+    renderedCharacters += text.length;
+    text = sourceFragment(block, displayStart, displayStart + text.length, text);
+    renderedSources.set(block.id, (renderedSources.get(block.id) || '') + text);
     const map = maps[current];
     map.sectionId ||= block.sectionId;
     if (map.text && map.blockIds.at(-1) !== block.id) map.text += '\n';
@@ -323,7 +458,6 @@ export async function renderBook(payload: {
     const start = consumed.get(block.id) || 0;
     (map.ranges ||= []).push({ blockId: block.id, start, end: start + text.length });
     consumed.set(block.id, start + text.length);
-    renderedCharacters += text.length;
   }
   const placedCaptions = new Set<string>();
   let pendingLabels: Block[] = [];
@@ -345,7 +479,11 @@ export async function renderBook(payload: {
     if (placedCaptions.has(block.id)) continue;
     if (block.pageLabel) {
       // Page labels travel with the following content; they never consume a cell by themselves.
-      if (s.sourcePageNumbers) pendingLabels.push(block);
+      if (
+        s.rich.pageReferences === 'boundaries' ||
+        (s.sourcePageNumbers && s.rich.pageReferences !== 'headers')
+      )
+        pendingLabels.push(block);
       continue;
     }
     if (spreadFull) {
@@ -570,6 +708,9 @@ export async function renderBook(payload: {
     const original = makeBlock(block);
     const justifyContinuation =
       ['paragraph', 'quote', 'list-item'].includes(block.kind) &&
+      !block.generated &&
+      !(s.rich.passages && block.passage && s.rich.passageTypes.includes(block.passage)) &&
+      !original.querySelector('.drop-cap') &&
       !block.align &&
       !block.inlines.some((inline) => inline.marks?.includes('break'));
     const text = original.textContent || '';
@@ -721,10 +862,52 @@ export async function renderBook(payload: {
     flow.append(...labelNodes());
     registerLabels();
   }
+  const destinations: Record<string, { page: number; x: number; y: number; cell: number }> = {};
+  for (const node of document.querySelectorAll<HTMLElement>('[data-block]')) {
+    const id = node.dataset.block!;
+    if (destinations[id]) continue;
+    const sheet = node.closest<HTMLElement>('.page')!;
+    const rect = node.getBoundingClientRect(),
+      bounds = sheet.getBoundingClientRect();
+    const cell = maps.find((m) => m.blockIds.includes(id));
+    if (!cell) continue;
+    node.id = 'destination-' + id;
+    destinations[id] = {
+      page: cell.page,
+      cell: (cell.index % 16) + 1,
+      x: (rect.left - bounds.left) * 0.75,
+      y: (rect.top - bounds.top) * 0.75,
+    };
+  }
+  const printLocation = (id: string) => {
+    const d = destinations[id];
+    return d
+      ? `Sheet ${Math.floor(d.page / 2) + 1} · ${d.page % 2 ? 'Back' : 'Front'} · Cell ${d.cell}`
+      : 'Not in preview';
+  };
+  for (const node of document.querySelectorAll<HTMLElement>('[data-location]'))
+    node.textContent = node.classList.contains('reference-location')
+      ? ` [${printLocation(node.dataset.location!)}]`
+      : printLocation(node.dataset.location!);
+  // Raster compatibility is an explicit image-only operation, after physical placement.
+  if (s.rich.vectors === 'raster')
+    for (const img of document.images) {
+      const asset = book.assets.find((a) => img.src.endsWith('/' + encodeURIComponent(a.id)));
+      if (asset?.mediaType !== 'image/svg+xml') continue;
+      const width = parseFloat(img.style.width) || img.width,
+        height = parseFloat(img.style.height) || img.height;
+      const scale = Math.min(600 / 96, Math.sqrt(40_000_000 / (width * height)));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.ceil(width * scale));
+      canvas.height = Math.max(1, Math.ceil(height * scale));
+      canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
+      img.src = canvas.toDataURL('image/png');
+      await img.decode();
+    }
   sheetsValue!.textContent = String(Math.ceil(maps.length / 32));
   let readingOffset = 0;
   const readingLength = (text: string) => normalizedText(text).replace(/\s/g, '').length;
-  const totalReadingLength = selected.reduce(
+  const totalReadingLength = preparedContent.source.reduce(
     (length, block) => length + readingLength(bookBlockText(block)),
     0,
   );
@@ -735,7 +918,17 @@ export async function renderBook(payload: {
     if (positionHeaders[map.index]) {
       const side = `${Math.floor(map.page / 2) + 1}${map.page % 2 ? 'b' : 'a'}`;
       const percent = totalReadingLength ? Math.floor((map.readingStart / totalReadingLength) * 100) : 0;
-      positionHeaders[map.index].textContent = `${side} / ${Math.ceil(maps.length / 32)} · ${percent}%`;
+      const firstId = map.blockIds.find((id) => !id.startsWith('generated-'));
+      const sourceIndex = selected.findIndex((b) => b.id === firstId);
+      const before = selected.slice(0, sourceIndex + 1);
+      const chapter = before.findLast((b) => b.headingKind === 'chapter');
+      const pageLabel = before.findLast((b) => b.pageLabel)?.pageLabel;
+      positionHeaders[map.index].textContent =
+        `${side} / ${Math.ceil(maps.length / 32)} · ${percent}%` +
+        (s.rich.chapterHeaders && chapter ? ' · ' + bookBlockText(chapter) : '') +
+        (s.rich.pageReferences === 'headers' && pageLabel ? ' · p. ' + pageLabel : '');
+      positionHeaders[map.index].style.overflow = 'hidden';
+      positionHeaders[map.index].style.textOverflow = 'ellipsis';
     }
   }
   await (window as any).__microbookProgress?.('Checking layout');
@@ -780,7 +973,23 @@ export async function renderBook(payload: {
     throw new Error(
       `Layout verification failed: ${overflows} overflows, ${renderedCharacters}/${expectedCharacters} characters`,
     );
+  for (const block of selected) {
+    if (block.generated || block.kind === 'image' || block.kind === 'separator' || block.kind === 'table')
+      continue;
+    const expected = normalizedText(
+      block.inlines
+        .filter((i) => !i.generated)
+        .map((i) => i.text)
+        .join(''),
+    );
+    if (normalizedText(renderedSources.get(block.id) || '') !== expected)
+      throw new Error('Source coverage failed for ' + block.id);
+  }
   return {
+    wordCount: words,
+    destinations,
+    navigation: preparedContent.navigation,
+    diagnostics: featureDiagnostics,
     cells: maps,
     justificationMs,
     measurementCache: { hits: cacheHits, misses: cacheMisses, entries: preparations.size },

@@ -181,6 +181,9 @@ export async function render(
     if (classic || page.url() !== `${baseUrl}/__renderer/book`)
       await page.goto(`${baseUrl}/__renderer/${classic ? 'classic' : 'book'}`);
     let cells: CellMap[];
+    let destinations: RenderResult['destinations'];
+    let navigation: RenderResult['navigation'];
+    let featureDiagnostics: RenderResult['diagnostics'] = [];
     let coverage: RenderResult['coverage'];
     let measurementCache: RenderResult['measurementCache'];
     let words: number;
@@ -315,7 +318,6 @@ export async function render(
       if (!coverage.complete)
         throw new Error(`Basic content verification failed (${found}/${expected} characters)`);
     } else {
-      words = wordCount(documentText(doc, job.settings));
       if (!(await page.evaluate(() => !!(window as any).Microbook)))
         await page.addScriptTag({ url: `${baseUrl}/__renderer/book.js` });
       timings.prepare = performance.now() - preparedAt;
@@ -329,6 +331,10 @@ export async function render(
       });
       timings.justification = layout.justificationMs || 0;
       timings.paginate = performance.now() - paginateAt - timings.justification;
+      words = layout.wordCount;
+      destinations = layout.destinations;
+      navigation = layout.navigation;
+      featureDiagnostics = layout.diagnostics || [];
       cells = layout.cells;
       coverage = layout.coverage;
       measurementCache = layout.measurementCache;
@@ -355,6 +361,7 @@ export async function render(
       document.title = title;
     }, job.metadata.title);
     const pdf = await page.pdf({
+      outline: !classic && job.settings.rich.bookmarks,
       format: 'Letter',
       printBackground: true,
       preferCSSPageSize: false,
@@ -394,6 +401,8 @@ export async function render(
       });
     });
     const result: RenderResult = {
+      destinations,
+      navigation,
       imageRegions,
       pages,
       sheets: Math.ceil(pages / 2),
@@ -406,6 +415,7 @@ export async function render(
       coverage,
       diagnostics: [
         ...doc.diagnostics,
+        ...featureDiagnostics,
         ...(cells.some((cell) => cell.blank)
           ? [
               {

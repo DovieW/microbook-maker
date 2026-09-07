@@ -8,6 +8,7 @@ const properties = new Set([
   'text-align',
   'font-weight',
   'font-style',
+  'font-family',
   'white-space',
 ]);
 function declarations(css: string): Rule['declarations'] {

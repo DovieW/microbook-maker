@@ -5,6 +5,7 @@ import fs from 'node:fs/promises';
 import yauzl from 'yauzl';
 import { DOMParser, XMLSerializer } from '@xmldom/xmldom';
 import MarkdownIt from 'markdown-it';
+import { readPublisherFonts } from './publisher-fonts.ts';
 import { imageDimensions } from './images.ts';
 import { epubStyles } from './epub-styles.ts';
 import {
@@ -24,7 +25,7 @@ export const IMPORT_LIMITS = {
   entry: 32 * 1024 ** 2,
   entries: 5000,
 };
-export const IMPORT_REVISION = 3;
+export const IMPORT_REVISION = 4;
 const md = new MarkdownIt({ html: false, linkify: false, xhtmlOut: true });
 type XmlNode = any;
 const name = (n: XmlNode): string => (n.localName || n.nodeName || '').toLowerCase();
@@ -153,8 +154,9 @@ export async function importDocument(
     if (!diagnostics.some((d) => d.code === code && d.source === source))
       diagnostics.push({ code, message, source });
   };
+  let sourceOrder = 0;
   const addBlock = (block: Omit<Block, 'id'>) =>
-    doc.blocks.push({ ...block, id: `b${doc.blocks.length + 1}` });
+    doc.blocks.push({ sourceOrder: sourceOrder++, ...block, id: `b${doc.blocks.length + 1}` });
   await fs.mkdir(directory, { recursive: true });
   await fs.writeFile(path.join(directory, doc.sourcePath), input);
   if (doc.format !== 'epub' && !isUtf8(input))
@@ -184,6 +186,9 @@ export async function importDocument(
     let spine: { path: string; title: string; targets?: Set<string> }[] = [];
     const media = new Map<string, string>();
     const toc = new Map<string, string>();
+    const tocTargets = new Set<string>();
+    doc.navigation = [];
+    doc.pageList = [];
     const sourceKey = (from: string, href: string) =>
       (href.startsWith('#') ? from : resolveArchivePath(from, href)) +
       (href.includes('#') ? '#' + decodeURIComponent(href.split('#')[1]) : '');
@@ -225,6 +230,13 @@ export async function importDocument(
         manifest.set(attr(item, 'id'), resource);
         media.set(resource.path, resource.type);
       }
+      for (const reference of elements(pkg, 'reference'))
+        if (attr(reference, 'type').split(/\s+/).includes('toc')) {
+          try {
+            tocTargets.add(sourceKey(packagePath, attr(reference, 'href')));
+          } catch {}
+        }
+      const fontEncryption = new Map<string, { algorithm: string; identifier: string }>();
       const encryption = files.get('META-INF/encryption.xml');
       if (encryption) {
         const encrypted = xml(encryption.toString('utf8'), 'encryption.xml');
@@ -234,17 +246,58 @@ export async function importDocument(
           )
         )
           throw new Error('DRM-encrypted EPUBs are unsupported');
-        warn('publisher-fonts', 'Publisher fonts are replaced by the selected print font');
+        const uid = attr(pkg.documentElement, 'unique-identifier');
+        const identifier =
+          elements(pkg, 'identifier').find((n) => attr(n, 'id') === uid)?.textContent || textOf('identifier');
+        for (const data of elements(encrypted, 'encrypteddata')) {
+          const uri = attr(elements(data, 'cipherreference')[0], 'URI');
+          const algorithm = attr(elements(data, 'encryptionmethod')[0], 'Algorithm');
+          try {
+            fontEncryption.set(resolveArchivePath('root', uri), { algorithm, identifier });
+          } catch {}
+        }
       }
+      doc.publisherFonts = await readPublisherFonts(
+        files,
+        directory,
+        resolveArchivePath,
+        fontEncryption,
+        warn,
+      );
       for (const item of manifest.values()) {
         if (item.properties.includes('nav') && files.has(item.path)) {
           const nav = xml(files.get(item.path)!.toString('utf8'), item.path);
+          for (const a of elements(nav, 'a'))
+            if (attr(a, 'epub:type').split(/\s+/).includes('toc')) {
+              try {
+                tocTargets.add(sourceKey(item.path, attr(a, 'href')));
+              } catch {}
+            }
           const tocNav = elements(nav, 'nav').find((n) => attr(n, 'epub:type').split(/\s+/).includes('toc'));
           for (const a of elements(tocNav || nav, 'a')) {
             try {
-              toc.set(sourceKey(item.path, attr(a, 'href')), a.textContent.trim());
+              const targetKey = sourceKey(item.path, attr(a, 'href'));
+              toc.set(targetKey, a.textContent.trim());
+              let depth = 0;
+              for (let p = a.parentNode; p && p !== tocNav; p = p.parentNode) if (name(p) === 'ol') depth++;
+              doc.navigation.push({ title: a.textContent.trim(), targetKey, depth: Math.max(0, depth - 1) });
             } catch {}
           }
+        }
+        if (item.properties.includes('nav') && files.has(item.path)) {
+          const nav = xml(files.get(item.path)!.toString('utf8'), item.path);
+          const pageNav = elements(nav, 'nav').find((n) =>
+            attr(n, 'epub:type').split(/\s+/).includes('page-list'),
+          );
+          if (pageNav)
+            for (const a of elements(pageNav, 'a')) {
+              try {
+                doc.pageList.push({
+                  label: a.textContent.trim(),
+                  targetKey: sourceKey(item.path, attr(a, 'href')),
+                });
+              } catch {}
+            }
         }
         if (item.type === 'application/x-dtbncx+xml' && files.has(item.path)) {
           const nav = xml(files.get(item.path)!.toString('utf8'), item.path);
@@ -258,6 +311,8 @@ export async function importDocument(
           }
         }
       }
+      if (!doc.navigation.length)
+        doc.navigation = [...toc].map(([targetKey, title]) => ({ targetKey, title, depth: 0 }));
       for (const ref of elements(pkg, 'itemref')) {
         const item = manifest.get(attr(ref, 'idref'));
         if (!item || !files.has(item.path)) throw new Error('An EPUB reading-order document is missing');
@@ -332,6 +387,58 @@ export async function importDocument(
         }
       }
       const { style, hidden } = epubStyles(css);
+      function sourceMetadata(node: XmlNode): Partial<Block> {
+        const anchorKeys: string[] = [item.path];
+        let passage: Block['passage'],
+          noteKey: string | undefined,
+          tocContent = tocTargets.has(item.path);
+        let linkedHref: string | undefined;
+        for (let p = node.nodeType === 1 ? node : node.parentNode; p?.nodeType === 1; p = p.parentNode) {
+          if (attr(p, 'id')) anchorKeys.push(item.path + '#' + attr(p, 'id'));
+          const roles = (attr(p, 'epub:type') + ' ' + attr(p, 'role').replace(/doc-/g, '')).split(/\s+/);
+          if (roles.includes('toc') || (attr(p, 'id') && tocTargets.has(item.path + '#' + attr(p, 'id'))))
+            tocContent = true;
+          if (!passage)
+            passage = roles.includes('epigraph')
+              ? 'epigraph'
+              : roles.includes('letter')
+                ? 'letter'
+                : roles.some((r) => ['poem', 'poetry', 'verse', 'z3998:poem', 'z3998:verse'].includes(r))
+                  ? 'poetry'
+                  : name(p) === 'aside'
+                    ? 'aside'
+                    : name(p) === 'blockquote'
+                      ? 'quote'
+                      : undefined;
+          if (roles.some((r) => ['footnote', 'endnote'].includes(r)))
+            noteKey = item.path + '#' + attr(p, 'id');
+          if (name(p) === 'a' && attr(p, 'href')) linkedHref = attr(p, 'href');
+        }
+        // Descendant anchors belong to this block without adding or renumbering blocks.
+        if (node.nodeType === 1)
+          for (const child of Array.from(node.getElementsByTagName('*')) as XmlNode[])
+            if (attr(child, 'id')) anchorKeys.push(item.path + '#' + attr(child, 'id'));
+        let linkedTargetKey: string | undefined;
+        if (linkedHref && !/^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(linkedHref))
+          try {
+            linkedTargetKey = sourceKey(item.path, linkedHref);
+          } catch {}
+        const publisherFont = style(node)
+          .match(/font-family\s*:\s*([^;]+)/)?.[1]
+          ?.split(',')[0]
+          .trim()
+          .replace(/["']/g, '');
+        return {
+          anchorKeys,
+          passage,
+          noteKey,
+          tocContent,
+          originSectionId: sectionId,
+          publisherFont,
+          linkedHref,
+          linkedTargetKey,
+        };
+      }
       const isHeading = (node: XmlNode) =>
         /^h[1-6]$/.test(name(node)) ||
         attr(node, 'role').split(/\s+/).includes('heading') ||
@@ -369,7 +476,14 @@ export async function importDocument(
         href?: string,
       ): (Inline & { imageNode?: XmlNode })[] {
         if (hidden(node)) return [];
-        if (node.nodeType === 3 || node.nodeType === 4) return [{ text: node.nodeValue || '', marks, href }];
+        if (node.nodeType === 3 || node.nodeType === 4) {
+          let targetKey: string | undefined;
+          if (href && !/^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(href))
+            try {
+              targetKey = sourceKey(item.path, href);
+            } catch {}
+          return [{ text: node.nodeValue || '', marks, href, targetKey }];
+        }
         const tag = name(node);
         if (tag === 'img' && doc.format === 'markdown') {
           warn(
@@ -464,6 +578,7 @@ export async function importDocument(
           assetByPath.set(resource, assetId);
         }
         addBlock({
+          ...sourceMetadata(node),
           kind: 'image',
           sectionId,
           assetId,
@@ -569,6 +684,7 @@ export async function importDocument(
           const label = attr(node, 'title') || attr(node, 'aria-label') || node.textContent?.trim();
           if (label)
             addBlock({
+              ...sourceMetadata(node),
               kind: 'separator',
               sectionId,
               source: item.path + '#' + attr(node, 'id'),
@@ -579,6 +695,7 @@ export async function importDocument(
         else if (tag === 'img' || tag === 'image') await image(node);
         else if (tag === 'hr')
           addBlock({
+            ...sourceMetadata(node),
             kind: 'separator',
             sectionId,
             source: item.path,
@@ -603,6 +720,7 @@ export async function importDocument(
           )
             warn('table-layout', 'Table spans are simplified to rows and columns', item.path);
           addBlock({
+            ...sourceMetadata(node),
             kind: 'table',
             sectionId,
             source: item.path,
@@ -637,6 +755,7 @@ export async function importDocument(
             const flush = () => {
               if (segment.some((i) => i.text.trim()))
                 addBlock({
+                  ...sourceMetadata(node),
                   kind,
                   sectionId,
                   source: item.path + (attr(node, 'id') ? '#' + attr(node, 'id') : ''),
@@ -668,10 +787,17 @@ export async function importDocument(
         } else if (node.nodeType === 3) {
           if (node.nodeValue?.trim())
             addBlock({
+              ...sourceMetadata(node),
               kind: 'paragraph',
               sectionId,
               source: item.path,
-              inlines: [{ text: node.nodeValue }],
+              inlines: [
+                {
+                  text: node.nodeValue,
+                  href: sourceMetadata(node).linkedHref,
+                  targetKey: sourceMetadata(node).linkedTargetKey,
+                },
+              ],
               ...listProperties(node),
             });
         } else {

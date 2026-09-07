@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   activeJob,
+  newRichFeatures,
   sourceLocation,
   cellAtLocation,
   type SourceLocation,
@@ -70,7 +71,12 @@ export function useWorkspace() {
   const dirty =
     !!doc &&
     !kept &&
-    (!preview || !equal(effectiveSettings(draft), preview.settings) || !equal(metadata, preview.metadata));
+    (!preview ||
+      !equal(effectiveSettings(draft), effectiveSettings(preview.settings)) ||
+      !equal(metadata, preview.metadata));
+  const availableFingerprint = (doc as DocumentDetail | undefined)?.rendererFingerprint;
+  const updateAvailable =
+    !!preview && !kept && !!availableFingerprint && !equal(preview.result?.fingerprint, availableFingerprint);
   const active = activeJob(job);
   const other = preview && doc?.renderStats?.[preview.settings.mode === 'book' ? 'classic' : 'book'];
   const difference = other && preview?.result ? preview.result.pages - other.pages : undefined;
@@ -431,15 +437,17 @@ export function useWorkspace() {
       setPreviews({});
       const state = usePreferences.getState();
       const mode = state.explicitMode || (document.format === 'epub' ? 'book' : 'classic');
+      const initialSettings =
+        mode === 'book' ? { ...state.settings[mode], rich: newRichFeatures() } : state.settings[mode];
       state.document(document.id, {
         mode,
-        drafts: { [mode]: state.settings[mode] },
+        drafts: { book: { ...state.settings.book, rich: newRichFeatures() }, [mode]: initialSettings },
         metadata: document.metadata,
         cell: 0,
       });
       state.patch({ lastDocumentId: document.id, sidebarTab: 'layout' });
       setMobileOpen(false);
-      await apply(document, state.settings[mode], document.metadata);
+      await apply(document, initialSettings, document.metadata);
     } catch (error) {
       if (generation.current === sequence) setError(message(error));
     } finally {
@@ -594,6 +602,7 @@ export function useWorkspace() {
     draft,
     metadata,
     dirty,
+    updateAvailable,
     busy,
     active,
     activity,

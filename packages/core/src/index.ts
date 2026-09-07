@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { richFeaturesSchema } from './rich-settings.ts';
+export { richFeaturesSchema, newRichFeatures, type RichFeatures } from './rich-settings.ts';
 
 export const fonts = [
   ['arial', 'Arial'],
@@ -19,6 +21,7 @@ export const fontStacks: Record<string, string> = {
 export const settingsSchema = z
   .object({
     version: z.literal(1).default(1),
+    rich: richFeaturesSchema.default(() => richFeaturesSchema.parse({})),
     mode: z.enum(['classic', 'book']).default('book'),
     fontFamily: z.enum(fonts.map((f) => f[0]) as [string, ...string[]]).default('arial'),
     fontSizePx: z.number().min(4).max(12).default(6),
@@ -36,10 +39,15 @@ export const settingsSchema = z
     chapterHeadingGapEm: z.number().min(0).max(2).default(0.15),
     partHeadingGapEm: z.number().min(0).max(2).default(0.25),
     headingRules: z.boolean().default(true),
-    customHeadingRules: z.array(z.object({
-      pattern: z.string().max(200),
-      headingKind: z.enum(['chapter', 'part']),
-    })).max(30).default([]),
+    customHeadingRules: z
+      .array(
+        z.object({
+          pattern: z.string().max(200),
+          headingKind: z.enum(['chapter', 'part']),
+        }),
+      )
+      .max(30)
+      .default([]),
     positionHeaders: z.boolean().default(true),
     sourcePageNumbers: z.boolean().default(false),
     twoCellImages: z.boolean().default(false),
@@ -106,6 +114,9 @@ export interface Inline {
   text: string;
   marks?: string[];
   href?: string;
+  targetKey?: string;
+  generated?: boolean;
+  locationTarget?: string;
 }
 export interface Block {
   id: string;
@@ -124,8 +135,34 @@ export interface Block {
   note?: boolean;
   captionFor?: string;
   pageLabel?: string;
+  anchorKeys?: string[];
+  passage?: 'quote' | 'epigraph' | 'letter' | 'poetry' | 'aside';
+  publisherFont?: string;
+  tocContent?: boolean;
+  noteKey?: string;
+  originSectionId?: string;
+  sourceOrder?: number;
+  generated?: boolean;
+  destination?: string;
+  tocDepth?: number;
+  linkedHref?: string;
+  linkedTargetKey?: string;
   listMarker?: string;
   listDepth?: number;
+}
+export interface NavigationEntry {
+  title: string;
+  targetKey: string;
+  depth: number;
+  role?: string;
+}
+export interface PublisherFont {
+  id: string;
+  path: string;
+  family: string;
+  weight: string;
+  style: string;
+  mediaType: string;
 }
 export interface Asset {
   id: string;
@@ -155,6 +192,9 @@ export interface BookDocument {
   sections: Section[];
   blocks: Block[];
   assets: Asset[];
+  navigation?: NavigationEntry[];
+  pageList?: { label: string; targetKey: string }[];
+  publisherFonts?: PublisherFont[];
   diagnostics: Diagnostic[];
   wordCount: number;
   createdAt: string;
@@ -239,6 +279,8 @@ export function cellAtLocation(cells: CellMap[], location: SourceLocation): numb
   return anchored?.index ?? byOffset?.index ?? Math.min(location.cell, Math.max(0, cells.length - 1));
 }
 export interface RenderResult {
+  destinations?: Record<string, { page: number; x: number; y: number; cell: number }>;
+  navigation?: { title: string; blockId: string; depth: number }[];
   pages: number;
   sheets: number;
   cells: CellMap[];
@@ -369,7 +411,7 @@ export function automaticTextHeadings(doc: BookDocument): Map<string, HeadingKin
   const cached = detectedTextHeadings.get(doc);
   if (cached) return cached;
   const found = new Map<string, HeadingKind>();
-  const titles = new Map(doc.sections.map(s => [s.id, normalizedText(s.title).toLowerCase()]));
+  const titles = new Map(doc.sections.map((s) => [s.id, normalizedText(s.title).toLowerCase()]));
   const started = new Set<string>();
   const numbered: { block: Block; number: number; agrees: boolean }[] = [];
   for (const block of doc.blocks) {
@@ -378,7 +420,10 @@ export function automaticTextHeadings(doc: BookDocument): Map<string, HeadingKin
     const opening = !started.has(block.sectionId);
     started.add(block.sectionId);
     if (!opening || !['heading', 'paragraph'].includes(block.kind) || text.length > 160) continue;
-    if (block.headingKind) { found.set(block.id, block.headingKind); continue; }
+    if (block.headingKind) {
+      found.set(block.id, block.headingKind);
+      continue;
+    }
     const explicit = headingLabel(text);
     const agrees = titles.get(block.sectionId) === text.toLowerCase();
     if (explicit && (block.kind === 'heading' || agrees)) {
@@ -391,10 +436,9 @@ export function automaticTextHeadings(doc: BookDocument): Map<string, HeadingKin
   }
   // A contents match supports a numbered heading directly. Otherwise require an
   // increasing sequence across at least three different source sections.
-  const sequence = numbered.length >= 3 &&
-    numbered.every((entry, i) => i === 0 || entry.number > numbered[i - 1].number);
-  for (const entry of numbered)
-    if (entry.agrees || sequence) found.set(entry.block.id, 'chapter');
+  const sequence =
+    numbered.length >= 3 && numbered.every((entry, i) => i === 0 || entry.number > numbered[i - 1].number);
+  for (const entry of numbered) if (entry.agrees || sequence) found.set(entry.block.id, 'chapter');
   detectedTextHeadings.set(doc, found);
   return found;
 }
@@ -409,11 +453,12 @@ export function matchesHeadingPattern(text: string, pattern: string): boolean {
     const next = new Array(value.length + 1).fill(false);
     if (token === '*') next[0] = previous[0];
     for (let j = 1; j <= value.length; j++) {
-      next[j] = token === '*'
-        ? previous[j] || next[j - 1]
-        : token === '#'
-          ? /[0-9]/.test(value[j - 1]) && (previous[j - 1] || next[j - 1])
-          : token === value[j - 1] && previous[j - 1];
+      next[j] =
+        token === '*'
+          ? previous[j] || next[j - 1]
+          : token === '#'
+            ? /[0-9]/.test(value[j - 1]) && (previous[j - 1] || next[j - 1])
+            : token === value[j - 1] && previous[j - 1];
     }
     previous = next;
   }
@@ -423,7 +468,7 @@ export function customHeadingKind(block: Block, settings: RenderSettings): Headi
   if (!['heading', 'paragraph'].includes(block.kind) || block.pageLabel) return;
   const text = blockText(block);
   if (text.length > 500) return;
-  return settings.customHeadingRules?.find(r => matchesHeadingPattern(text, r.pattern))?.headingKind;
+  return settings.customHeadingRules?.find((r) => matchesHeadingPattern(text, r.pattern))?.headingKind;
 }
 export function selectedDocumentBlocks(doc: BookDocument, settings?: RenderSettings): Block[] {
   // IDs refer to occurrences, not assets: repeated illustrations remain independently selectable.
@@ -432,9 +477,11 @@ export function selectedDocumentBlocks(doc: BookDocument, settings?: RenderSetti
     settings?.mode === 'book'
       ? doc.blocks.map((b) => {
           if (b.kind !== 'image') {
-            const kind = customHeadingKind(b, settings) || b.headingKind || automaticTextHeadings(doc).get(b.id);
+            const kind =
+              customHeadingKind(b, settings) || b.headingKind || automaticTextHeadings(doc).get(b.id);
             return kind && (b.kind !== 'heading' || b.headingKind !== kind)
-              ? { ...b, kind: 'heading' as const, headingKind: kind, level: b.level || 2 } : b;
+              ? { ...b, kind: 'heading' as const, headingKind: kind, level: b.level || 2 }
+              : b;
           }
           const heading = imageHeadingTreatment(doc, b, settings);
           if (heading)

@@ -104,6 +104,12 @@ export class Storage {
         await fs.cp(path.join(staging, 'assets'), path.join(directory, assetDirectory), { recursive: true });
         for (const asset of imported.assets) asset.path = `${assetDirectory}/${path.basename(asset.path)}`;
       }
+      if (imported.publisherFonts?.length) {
+        const fontsDirectory = `fonts-v${IMPORT_REVISION}`;
+        await fs.cp(path.join(staging, 'fonts'), path.join(directory, fontsDirectory), { recursive: true });
+        for (const font of imported.publisherFonts)
+          font.path = fontsDirectory + '/' + path.basename(font.path);
+      }
       await this.saveDocument({
         ...previous,
         ...imported,

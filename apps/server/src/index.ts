@@ -279,6 +279,12 @@ app.get('/uploads/:file', (req, res) => {
     return res.sendStatus(404);
   res.download(path.join(store.uploads, req.params.file), req.params.file, { dotfiles: 'allow' });
 });
+app.get('/api/documents/:id/fonts/:font', (req, res) => {
+  const doc = getDocument(req.params.id);
+  const font = doc.publisherFonts?.find((f) => f.id === req.params.font);
+  if (!font) return res.sendStatus(404);
+  res.type(font.mediaType).sendFile(path.join(store.documentDir(doc.id), font.path), { dotfiles: 'allow' });
+});
 app.get('/api/documents/:id/assets/:asset', async (req, res) => {
   const doc = getDocument(req.params.id);
   const asset = doc.assets.find((a) => a.id === req.params.asset);
