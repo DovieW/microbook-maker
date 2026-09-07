@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { repeatedImageGroups } from '@microbook/core';
+import { repeatedImageGroups, imageOutputQuery, settingsSchema } from '@microbook/core';
+import { ImageOutputControls } from './ImageOutputControls';
 import { ImagePreview, type PreviewImage } from './ImagePreview';
 import { RichFeatures } from './RichFeatures';
 import { ImageTreatmentControls } from './ImageTreatmentControls';
@@ -15,10 +16,15 @@ export function ImagesPane({ w }: { w: Workspace }) {
   const showPreview = (trigger: HTMLElement, blockId: string, src: string, alt: string, title: string) => {
     previewTrigger.current = trigger;
     w.selectImage(blockId);
-    setPreviewImage({ src, alt, title });
+    setPreviewImage({
+      src,
+      alt,
+      title,
+      processedSrc: src + imageOutputQuery(draft.imageOutputOverrides[blockId] ?? draft.imageOutput),
+    });
   };
   const doc = w.doc!;
-  const draft = w.kept?.settings || w.draft;
+  const draft = w.kept ? settingsSchema.parse(w.kept.settings) : w.draft;
   const images = imageLocations(doc, w.preview?.result, draft);
   const headings = imageLocations(doc, w.preview?.result, draft, true).filter(
     (i) => !images.some((e) => e.block.id === i.block.id),
@@ -37,9 +43,13 @@ export function ImagesPane({ w }: { w: Workspace }) {
         onClose={() => setPreviewImage(undefined)}
         returnFocus={() => previewTrigger.current?.focus()}
       />
+      <a className="image-test-print" href="/api/image-test-print" target="_blank" rel="noopener">
+        Test print · Compare image output
+      </a>
       <details className="image-defaults">
         <summary>Defaults</summary>
         <fieldset disabled={!!w.kept}>
+          <ImageOutputControls w={w} />
           <RichFeatures w={w} group="images" />
           <label className="check-field">
             <span>Illustrations</span>
@@ -195,13 +205,14 @@ export function ImagesPane({ w }: { w: Workspace }) {
                     >
                       <img
                         className="image-large-preview"
-                        src={`/api/documents/${doc.id}/assets/${asset.id}`}
+                        src={`/api/documents/${doc.id}/assets/${asset.id}${imageOutputQuery(draft.imageOutputOverrides[block.id] ?? draft.imageOutput)}`}
                         alt={asset.alt || `Image ${i + 1}`}
                       />
                     </button>
                   )}
                   <fieldset className="image-detail" disabled={!!w.kept}>
                     <ImageTreatmentControls w={w} block={block} heading={heading} />
+                    {!heading && <ImageOutputControls w={w} blockId={block.id} />}
                     {!heading && draft.imageTreatments[block.id]?.kind !== 'flourish' && (
                       <div className="image-layout-choice">
                         <label>
@@ -264,6 +275,7 @@ export function ImagesPane({ w }: { w: Workspace }) {
                   </button>
                   <fieldset disabled={!!w.kept}>
                     <ImageTreatmentControls w={w} block={block} heading={heading} />
+                    {!heading && <ImageOutputControls w={w} blockId={block.id} />}
                     <ImageHeadingControls doc={doc} block={block} draft={draft} onEdit={w.edit} />
                   </fieldset>
                 </>

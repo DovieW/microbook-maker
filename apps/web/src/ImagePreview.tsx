@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Minus, Plus, X } from 'lucide-react';
 import { IconButton } from './ui';
-export type PreviewImage = { src: string; alt: string; title: string };
+export type PreviewImage = { src: string; processedSrc?: string; alt: string; title: string };
 export function ImagePreview({
   image,
   onClose,
@@ -12,8 +12,15 @@ export function ImagePreview({
   onClose: () => void;
   returnFocus: () => void;
 }) {
+  const [processed, setProcessed] = useState(true);
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const src = processed ? image?.processedSrc || image?.src : image?.src;
+  useEffect(() => setStatus('loading'), [src]);
   const [zoom, setZoom] = useState(1);
-  useEffect(() => setZoom(1), [image?.src]);
+  useEffect(() => {
+    setZoom(1);
+    setProcessed(true);
+  }, [image?.src]);
   return (
     <Dialog.Root
       open={!!image}
@@ -44,10 +51,37 @@ export function ImagePreview({
           </header>
           <div className="image-preview-stage" tabIndex={0} aria-label="Image pan area">
             <div style={{ width: `${zoom * 100}%`, height: `${zoom * 100}%` }}>
-              {image && <img src={image.src} alt={image.alt} draggable={false} />}
+              {image && (
+                <img
+                  key={src}
+                  src={src}
+                  alt={image.alt}
+                  draggable={false}
+                  onLoad={() => setStatus('ready')}
+                  onError={() => setStatus('error')}
+                />
+              )}
             </div>
           </div>
           <footer>
+            {image?.processedSrc !== image?.src && (
+              <button
+                className="image-compare-toggle"
+                aria-pressed={!processed}
+                onClick={() => setProcessed((p) => !p)}
+              >
+                {processed ? 'Show original' : 'Show processed'}
+              </button>
+            )}
+            <span className="image-processing-status" role="status">
+              {status === 'loading'
+                ? 'Preparing image…'
+                : status === 'error'
+                  ? 'Image could not load. Close and retry.'
+                  : processed && image?.processedSrc !== image?.src
+                    ? 'Processed'
+                    : 'Original'}
+            </span>
             <IconButton
               label="Zoom image out"
               disabled={zoom <= 1}

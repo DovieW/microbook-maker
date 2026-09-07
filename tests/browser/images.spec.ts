@@ -87,3 +87,42 @@ test('selected image controls override and reset the global one/two-cell layout'
   await upload(page, 'publisher-alternatives.epub');
   expect((await ready(page, request)).settings.imageCellSpans).toEqual({});
 });
+
+test('image output previews draft pixels without navigation and applies per-image overrides', async ({
+  page,
+  request,
+}) => {
+  await page.goto('/');
+  await upload(page, 'two-cell-images.epub');
+  const original = await ready(page, request);
+  expect(original.settings.imageOutput).toEqual({ mode: 'laser', strength: 'gentle' });
+  await tab(page, 'Images');
+  await page.getByRole('button', { name: 'Image 1 details', exact: true }).click();
+  await page.getByLabel('Output for this image', { exact: true }).selectOption('grayscale');
+  await expect(preview(page)).toHaveAttribute('data-render-id', original.id);
+  await page.getByRole('button', { name: 'Enlarge image 1', exact: true }).click();
+  const modal = page.getByRole('dialog', { name: 'Image preview', exact: true });
+  await expect(modal.locator('img')).toHaveAttribute('src', /output=grayscale/);
+  await expect(modal.getByRole('status')).toHaveText('Processed');
+  await modal.getByRole('button', { name: 'Show original', exact: true }).click();
+  await expect(modal.locator('img')).not.toHaveAttribute('src', /output=/);
+  await modal.getByRole('button', { name: 'Close image preview', exact: true }).click();
+  await applied(page);
+  const changed = await ready(page, request);
+  expect(Object.values(changed.settings.imageOutputOverrides)).toEqual([
+    { mode: 'grayscale', strength: 'gentle' },
+  ]);
+  await page.reload();
+  await ready(page);
+  await tab(page, 'Images');
+  await expect(page.getByLabel('Output for this image', { exact: true })).toHaveValue('grayscale');
+  await page.getByLabel('Output for this image', { exact: true }).selectOption('inherit');
+  await applied(page);
+  expect((await ready(page, request)).id).toBe(original.id);
+  await page.locator('.image-defaults summary').click();
+  await page.getByLabel('Default image output', { exact: true }).selectOption('original');
+  await upload(page, 'publisher-alternatives.epub');
+  const next = await ready(page, request);
+  expect(next.settings.imageOutput.mode).toBe('original');
+  expect(next.settings.imageOutputOverrides).toEqual({});
+});

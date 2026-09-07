@@ -50,7 +50,7 @@ export const usePreferences = create<Preferences>()(
       sidebarTab: 'layout',
       settings: {
         classic: defaultSettings('classic'),
-        book: defaultSettings('book'),
+        book: { ...defaultSettings('book'), imageOutput: { mode: 'laser', strength: 'gentle' } },
       },
       zoom: 1,
       zoomMode: 'fit',
@@ -76,6 +76,7 @@ export const usePreferences = create<Preferences>()(
               excludedImageIds: [],
               imageCellSpans: {},
               imageTreatments: {},
+              imageOutputOverrides: {},
             },
           },
           documents: {
@@ -151,10 +152,16 @@ export const usePreferences = create<Preferences>()(
           if (parsed.success && parsed.data.mode === mode)
             settings[mode] = {
               ...parsed.data,
+              imageOutput: stored.settings?.[mode]?.imageOutput
+                ? parsed.data.imageOutput
+                : mode === 'book'
+                  ? { mode: 'laser', strength: 'gentle' }
+                  : parsed.data.imageOutput,
               selectedSections: null,
               excludedImageIds: [],
               imageCellSpans: {},
               imageTreatments: {},
+              imageOutputOverrides: {},
             };
         }
         const documents: Record<string, DocumentPreferences> = {};

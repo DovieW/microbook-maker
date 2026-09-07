@@ -2143,3 +2143,35 @@ summary > span {
     border-radius: 0;
   }
 }
+
+.image-test-print {
+  display: block;
+  padding: 10px 0;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--accent);
+}
+.image-output-help {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+  margin: 8px 0 16px;
+}
+.image-output-controls .field {
+  gap: 8px;
+}
+.image-output-controls select {
+  min-width: 0;
+  max-width: 170px;
+}
+.image-processing-status {
+  font-size: 12px;
+  margin-right: auto;
+}
+.image-preview-dialog footer {
+  flex-wrap: wrap;
+}
+.image-compare-toggle {
+  min-height: 44px;
+  padding: 4px 12px;
+}

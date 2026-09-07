@@ -1,4 +1,6 @@
 import express from 'express';
+import { imageTestPrint } from './image-test-print.ts';
+import { ImageOutputCache } from './image-output.ts';
 import multer from 'multer';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -8,6 +10,7 @@ import { fork, type ChildProcess } from 'node:child_process';
 import { importDocument, IMPORT_LIMITS } from '@microbook/core/import';
 import {
   settingsSchema,
+  imageOutputSchema,
   effectiveSettings,
   metadataSchema,
   activeJob,
@@ -20,9 +23,11 @@ import { Storage } from './storage.ts';
 const root = path.resolve(process.env.MICROBOOK_ROOT || process.cwd());
 const store = new Storage(path.resolve(process.env.MICROBOOK_DATA_DIR || path.join(root, 'data')));
 await store.init();
+const imageCache = new ImageOutputCache(path.join(store.generated, 'image-cache'));
 const app = express();
 app.disable('x-powered-by');
 app.use(express.json({ limit: '100kb' }));
+app.use('/api/image-test-print', imageTestPrint(path.join(store.uploads, 'print-samples'), imageCache));
 app.use((_req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'no-referrer');
@@ -290,9 +295,10 @@ app.get('/api/documents/:id/assets/:asset', async (req, res) => {
   const asset = doc.assets.find((a) => a.id === req.params.asset);
   if (!asset) return res.sendStatus(404);
   res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox");
-  res.type(asset.mediaType).sendFile(path.join(store.documentDir(doc.id), asset.path), {
-    dotfiles: 'allow',
-  });
+  const output = imageOutputSchema.parse({ mode: req.query.output, strength: req.query.strength });
+  const file = await imageCache.process(path.join(store.documentDir(doc.id), asset.path), output);
+  res.setHeader('Cache-Control', 'private, max-age=3600');
+  res.type(output.mode === 'original' ? asset.mediaType : 'image/png').sendFile(file, { dotfiles: 'allow' });
 });
 app.post('/api/documents/:id/renders', async (req, res) => {
   const doc = getDocument(req.params.id);

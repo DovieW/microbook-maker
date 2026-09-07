@@ -1,4 +1,11 @@
 import { z } from 'zod';
+import { imageOutputSchema } from './image-output.ts';
+export {
+  imageOutputSchema,
+  imageOutputQuery,
+  IMAGE_OUTPUT_VERSION,
+  type ImageOutput,
+} from './image-output.ts';
 import { richFeaturesSchema } from './rich-settings.ts';
 export { richFeaturesSchema, newRichFeatures, type RichFeatures } from './rich-settings.ts';
 
@@ -70,6 +77,8 @@ export const settingsSchema = z
         ]),
       )
       .default({}),
+    imageOutput: imageOutputSchema.default(() => imageOutputSchema.parse({})),
+    imageOutputOverrides: z.record(z.string().max(200), imageOutputSchema).default({}),
     imageScale: z.number().min(0.2).max(1).default(1),
     includeImages: z.boolean().default(true),
     excludedImageIds: z.array(z.string().max(200)).max(10000).default([]),

@@ -1,7 +1,14 @@
 import { prepareRichContent } from '../../core/src/rich-content.ts';
 import { prepareWithSegments, layoutWithLines } from '@chenglou/pretext';
 import type { BookDocument, RenderSettings, Block, Inline, CellMap } from '@microbook/core';
-import { bookBlockText, wordCount, fontStacks, headingLabel, normalizedText } from '@microbook/core';
+import {
+  imageOutputQuery,
+  bookBlockText,
+  wordCount,
+  fontStacks,
+  headingLabel,
+  normalizedText,
+} from '@microbook/core';
 
 let activeDocument = '';
 const preparations = new Map<string, ReturnType<typeof prepareWithSegments>>();
@@ -510,9 +517,32 @@ export async function renderBook(payload: {
       const asset = book.assets.find((a) => a.id === block.assetId);
       if (!asset) throw new Error(`Missing image ${block.assetId}`);
       const img = document.createElement('img');
-      img.src = `${assetBase}/${encodeURIComponent(asset.id)}`;
+      const output = s.imageOutputOverrides?.[block.id] ??
+        s.imageOutput ?? { mode: 'original' as const, strength: 'gentle' as const };
+      const imageUrl = `${assetBase}/${encodeURIComponent(asset.id)}${imageOutputQuery(output)}`;
+      if (output.mode === 'original') img.src = imageUrl;
+      else {
+        // Embed the exact cached output. Reusing an image URL with different output
+        // queries can fail decode in the warm Chromium print page.
+        const response = await fetch(imageUrl);
+        if (!response.ok)
+          throw new Error(`Could not prepare image ${asset.id}. Try Original color or retry.`);
+        const blob = await response.blob();
+        img.src = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = () => reject(new Error(`Could not read image ${asset.id}`));
+          reader.readAsDataURL(blob);
+        });
+      }
       img.alt = asset.alt;
-      await img.decode();
+      try {
+        await img.decode();
+      } catch {
+        throw new Error(
+          `Could not decode image ${asset.id} (${block.source}). Try Original color for this image.`,
+        );
+      }
       if (img.naturalWidth * img.naturalHeight > 40_000_000)
         throw new Error('An image exceeds the 40 megapixel limit');
       const caption =
