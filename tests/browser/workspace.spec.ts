@@ -59,10 +59,8 @@ test('compact frame, remembered drafts, Revert, exact download without retention
   await page.screenshot({ path: `${reports}/workspace-desktop.png` });
   await tab(page, 'Books');
   await page.getByLabel('Find book').fill('classic.txt');
-  const row = page
-    .locator('.book-row')
-    .filter({ has: page.getByRole('button', { name: 'classic.txt TXT', exact: true }) })
-    .first();
+  const row = page.locator('.book-row.current');
+  await expect(row.locator('.book-open')).toContainText(rendered.metadata.title);
   await expect(row).toBeVisible();
   await expect(row.locator('.book-layouts')).toContainText('Basic');
   expect(errors).toEqual([]);
@@ -247,7 +245,7 @@ test('Rich heading controls persist without affecting Basic defaults', async ({ 
   await page.getByLabel('Part size', { exact: true }).fill('1.2');
   await page.getByLabel('Chapter spacing', { exact: true }).fill('0');
   await page.getByLabel('Part spacing', { exact: true }).fill('0.05');
-  await page.getByLabel('Heading rules', { exact: true }).uncheck();
+  await page.getByLabel('Divider lines', { exact: true }).uncheck();
   await page.reload();
   await expect(page.getByRole('button', { name: 'Apply & Print', exact: true })).toBeEnabled();
   await page.getByText('Headings', { exact: true }).click();

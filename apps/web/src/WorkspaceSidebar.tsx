@@ -77,7 +77,7 @@ export function WorkspaceSidebar({ w, narrow }: { w: Workspace; narrow: boolean 
         {tab === 'layout' && <LayoutControls w={w} />} {tab === 'contents' && <ContentsPane w={w} />}{' '}
         {tab === 'images' && <ImagesPane w={w} />} {tab === 'books' && <BooksPane w={w} />}
       </div>
-      {(w.doc || w.error) && (
+      {(w.doc || w.error || w.busy || w.active) && (
         <div className="sidebar-action">
           {w.kept ? (
             <>

@@ -1784,15 +1784,6 @@ summary > span {
   font-size: 11px;
 }
 
-.preview-loading {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  width: 180px;
-  text-align: center;
-  font-size: 12px;
-  color: var(--muted);
-}
 .preview-loading-track {
   height: 2px;
   overflow: hidden;
@@ -1889,3 +1880,5 @@ summary > span {
 .heading-rule { border-bottom: 1px solid var(--line); padding-bottom: 10px; margin-bottom: 10px; }
 .heading-detection ul { padding-left: 18px; max-height: 220px; overflow: auto; font-size: 12px; overflow-wrap: anywhere; }
 .heading-detection small { display: block; color: var(--muted); }
+.preview-empty > .render-activity { width: min(300px, calc(100% - 32px)); }
+.preview-activity { position: absolute; bottom: 48px; left: 12px; right: 12px; z-index: 10; background: var(--surface); padding: 10px; border: 1px solid var(--line); border-radius: 6px; }

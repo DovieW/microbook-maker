@@ -14,6 +14,7 @@ import {
   LoaderCircle,
 } from 'lucide-react';
 import { useWorkspace } from './useWorkspace';
+import { RenderActivity } from './RenderActivity';
 import { WorkspaceSidebar } from './WorkspaceSidebar';
 import { Navigation } from './Navigation';
 import { IconButton } from './ui';
@@ -172,7 +173,7 @@ export default function App() {
             <Suspense
               fallback={
                 <div className="preview-empty">
-                  <PreviewLoading phase="Opening preview" />
+                  {!w.busy && !w.active && <RenderActivity activity="Opening preview" />}
                 </div>
               }
             >
@@ -185,7 +186,10 @@ export default function App() {
           {!w.preview && (
             <div className="preview-empty">
               {w.busy || w.active ? (
-                <PreviewLoading phase={w.activity || w.job?.phase || 'Preparing book'} />
+                narrow && !w.mobileOpen ? (
+                  <RenderActivity job={w.active ? w.job : undefined} activity={w.active ? undefined : w.activity}
+                    onCancel={w.active ? () => void w.cancel() : undefined} />
+                ) : null
               ) : (
                 <div className="open-book-state">
                   <BookOpen size={32} aria-hidden="true" />
@@ -196,6 +200,12 @@ export default function App() {
                   <small>or drop a file here</small>
                 </div>
               )}
+            </div>
+          )}
+          {w.preview && narrow && !w.mobileOpen && (w.busy || w.active) && (
+            <div className="preview-activity">
+              <RenderActivity job={w.active ? w.job : undefined} activity={w.active ? undefined : w.activity}
+                onCancel={w.active ? () => void w.cancel() : undefined} />
             </div>
           )}
           {findOpen && w.preview && (
@@ -303,22 +313,11 @@ export default function App() {
         </main>
       </div>
       {w.dragging && <div className="drop-overlay">Open book</div>}
-      {(narrow ? !w.mobileOpen : !w.prefs.sidebarOpen) && (w.error || w.active) && (
+      {(narrow ? !w.mobileOpen : !w.prefs.sidebarOpen) && w.error && (
         <button className="activity-badge" onClick={toggleSidebar}>
           {w.error ? 'Action needed' : w.job?.phase || 'Processing'}
         </button>
       )}
-    </div>
-  );
-}
-
-function PreviewLoading({ phase }: { phase: string }) {
-  return (
-    <div className="preview-loading" role="status">
-      <span>{phase}</span>
-      <div className="preview-loading-track" aria-hidden="true">
-        <span />
-      </div>
     </div>
   );
 }

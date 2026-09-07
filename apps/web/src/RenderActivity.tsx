@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { LoaderCircle } from 'lucide-react';
 import type { RenderJob } from '@microbook/core';
 
 export function RenderActivity({
@@ -29,7 +28,6 @@ export function RenderActivity({
   return (
     <div className="render-activity" role="status" aria-label="Processing">
       <div className="activity-row">
-        <LoaderCircle size={16} className="spin" />
         <span>
           {phase}
           {percentage !== undefined ? ` · ${percentage}%` : ''}
@@ -39,9 +37,9 @@ export function RenderActivity({
         </span>
         {onCancel && <button onClick={onCancel}>Cancel</button>}
       </div>
-      {progress && (
+      {progress ? (
         <progress aria-label={`${phase} progress`} max={progress.total} value={progress.completed} />
-      )}
+      ) : <div className="preview-loading-track" aria-hidden="true"><span /></div>}
       {!!progress?.sides && <span className="activity-detail">Printed side {progress.sides}</span>}
     </div>
   );

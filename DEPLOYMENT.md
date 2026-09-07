@@ -59,3 +59,21 @@ Interrupted jobs remain in the Library and can be retried. Queued jobs resume af
 ## Print check
 
 Print at **100% / actual size**, Letter portrait, with printer scaling disabled. Use the duplex edge setting used by your existing Classic workflow. Compare a two-sided sheet against the original cell sequence before folding/cutting. The automated suite checks Letter geometry, 16 cells per side, side transitions, complete text, and Classic pixels. It cannot verify your printer's feed direction, unprintable margins, ink legibility at 4.5 pt, or the physical folding result.
+
+### Phone testing over Tailscale
+
+The desktop candidate at `127.0.0.1:7780` can also be reached within the tailnet
+at `http://100.79.27.109:36243/` (or
+`http://dovie-desktop-linux.barn-chameleon.ts.net:36243/`).
+The Galaxy S25 Ultra must have Tailscale connected. Its own IP is not the server URL.
+
+The persistent TCP proxy is configured with:
+
+```sh
+tailscale serve --bg --tcp=36243 tcp://127.0.0.1:7780
+tailscale serve status
+```
+
+This leaves the IdeaPad localhost SSH forward and the container's loopback binding
+unchanged. It exposes the candidate to permitted tailnet devices, not the public
+internet. To remove only this proxy, run `tailscale serve --tcp=36243 off`.
