@@ -1,3 +1,4 @@
+import { version } from '../../../package.json';
 import express from 'express';
 import { imageTestPrint } from './image-test-print.ts';
 import { ImageOutputCache } from './image-output.ts';
@@ -27,7 +28,14 @@ const imageCache = new ImageOutputCache(path.join(store.generated, 'image-cache'
 const app = express();
 app.disable('x-powered-by');
 app.use(express.json({ limit: '100kb' }));
-app.use('/api/image-test-print', imageTestPrint(path.join(store.uploads, 'print-samples'), imageCache));
+app.use(
+  '/api/image-test-print',
+  imageTestPrint(
+    path.join(store.uploads, 'print-samples'),
+    imageCache,
+    path.join(root, 'resources/print-samples'),
+  ),
+);
 app.use((_req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'no-referrer');
@@ -168,6 +176,7 @@ function startWorker() {
 app.get('/api/health', (_req, res) =>
   res.json({
     ok: true,
+    version,
     rendererReady: !!rendererFingerprint,
     fingerprint: rendererFingerprint,
     error: workerError,

@@ -1,64 +1,97 @@
-# MicroBook Maker
+# MicroBook
 
-Turn a book into a compact, printable PDF. One self-hosted application, no account, on port **7777**.
+**A whole book. A handful of sheets.**
 
-**Basic** preserves the original TXT/Markdown pipeline and folding geometry. **Rich** imports reflowable EPUB 2/3 and retains chapters, paragraph boundaries, emphasis, illustrations, captions, poetry, lists, simple tables, and endnotes. Both start at **6 CSS px / 4.5 pt**, on Letter paper with 16 cells per side. Text size is always your choice. The preview always shows full printed sides. Solid fold lines and space at folds are the defaults.
+Turn EPUB, Markdown, and plain-text books into compact PDFs for printing and folding. Adjust the layout, inspect the actual PDF, and print directly from your browser.
 
-Rich distinguishes parts and chapters when EPUB semantics or clear numbered labels identify them. **Layout → Headings** provides separate size, spacing and upright/italic controls, plus optional rules. Rich position headers show sheet/front-or-back and text progress; they can be disabled in Layout. Images stay in full color and use one cell by default; optional **Two-cell images** centers each illustration across two adjacent cells, rotated for viewing by turning the paper clockwise. Source page numbers are hidden by default, and the opening cell has no position header. Continuous paragraphs remain the default, with optional blank-line spacing. Generated print text is pure black. See [print controls and Brother printer guidance](docs/PRINT_REFINEMENTS.md).
+![MicroBook with illustrated Alice loaded on its first printed side](docs/images/workspace.png)
 
-The left sidebar brings **Layout, Contents, and Images** together. It starts at 280px and can be resized; phones use the same controls in a full-screen drawer. Images have compact thumbnails, actual printed locations, inclusion and one/two-cell choices.
+[View the sample PDF](samples/alice-microbook.pdf) · [Install](#run-it-yourself) · [Print guide](docs/PRINT_REFINEMENTS.md) · [Release notes](RELEASE_NOTES.md)
 
-The flat navy workspace displays the server PDF continuously, with selectable text and full-book search. Open a book, edit settings, and press **Apply**; **Revert changes** restores the displayed layout. Drafts, mode preferences, reading positions, zoom, and sidebar size are remembered in your browser. **Print** uses the existing vector PDF without a new tab; the adjacent download icon is optional. The header’s **History** button opens recent books and versions in the sidebar. History automatically retains the latest Basic/Rich layouts. **Keep version** preserves an older layout under a name without downloading it. See the [workspace guide](docs/WORKSPACE_REDESIGN.md).
+_Screenshot and sample: Lewis Carroll’s Alice’s Adventures in Wonderland, illustrated by Arthur Rackham. This edition is public domain in the United States. [Source and attribution](samples/README.md)._
 
-## Start locally
+## Make it yours
 
-The host needs Node 24 and Docker. No host Chromium, Python, or font installation is required.
+- **Two layouts.** Basic keeps text compact; Rich preserves EPUB structure, headings, illustrations, captions, poetry, lists, and simple tables.
+- **A real PDF workspace.** Scroll complete printed sides, select text, search the book, and jump to chapters or illustrations.
+- **Print, without the detour.** Print the server’s completed PDF in the same app. Download a copy when you want one.
+- **Control the paper.** Set font, text size, line height, fold guides, margins, paragraph spacing, and distinct chapter/part headings.
+- **Make images work in print.** Include or remove illustrations, use one or two cells, rotate artwork, or turn repeated ornaments into compact flourishes. Adjust matching images together.
+- **Compare image output.** Preview the original, grayscale, and laser-optimized versions. New books start with gentle laser optimization; original files stay untouched.
+- **Keep useful EPUB features.** Configurable contents, bookmarks, links with printable URLs, notes, page references, and semantic formatting. Availability depends on the source book.
+- **Pick up where you left off.** History retains current Basic/Rich PDFs. Keep named versions, return to earlier layouts, and restore your reading position.
 
-```sh
-npm run mb -- setup
-npm run mb -- doctor
-npm run mb -- dev --no-build
-```
+The sidebar adapts to phones. Changes remain a draft until **Apply**; **Revert changes** restores the displayed layout. Failed or cancelled rendering keeps the previous PDF.
 
-Open [localhost:7777](http://localhost:7777). Development data goes in `.artifacts/dev-data`. Use `--port 7780` for another local port, or `--data /absolute/path` for an explicit development data directory. Re-run setup after editing source to rebuild the image; Docker caches dependencies and the rendering environment.
+## Try the sample
 
-For an installed native Chromium environment, `npm ci --ignore-scripts`, `npm run build`, and `npm run dev` run the server directly. Set `PUPPETEER_EXECUTABLE_PATH` if necessary. Use Docker for authoritative Basic comparisons.
+[Open or download the complete illustrated Alice PDF](samples/alice-microbook.pdf): **7 printed sides / 4 duplex sheets**, Letter paper, Rich mode, 6 CSS px (4.5 pt) text.
 
-## Test or render any book
+This is the app’s actual output, including the source’s credits and license. [Sample settings and provenance](samples/README.md) let you reproduce it. Print at **100% / actual size**, with the printer’s multi-page-per-sheet option disabled. Test duplex direction and folding with one sheet before printing a whole book.
 
-```sh
-npm run mb -- check
-npm run mb -- render --input /absolute/path/book.epub --mode rich --out /tmp/microbook-report
-npm run mb -- compare --input /absolute/path/book.epub --out /tmp/microbook-comparison
-npm run mb -- test --suite full
-npm run mb -- bench --input /absolute/path/book.epub --mode rich --runs 3
-```
+Tiny type is intentional and adjustable. What looks comfortable on screen may need a larger font on paper.
 
-CLI modes are `basic` and `rich`; the original `classic` and `book` aliases remain supported. API/settings JSON retain `classic` and `book` identifiers so existing preferences and exports remain compatible.
+## Run it yourself
 
-Add `--no-build` to reuse the image from setup. The optional `--settings /absolute/path/settings.json` accepts the same versioned schema as the interface. Export a configuration from **Layout → Advanced → Settings JSON**.
-
-Every command starts its own application with temporary storage and an available local port. Input files are mounted read-only. Tests never discover or target production. Reports contain the PDF, page images, source map, settings and font fingerprints, content/overflow checks, timings, and memory measurements. Benchmarks separate cold application/browser startup, warm rendering, and cache hits. Reports and private inputs stay outside tracked fixtures.
-
-The quick suite includes logic tests, original Basic parser tests, pixel comparisons, browser workflows, cancellation/recovery, and boundary cases. The full suite adds a multi-side Basic folding reference and pinned public-domain editions of illustrated Alice, Frankenstein, and Moby Dick. See [verification details](docs/VERIFICATION.md).
-
-## Deploy
+The **v2.0.0 release candidate** is being prepared. Until its container is published, build the current source:
 
 ```sh
+git clone https://github.com/DovieW/microbook-maker.git
+cd microbook-maker
 docker compose -f docker-compose.production.yml up --build -d
 ```
 
-The existing volume paths remain `/app/be/uploads` and `/app/be/generated`. Historical exports retain their original bytes and download URLs. **Test a copy of existing volumes on another port before upgrading an installation.** The [deployment guide](DEPLOYMENT.md) describes the candidate and rollback procedure.
+Open **http://localhost:7777**. Docker is the only requirement for this installation. The container includes the browser and fonts used to render PDFs.
 
-## Code
+Books and PDFs persist in the `mbm-uploads` and `mbm-generated` Docker volumes. Do not use `docker compose down -v` unless you intend to delete them.
 
-| Component | Responsibility |
-| --- | --- |
-| `apps/web` | React workspace, browser preferences, PDF preview, Library |
-| `apps/server` | Express API, atomic filesystem records, background job coordination |
-| `packages/core` | Shared settings/contracts, bounded source import, semantic document model |
-| `packages/renderer` | Frozen Basic pipeline, compact Rich compositor, Chromium rendering |
-| `tools` | Docker runner, fixtures, independent content/PDF audits, reports |
-| `tests` | Synthetic inputs, Basic goldens, logic/browser tests, public-book manifest |
+**Upgrading?** Back up both volumes and test their copies before switching images. Keep the old image and backup for rollback. See [deployment and upgrades](DEPLOYMENT.md).
 
-See [architecture and API](docs/ARCHITECTURE.md) for storage, rendering, and compatibility details.
+MicroBook currently provides a **single shared Library per installation, without accounts**. Use it locally or behind private-network/access protection. Do not expose this build as an anonymous public upload service. [Public hosting design](docs/PUBLIC_HOSTING.md) describes the separate work needed.
+
+## A short tour
+
+1. **Open book** imports an EPUB, Markdown, or text file.
+2. Use **Layout**, **Contents**, and **Images** to customize it.
+3. Press **Apply** to render your changes.
+4. Search or scroll through the PDF, then press **Print**.
+5. Open **History** to switch books or keep a named version.
+
+Rich supports reflowable EPUB 2/3. DRM-protected books are not supported; complex publisher layouts may need adjustment. Default paper is Letter, with 16 physical cells per printed side. Basic/Rich use the same folding geometry.
+
+Print processing and storage happen on the server you run. Metadata lookup is an explicit optional action. Use books you have permission to process; public-domain status varies by country.
+
+## Development and verification
+
+Node 24 and Docker provide the reproducible development/test environment:
+
+```sh
+npm run mb -- setup
+npm run mb -- dev --no-build
+npm run mb -- check
+npm run mb -- test --no-build --suite full
+```
+
+For a native environment with Chromium installed:
+
+```sh
+npm ci --ignore-scripts
+npm run build
+npm run dev
+```
+
+Set `PUPPETEER_EXECUTABLE_PATH` if Chromium is not found. Authoritative rendering comparisons use Docker’s pinned browser and fonts.
+
+Tests cover source content, overflow, original Basic output, PDF geometry, browser workflows, cancellation/recovery, persistence, and public-domain books. See [verification](docs/VERIFICATION.md).
+
+| Guide                                       | Contents                                       |
+| ------------------------------------------- | ---------------------------------------------- |
+| [Workspace](docs/WORKSPACE_REDESIGN.md)     | Navigation, drafts, History, printing          |
+| [Images](docs/IMAGE_OUTPUT.md)              | Output, comparison, rotation and test printing |
+| [EPUB features](docs/RICH_EPUB_FEATURES.md) | Source features and configurable behavior      |
+| [Architecture](docs/ARCHITECTURE.md)        | Components, API and storage                    |
+| [Deployment](DEPLOYMENT.md)                 | Installation, backups and rollback             |
+
+## License
+
+MicroBook’s software is licensed under [GNU GPL v3](LICENSE). Books and illustrations retain their own licenses; the software license does not grant rights to uploaded content. Bundled test illustrations are [CC0](resources/print-samples/LICENSE.md).

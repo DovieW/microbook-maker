@@ -1,0 +1,15 @@
+# Use after this tag has been published; override MICROBOOK_IMAGE to pin a digest.
+services:
+  microbook-maker:
+    image: ${MICROBOOK_IMAGE:-dovieuu/microbook-maker:2.0.0-rc.1}
+    ports:
+      - "127.0.0.1:7777:7777"
+    volumes:
+      - mbm-generated:/app/be/generated
+      - mbm-uploads:/app/be/uploads
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 30s
+volumes:
+  mbm-generated:
+  mbm-uploads:

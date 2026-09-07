@@ -1,3 +1,4 @@
+import { version } from '../../../package.json';
 import { Download, RotateCcw } from 'lucide-react';
 import { defaultSettings, fonts, modeLabels, type RenderSettings } from '@microbook/core';
 import { Dropdown } from './ui';
@@ -174,6 +175,7 @@ export function LayoutControls({ w }: { w: Workspace }) {
         </details>
         <details>
           <summary>Advanced</summary>
+          <p className="image-output-help">MicroBook {version}</p>
           {rich && (
             <>
               {number('marginMm', 'Page margins', 'mm', 0, 12, 0.5)}

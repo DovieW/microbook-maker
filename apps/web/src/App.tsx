@@ -1,3 +1,4 @@
+import { version } from '../../../package.json';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import {
   BookOpen,
@@ -113,7 +114,7 @@ export default function App() {
             <PanelLeft size={18} />
           </button>
         )}
-        <div className="brand">
+        <div className="brand" title={`MicroBook ${version}`}>
           <BookOpen size={19} />
           <span className="brand-name">MicroBook</span>
         </div>
@@ -187,8 +188,11 @@ export default function App() {
             <div className="preview-empty">
               {w.busy || w.active ? (
                 narrow && !w.mobileOpen ? (
-                  <RenderActivity job={w.active ? w.job : undefined} activity={w.active ? undefined : w.activity}
-                    onCancel={w.active ? () => void w.cancel() : undefined} />
+                  <RenderActivity
+                    job={w.active ? w.job : undefined}
+                    activity={w.active ? undefined : w.activity}
+                    onCancel={w.active ? () => void w.cancel() : undefined}
+                  />
                 ) : null
               ) : (
                 <div className="open-book-state">
@@ -204,8 +208,11 @@ export default function App() {
           )}
           {w.preview && narrow && !w.mobileOpen && (w.busy || w.active) && (
             <div className="preview-activity">
-              <RenderActivity job={w.active ? w.job : undefined} activity={w.active ? undefined : w.activity}
-                onCancel={w.active ? () => void w.cancel() : undefined} />
+              <RenderActivity
+                job={w.active ? w.job : undefined}
+                activity={w.active ? undefined : w.activity}
+                onCancel={w.active ? () => void w.cancel() : undefined}
+              />
             </div>
           )}
           {findOpen && w.preview && (

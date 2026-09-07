@@ -15,6 +15,7 @@ RUN npm ci --ignore-scripts
 COPY apps apps
 COPY packages packages
 COPY tools tools
+COPY resources resources
 COPY tests tests
 COPY tsconfig.json vitest.config.ts playwright.config.ts ./
 RUN npm run build
@@ -36,6 +37,7 @@ COPY --from=build /workspace/apps/server/package.json apps/server/package.json
 COPY --from=build /workspace/apps/web/package.json apps/web/package.json
 COPY --from=build /workspace/packages packages
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
+COPY --from=build /workspace/resources resources
 COPY --from=build /workspace/dist dist
 COPY --from=build /workspace/apps/web/dist apps/web/dist
 # pdfinfo is also needed when reading historical exports.

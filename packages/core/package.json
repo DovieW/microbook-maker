@@ -2,7 +2,7 @@
   "name": "@microbook/core",
   "private": true,
   "type": "module",
-  "version": "1.0.0",
+  "version": "2.0.0-rc.1",
   "exports": {
     ".": "./src/index.ts",
     "./import": "./src/import.ts"

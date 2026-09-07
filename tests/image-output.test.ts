@@ -132,3 +132,24 @@ test('rotation swaps dimensions, preserves source bytes and reuses cached orient
   expect(settingsSchema.parse({}).imageRotations).toEqual({});
   expect(settingsSchema.safeParse({ imageRotations: { b1: 45 } }).success).toBe(false);
 });
+
+test('fresh installations serve bundled fallback test artwork', async () => {
+  const { root, cache } = await fixture();
+  const app = express();
+  app.use(
+    '/api/image-test-print',
+    imageTestPrint(path.join(root, 'absent'), cache, path.resolve('resources/print-samples')),
+  );
+  const server = app.listen(0, '127.0.0.1');
+  await new Promise<void>((resolve) => server.once('listening', resolve));
+  const base = `http://127.0.0.1:${(server.address() as any).port}/api/image-test-print`;
+  try {
+    const html = await (await fetch(base)).text();
+    expect(html).toContain('Tonal landscape');
+    expect(html).toContain('Technical diagram');
+    expect(html.match(/<figure/g)?.length).toBe(10);
+    expect((await fetch(base + '/assets/0?output=laser&strength=gentle')).status).toBe(200);
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+});

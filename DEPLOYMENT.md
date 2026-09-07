@@ -2,6 +2,16 @@
 
 MicroBook Maker listens on **7777**. Express serves the interface and API; a child worker owns Chromium. The container does not launch Nginx or PM2.
 
+## Published release (after the tag is available)
+
+```sh
+docker compose -f docker-compose.release.yml up -d
+```
+
+This file pins `2.0.0-rc.1` and binds to localhost. Until that image is published, use the source-build instructions below. For a network installation, configure an authenticated proxy or trusted-network port mapping. The container currently supports linux/amd64.
+
+Set `MICROBOOK_IMAGE=dovieuu/microbook-maker@sha256:...` to pin an immutable digest. Use the same compose project name and volume names when switching files. The release candidate is not a stable upgrade recommendation until the checks below are complete.
+
 ## New installation
 
 ```sh
@@ -35,7 +45,7 @@ docker run -d --name microbook-candidate --init \
   microbook-maker:release-candidate
 ```
 
-Check [localhost:7780](http://localhost:7780). Open a historical item, inspect its metadata, and verify that its PDF download matches the original bytes. Import an EPUB, Apply different settings, reload with an unapplied draft, Print/Download, cancel/retry, and reopen a kept version inline from Books. Confirm `/api/health` reports `rendererReady: true`.
+Check [localhost:7780](http://localhost:7780). Open a historical item, inspect its metadata, and verify that its PDF download matches the original bytes. Import an EPUB, Apply different settings, reload with an unapplied draft, Print/Download, cancel/retry, and reopen a kept version inline from History. Confirm `/api/health` reports `rendererReady: true`.
 
 The compatibility reader adds versioned document/render records while retaining old flat files and download URLs. It never replaces a historical export with a freshly rendered approximation. A malformed historical record or missing original file is reported in server logs for repair; existing flat download URLs still work while their files remain present.
 

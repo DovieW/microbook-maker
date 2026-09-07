@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="250" viewBox="0 0 600 250">
+<rect width="600" height="250" fill="#fff"/>
+<g fill="#edf4f1" stroke="#000"><rect x="20" y="35" width="140" height="60" rx="6"/><rect x="230" y="35" width="140" height="60" rx="6"/><rect x="440" y="35" width="140" height="60" rx="6"/></g>
+<path d="M160 65H225m-10-7 10 7-10 7M370 65h65m-10-7 10 7-10 7" stroke="#000" fill="none" stroke-width="2"/>
+<g font-family="sans-serif" font-size="20" text-anchor="middle"><text x="90" y="72">Source</text><text x="300" y="72">Layout</text><text x="510" y="72">PDF</text></g>
+<path d="M20 125H580" stroke="#ccc" stroke-width=".5"/><path d="M20 145H580" stroke="#999" stroke-width="1"/><path d="M20 165H580" stroke="#555" stroke-width="2"/><path d="M20 185H580" stroke="#000" stroke-width="3"/>
+<text x="20" y="230" font-family="sans-serif" font-size="18">Fine lines, light fills and small labels</text></svg>

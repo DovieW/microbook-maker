@@ -16,7 +16,7 @@ SVG input in a processed mode is rasterized at up to 576 dpi in integer scale st
 
 Images → Test print opens `/api/image-test-print` in a separate tab. It displays five identical-size columns (Original, Grayscale, Gentle, Standard, Strong) and enables its Print button only after all images decode. The browser prints one Letter landscape side at actual size. It does not apply book drafts, create versions, or modify the current PDF.
 
-The private server's selected cover and diagrams live in `uploads/print-samples`, independently of Library documents and cleanup. Preserve that directory in volume backups. No copyrighted sample bytes are shipped in Git. Provision a new server with explicitly selected local Library assets:
+New installations fall back to bundled CC0 tonal and technical test illustrations. A configured private sample set takes precedence. The private server's selected cover and diagrams live in `uploads/print-samples`, independently of Library documents and cleanup. Preserve that directory in volume backups. No copyrighted sample bytes are shipped in Git. Provision a new server with explicitly selected local Library assets:
 
 ```
 node tools/seed-image-test.mjs /path/to/uploads DOCUMENT_ID:a1 DOCUMENT_ID:a4 DOCUMENT_ID:a7
