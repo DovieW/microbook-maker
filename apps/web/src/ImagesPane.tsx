@@ -102,11 +102,30 @@ export function ImagesPane({ w }: { w: Workspace }) {
           <summary>Repeated images</summary>
           {repeatedImageGroups(doc).map((group) => {
             const asset = doc.assets.find((a) => a.id === group[0].assetId);
+            const includedCount = group.filter((b) => !draft.excludedImageIds.includes(b.id)).length;
             const applied = group.every((b) => draft.imageTreatments[b.id]?.kind === 'flourish');
             return (
               <div className="repeated-image" key={group[0].assetId}>
                 {asset && <img src={`/api/documents/${doc.id}/assets/${asset.id}`} alt="Repeated artwork" />}
                 <span>{group.length} occurrences</span>
+                <input
+                  type="checkbox"
+                  aria-label={`Include all ${group.length} occurrences of repeated image ${group[0].assetId}`}
+                  title={includedCount === group.length ? 'Uncheck all occurrences' : 'Check all occurrences'}
+                  disabled={!!w.kept || !draft.includeImages}
+                  checked={includedCount === group.length}
+                  ref={(node) => {
+                    if (node) node.indeterminate = includedCount > 0 && includedCount < group.length;
+                  }}
+                  onChange={(event) => {
+                    const ids = new Set(group.map((b) => b.id));
+                    w.edit({
+                      excludedImageIds: event.target.checked
+                        ? draft.excludedImageIds.filter((id) => !ids.has(id))
+                        : [...new Set([...draft.excludedImageIds, ...ids])].sort(),
+                    });
+                  }}
+                />
                 <button
                   disabled={!!w.kept}
                   onClick={() =>

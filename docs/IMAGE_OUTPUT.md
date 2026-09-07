@@ -1,6 +1,6 @@
 # Image output and test printing
 
-Images → Defaults offers Original color, Grayscale, and Laser optimized. Laser has Gentle (default), Standard, and Strong contrast. New books start with gentle laser output, unless a different book-wide image output has been remembered in this browser. Existing drafts, old render records and kept versions retain original color when the setting is absent. Per-image output can override the book default or reset to “Use book setting”; overrides never carry into another book.
+Images → Defaults offers Original color, Grayscale, and Laser optimized. Laser has Gentle (default), Standard, and Strong contrast. New books start with Laser optimized and Gentle contrast, regardless of the previous book’s choices. Existing books retain their settings. Existing drafts, old render records and kept versions retain original color when the setting is absent. Per-image output can override the book default or reset to “Use book setting”; overrides never carry into another book.
 
 The enlarged image dialog compares original and processed pixels without navigating the PDF. Its processed image uses the same server endpoint as the compositor. Apply remains shared with all print/metadata settings. The PDF and its locations remain unchanged until a successful Apply; an image output change still requires PDF generation, but unchanged image processing is reused.
 

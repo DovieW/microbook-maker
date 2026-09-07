@@ -68,8 +68,8 @@ export function ImageOutputControls({ w, blockId }: { w: Workspace; blockId?: st
       )}
       {!blockId && (
         <p className="image-output-help">
-          Originals are preserved. Processed images are reused when you Apply. These defaults are remembered
-          for new books.
+          Originals are preserved. Processed images are reused when you Apply. New books start with Laser
+          optimized · Gentle. Changes here apply to this book.
         </p>
       )}
     </div>

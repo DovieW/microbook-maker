@@ -55,10 +55,15 @@ test('repeated flourishes preserve source placement, bulk controls, overrides, a
   expect(changed.result.imageRegions[1].width).toBeCloseTo(18, 1);
   await page.getByText('20 matching images', { exact: true }).click();
   await page.getByRole('button', { name: 'Apply treatment to all 20', exact: true }).click();
-  await page.getByRole('button', { name: 'Exclude all matching', exact: true }).click();
+  const groupCheckbox = page.getByRole('checkbox', { name: /^Include all 20 occurrences of repeated image/ });
+  await expect(groupCheckbox).toBeChecked();
+  await groupCheckbox.uncheck();
+  await expect(page.locator('.image-choice-main input:checked')).toHaveCount(0);
+  await expect(preview(page)).toHaveAttribute('data-render-id', changed.id);
   await applied(page);
   expect((await ready(page, request)).result.imageRegions).toHaveLength(0);
-  await page.getByRole('button', { name: 'Include all matching', exact: true }).click();
+  await groupCheckbox.check();
+  await expect(page.locator('.image-choice-main input:checked')).toHaveCount(20);
   await applied(page);
   const restored = await ready(page, request);
   expect(restored.result.imageRegions).toHaveLength(20);
@@ -67,6 +72,8 @@ test('repeated flourishes preserve source placement, bulk controls, overrides, a
   await tab(page, 'Images');
   await expect(page.getByLabel('Flourish width', { exact: true })).toHaveValue('6');
   await page.getByLabel('Include image 1', { exact: true }).uncheck();
+  await page.getByText('Repeated images', { exact: true }).click();
+  await expect(groupCheckbox).toBeChecked({ indeterminate: true });
   await applied(page);
   const excluded = await ready(page, request);
   expect(excluded.result.imageRegions).toHaveLength(19);

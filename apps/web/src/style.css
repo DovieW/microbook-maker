@@ -1836,7 +1836,7 @@ summary > span {
 }
 .repeated-image {
   display: grid;
-  grid-template-columns: 38px 1fr;
+  grid-template-columns: 38px minmax(0, 1fr) 44px;
   align-items: center;
   gap: 5px 8px;
   padding: 8px 0;

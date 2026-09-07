@@ -436,11 +436,16 @@ export function useWorkspace() {
       setPreviews({});
       const state = usePreferences.getState();
       const mode = state.explicitMode || (document.format === 'epub' ? 'book' : 'classic');
-      const initialSettings =
-        mode === 'book' ? { ...state.settings[mode], rich: newRichFeatures() } : state.settings[mode];
+      const bookSettings = {
+        ...state.settings.book,
+        rich: newRichFeatures(),
+        imageOutput: { mode: 'laser' as const, strength: 'gentle' as const },
+        imageOutputOverrides: {},
+      };
+      const initialSettings = mode === 'book' ? bookSettings : state.settings[mode];
       state.document(document.id, {
         mode,
-        drafts: { book: { ...state.settings.book, rich: newRichFeatures() }, [mode]: initialSettings },
+        drafts: { book: bookSettings, [mode]: initialSettings },
         metadata: document.metadata,
         cell: 0,
       });

@@ -140,10 +140,11 @@ test('image output previews draft pixels without navigation and applies per-imag
   await applied(page);
   expect((await ready(page, request)).id).toBe(original.id);
   await page.locator('.image-defaults summary').click();
+  await page.getByLabel('Default laser contrast', { exact: true }).selectOption('strong');
   await page.getByLabel('Default image output', { exact: true }).selectOption('original');
   await upload(page, 'publisher-alternatives.epub');
   const next = await ready(page, request);
-  expect(next.settings.imageOutput.mode).toBe('original');
+  expect(next.settings.imageOutput).toEqual({ mode: 'laser', strength: 'gentle' });
   expect(next.settings.imageOutputOverrides).toEqual({});
 });
 
