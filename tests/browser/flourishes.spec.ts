@@ -90,4 +90,27 @@ test('repeated flourishes preserve source placement, bulk controls, overrides, a
   for (const region of rotated.result.imageRegions) {
     expect(region.width / region.height).toBeCloseTo(14 / 27, 1);
   }
+  await page.getByText('Adjust all 20 images', { exact: true }).click();
+  await page.getByLabel('Repeated images width', { exact: true }).fill('5');
+  await page.getByLabel('Repeated images gap', { exact: true }).fill('0.5');
+  await page.getByLabel('Repeated images orientation', { exact: true }).selectOption('0');
+  await page.getByLabel('Repeated images image output', { exact: true }).selectOption('laser');
+  await page.getByLabel('Repeated images laser contrast', { exact: true }).selectOption('strong');
+  await expect(preview(page)).toHaveAttribute('data-render-id', rotated.id);
+  await applied(page);
+  const bulk = await ready(page, request);
+  expect(Object.values(bulk.settings.imageTreatments)).toEqual(
+    Array(20).fill({ kind: 'flourish', widthEm: 5, gapEm: 0.5 }),
+  );
+  expect(Object.values(bulk.settings.imageRotations)).toEqual(Array(20).fill(0));
+  expect(Object.values(bulk.settings.imageOutputOverrides)).toEqual(
+    Array(20).fill({ mode: 'laser', strength: 'strong' }),
+  );
+  await page.getByLabel('Flourish width', { exact: true }).fill('6');
+  await expect(page.getByLabel('Repeated images width', { exact: true })).toHaveValue('');
+  await page.getByLabel('Repeated images gap', { exact: true }).fill('0.25');
+  await applied(page);
+  const mixed = await ready(page, request);
+  expect(Object.values(mixed.settings.imageTreatments).filter((t: any) => t.widthEm === 6)).toHaveLength(1);
+  expect(Object.values(mixed.settings.imageTreatments).every((t: any) => t.gapEm === 0.25)).toBe(true);
 });

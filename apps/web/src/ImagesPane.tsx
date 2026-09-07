@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { repeatedImageGroups, imageOutputQuery, settingsSchema } from '@microbook/core';
+import { RepeatedImageControls } from './RepeatedImageControls';
 import { ImageOutputControls } from './ImageOutputControls';
 import { ImageRotationControls } from './ImageRotationControls';
 import { ImagePreview, type PreviewImage } from './ImagePreview';
@@ -156,6 +157,7 @@ export function ImagesPane({ w }: { w: Workspace }) {
                 >
                   {applied ? 'Use as illustrations' : 'Use as flourishes'}
                 </button>
+                <RepeatedImageControls w={w} group={group} />
               </div>
             );
           })}
