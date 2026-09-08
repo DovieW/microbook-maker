@@ -73,6 +73,7 @@ export const usePreferences = create<Preferences>()(
             [settings.mode]: {
               ...settings,
               selectedSections: null,
+              sectionOrder: [],
               excludedImageIds: [],
               imageCellSpans: {},
               imageTreatments: {},
@@ -159,6 +160,7 @@ export const usePreferences = create<Preferences>()(
                   ? { mode: 'laser', strength: 'gentle' }
                   : parsed.data.imageOutput,
               selectedSections: null,
+              sectionOrder: [],
               excludedImageIds: [],
               imageCellSpans: {},
               imageTreatments: {},

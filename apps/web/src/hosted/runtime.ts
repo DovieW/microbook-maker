@@ -9,7 +9,7 @@ import {
   type BookDocument,
   type RenderJob,
 } from '@microbook/core';
-const fingerprint = { renderer: 'hosted-browser-1' };
+const fingerprint = { renderer: 'hosted-browser-2' };
 const active = new Map<string, AbortController>();
 let queue = Promise.resolve();
 const channel = new BroadcastChannel('microbook-render-jobs');

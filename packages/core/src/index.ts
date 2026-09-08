@@ -89,6 +89,11 @@ export const settingsSchema = z
     excludedImageIds: z.array(z.string().max(200)).max(10000).default([]),
     marginMm: z.number().min(0).max(12).default(0),
     selectedSections: z.array(z.string()).nullable().default(null),
+    sectionOrder: z
+      .array(z.string())
+      .max(10000)
+      .refine((ids) => new Set(ids).size === ids.length, 'Section order contains duplicates')
+      .default([]),
   })
   .superRefine((s, ctx) => {
     if (
@@ -512,12 +517,24 @@ export function selectedDocumentBlocks(doc: BookDocument, settings?: RenderSetti
           .map((b) => b.id)
       : [],
   );
-  return blocks.filter(
-    (b) =>
-      (!settings?.selectedSections || settings.selectedSections.includes(b.sectionId)) &&
-      !excluded.has(b.id) &&
-      !(b.captionFor && excluded.has(b.captionFor)),
+  const rank = new Map(
+    orderedSections(doc, settings?.sectionOrder).map((section, index) => [section.id, index]),
   );
+  return blocks
+    .slice()
+    .sort((a, b) => (rank.get(a.sectionId) ?? Infinity) - (rank.get(b.sectionId) ?? Infinity))
+    .filter(
+      (b) =>
+        (!settings?.selectedSections || settings.selectedSections.includes(b.sectionId)) &&
+        !excluded.has(b.id) &&
+        !(b.captionFor && excluded.has(b.captionFor)),
+    );
+}
+/** Stable IDs allow saved drafts to survive imports with added or removed sections. */
+export function orderedSections(doc: Pick<BookDocument, 'sections'>, order: string[] = []) {
+  const byId = new Map(doc.sections.map((section) => [section.id, section]));
+  const ids = [...new Set([...order, ...doc.sections.map((section) => section.id)])];
+  return ids.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : []));
 }
 export const documentText = (doc: BookDocument, settings?: RenderSettings) =>
   selectedDocumentBlocks(doc, settings)

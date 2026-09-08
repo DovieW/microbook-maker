@@ -15,6 +15,7 @@ _Screenshot and sample: Lewis Carroll’s Alice’s Adventures in Wonderland, il
 - **Two layouts.** Basic keeps text compact; Rich preserves EPUB structure, headings, illustrations, captions, poetry, lists, and simple tables.
 - **A real PDF workspace.** Scroll complete printed sides, select text, search the book, and jump to chapters or illustrations.
 - **Print, without the detour.** Print the server’s completed PDF in the same app. Download a copy when you want one.
+- **Arrange the contents.** Drag sections, move them with the keyboard, or enter a position. Apply the new order or restore the original.
 - **Control the paper.** Set font, text size, line height, fold guides, margins, paragraph spacing, and distinct chapter/part headings.
 - **Make images work in print.** Include or remove illustrations, use one or two cells, rotate artwork, or turn repeated ornaments into compact flourishes. Adjust matching images together.
 - **Compare image output.** Preview the original, grayscale, and laser-optimized versions. New books start with gentle laser optimization; original files stay untouched.

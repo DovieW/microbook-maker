@@ -130,13 +130,12 @@ export async function renderBook(payload: {
     // through this container moves the whole 100%-height flow below its clipping edge.
     flow.style.display = 'flow-root';
     if (s.positionHeaders && current > 0 && slot % 4 === 0) {
-      const position = document.createElement('div');
+      const position = document.createElement('span');
       position.className = 'cell-position';
-      // Reserve a fixed line before pagination; filling in final counts cannot reflow text.
+      // Reserve a fixed inline width; final counts cannot change pagination.
       position.textContent = '0a / 0 · 0%';
       positionHeaders[current] = position;
-      cell.append(position);
-      flow.style.height = `calc(100% - ${s.fontSizePx}px)`;
+      flow.append(position);
     }
     cell.append(flow);
     page.append(cell);
@@ -213,7 +212,7 @@ export async function renderBook(payload: {
       margin-bottom:.1em;
     }
     .literary-heading .heading-title {display:block}
-    .cell-position {height:${s.fontSizePx}px;font-size:.8em;line-height:${s.fontSizePx}px;text-align:left;text-align-last:left;white-space:nowrap;color:#000;font-variant-numeric:tabular-nums}
+    .cell-position {float:left;width:10em;max-width:45%;height:${s.fontSizePx * s.lineHeight}px;margin-right:.4em;font-size:1em;font-style:italic;line-height:${s.lineHeight};text-align:left;text-align-last:left;white-space:nowrap;color:#000;font-variant-numeric:tabular-nums}
   `;
   document.head.append(headingStyle);
   function ensureHeader() {
@@ -231,6 +230,18 @@ export async function renderBook(payload: {
       flow = nextCell();
       flow.append(header);
     }
+  }
+  function imagePosition(flow: HTMLElement) {
+    const position = flow.querySelector<HTMLElement>(':scope > .cell-position');
+    if (!position) return;
+    const other = Array.from(flow.children).filter(
+      (child) => child !== position && !child.classList.contains('image-group'),
+    );
+    if (other.length) return;
+    position.style.cssFloat = 'none';
+    position.style.display = 'block';
+    flow.parentElement!.insertBefore(position, flow);
+    flow.style.height = `calc(100% - ${s.fontSizePx * s.lineHeight}px)`;
   }
   function fit(node: HTMLElement) {
     const bounds = node.getBoundingClientRect();
@@ -596,13 +607,14 @@ export async function renderBook(payload: {
       if ((s.imageCellSpans[block.id] ?? (s.twoCellImages ? 2 : 1)) === 2) {
         // A spread owns two neighboring physical slots on the same printed row.
         // Keep the source map at 16 slots/side; either slot previews the complete image.
-        if (flow.childNodes.length) flow = nextCell();
+        if (flow.querySelector(':scope > :not(.cell-position)')) flow = nextCell();
         if (current % 4 === 3) {
           maps[current].blank = true;
           flow = nextCell();
         }
         const first = current;
         const owner = flow;
+        imagePosition(owner);
         const cell = owner.parentElement!;
         const secondFlow = nextCell();
         const second = current;
@@ -697,6 +709,7 @@ export async function renderBook(payload: {
       }
       flow.append(group);
       const sizeImage = () => {
+        imagePosition(flow);
         const captionHeight =
           captionNode?.parentElement === group ? captionNode.getBoundingClientRect().height : 0;
         const labelHeight = labels.reduce(
@@ -850,7 +863,7 @@ export async function renderBook(payload: {
             lo = mid + 1;
           } else hi = mid - 1;
         }
-        if (!best && flow.childNodes.length) {
+        if (!best && flow.querySelector(':scope > :not(.cell-position)')) {
           flow = nextCell();
           continue;
         }
@@ -977,6 +990,7 @@ export async function renderBook(payload: {
       cellBounds.bottom - parseFloat(cellStyle.borderBottomWidth) - parseFloat(cellStyle.paddingBottom);
     if (bounds.top < top - 0.25 || bounds.bottom > bottom + 0.25) overflows++;
     for (const child of Array.from(f.children)) {
+      if (child.classList.contains('cell-position')) continue;
       const rect = child.getBoundingClientRect();
       if (
         rect.bottom > bounds.bottom + 0.25 ||

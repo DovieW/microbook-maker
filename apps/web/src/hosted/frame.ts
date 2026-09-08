@@ -209,7 +209,7 @@ export async function render(
     imageRegions,
     pages: pages.length,
     sheets: Math.ceil(pages.length / 2),
-    fingerprint: { renderer: 'hosted-browser-1' },
+    fingerprint: { renderer: 'hosted-browser-2' },
     timings: { layout: performance.now() - started },
     peakMemoryMb: 0,
     diagnostics: [...documentData.diagnostics, ...(content.diagnostics || [])],

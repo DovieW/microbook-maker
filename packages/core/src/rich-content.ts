@@ -111,7 +111,9 @@ export function prepareRichContent(doc: BookDocument, settings: RenderSettings) 
       if (options.notes === 'chapter' && ref)
         target = blocks.filter((b) => chapterByBlock.get(b.id) === chapterByBlock.get(ref)).at(-1)?.id;
       if (options.notes === 'source') {
-        const ordered = blocks.filter((b) => (b.sourceOrder ?? Infinity) < (group[0].sourceOrder ?? 0));
+        const ordered = blocks.filter(
+          (b) => (sourceById.get(b.id)?.index ?? Infinity) < (sourceById.get(group[0].id)?.index ?? 0),
+        );
         target = ordered.at(-1)?.id;
       }
       const content = group.map((b) => ({

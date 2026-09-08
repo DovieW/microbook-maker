@@ -55,6 +55,9 @@ def audit_pdf(pdf, document, settings, metadata, cells):
     text = subprocess.check_output(['pdftotext', '-raw', str(pdf), '-']).decode('utf-8')
     selected = settings.get('selectedSections')
     blocks = [b for b in document['blocks'] if not selected or b['sectionId'] in selected]
+    order = list(dict.fromkeys(settings.get('sectionOrder', []) + [s['id'] for s in document['sections']]))
+    rank = {id: index for index, id in enumerate(order)}
+    blocks.sort(key=lambda b: rank.get(b['sectionId'], len(rank)))
     excluded = {b['id'] for b in blocks if b['kind'] == 'image' and not b.get('imageHeading') and b['id'] in settings.get('excludedImageIds', [])}
     blocks = [b for b in blocks if b['id'] not in excluded and b.get('captionFor') not in excluded]
     def reading_text(block):
@@ -92,7 +95,9 @@ def audit_pdf(pdf, document, settings, metadata, cells):
                 for cell in marker_cells:
                     slot = cell['index'] % 16
                     top = cell['y'] + (0.75 * ((4 if settings.get('foldGaps') else 0) + (1 if settings['borderStyle'] != 'none' else 0)) if slot >= 4 else 0)
-                    if cell['x'] <= x < cell['x'] + cell['width'] and top <= y < top + settings['fontSizePx'] * 0.75:
+                    # The inline marker reserves 10em (capped at 45% of the flow), not a whole line.
+                    marker_right = cell['x'] + 1.5 + min(settings['fontSizePx'] * 7.5, (cell['width'] - 3) * .45)
+                    if cell['x'] <= x < marker_right and top <= y < top + settings['fontSizePx'] * settings.get('lineHeight', 1) * 0.75:
                         found = cell['index']
                         break
                 value = normalized(word.text or '')
