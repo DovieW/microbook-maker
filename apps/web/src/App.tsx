@@ -67,6 +67,8 @@ export default function App() {
       onReading={w.onReading}
       jump={w.jump}
       selectedImageId={w.docPrefs?.selectedImageId}
+      selectedSectionId={w.selectedSectionId}
+      selectedSectionCell={w.selectedSectionCell}
       onImage={w.openImages}
       imageLabels={Object.fromEntries(w.imageEntries.map((entry, i) => [entry.block.id, i + 1]))}
       query={w.docPrefs?.search || ''}
@@ -174,7 +176,7 @@ export default function App() {
             <Suspense
               fallback={
                 <div className="preview-empty">
-                  {!w.busy && !w.active && <RenderActivity activity="Opening preview" />}
+                  <LoaderCircle size={24} className="spin" role="status" aria-label="Opening preview" />
                 </div>
               }
             >
@@ -187,13 +189,7 @@ export default function App() {
           {!w.preview && (
             <div className="preview-empty">
               {w.busy || w.active ? (
-                narrow && !w.mobileOpen ? (
-                  <RenderActivity
-                    job={w.active ? w.job : undefined}
-                    activity={w.active ? undefined : w.activity}
-                    onCancel={w.active ? () => void w.cancel() : undefined}
-                  />
-                ) : null
+                <LoaderCircle size={24} className="spin" role="status" aria-label="Loading preview" />
               ) : (
                 <div className="open-book-state">
                   <BookOpen size={32} aria-hidden="true" />
@@ -202,12 +198,17 @@ export default function App() {
                   </button>
                   <span>EPUB · TXT · Markdown</span>
                   <small>or drop a file here</small>
-                  {import.meta.env.VITE_HOSTED === '1' && <p className="hosted-notice" style={{maxWidth:380}}>Free Cloudflare beta. Books stay in this browser for up to 24 hours; print documents are sent to Cloudflare for conversion. Only process material you are authorized to use.</p>}
+                  {import.meta.env.VITE_HOSTED === '1' && (
+                    <p className="hosted-notice" style={{ maxWidth: 380 }}>
+                      Free Cloudflare beta. Books stay in this browser for up to 24 hours; print documents are
+                      sent to Cloudflare for conversion. Only process material you are authorized to use.
+                    </p>
+                  )}
                 </div>
               )}
             </div>
           )}
-          {w.preview && narrow && !w.mobileOpen && (w.busy || w.active) && (
+          {narrow && !w.mobileOpen && (w.busy || w.active) && (
             <div className="preview-activity">
               <RenderActivity
                 job={w.active ? w.job : undefined}

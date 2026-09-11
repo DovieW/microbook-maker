@@ -1,3 +1,4 @@
+import { LoaderCircle } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { getDocument, GlobalWorkerOptions, AnnotationMode, type PDFDocumentProxy } from 'pdfjs-dist';
 import worker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
@@ -17,6 +18,8 @@ type Props = {
   onZoom: (n: number) => void;
   onReading: (id: string, p: ReadingPosition) => void;
   selectedImageId?: string;
+  selectedSectionId?: string;
+  selectedSectionCell?: number;
   onImage: (id: string) => void;
   imageLabels?: Record<string, number>;
   jump?: { id: string; page: number; x: number; y: number; serial: number };
@@ -41,7 +44,6 @@ export function Preview(props: Props) {
   const [ready, setReady] = useState('');
   const restored = useRef(false);
   const [error, setError] = useState('');
-  const [progress, setProgress] = useState<number>();
   const activeRef = useRef(visible);
   activeRef.current = visible;
   const lastJump = useRef(0);
@@ -53,7 +55,6 @@ export function Preview(props: Props) {
     let scrollTimer: ReturnType<typeof setTimeout>;
     setLoading(true);
     setError('');
-    setProgress(undefined);
     lastJump.current = 0;
     restored.current = false;
     setReady('');
@@ -73,6 +74,23 @@ export function Preview(props: Props) {
       enableAutoLinking: false,
     });
     linkService.setViewer(viewer);
+    const addSectionHit = (
+      layer: HTMLElement,
+      region: { x: number; y: number; width: number; height: number },
+      sectionId: string,
+      fallback = false,
+    ) => {
+      const hit = document.createElement('div');
+      hit.className = `section-hit${fallback ? ' fallback' : ''}${sectionId === live.current.selectedSectionId ? ' selected' : ''}`;
+      hit.dataset.sectionId = sectionId;
+      Object.assign(hit.style, {
+        left: `${(region.x / 612) * 100}%`,
+        top: `${(region.y / 792) * 100}%`,
+        width: `${(region.width / 612) * 100}%`,
+        height: `${(region.height / 792) * 100}%`,
+      });
+      layer.append(hit);
+    };
     const overlays = () => {
       for (let p = 0; p < job.result!.pages; p++) {
         const page = viewer.getPageView(p);
@@ -80,9 +98,22 @@ export function Preview(props: Props) {
         if (job.settings.mode !== 'book') continue;
         const existing = page.div.querySelector('.image-overlays') as HTMLElement | null;
         if (existing) {
+          existing.querySelectorAll('.section-hit.fallback').forEach((hit) => hit.remove());
           existing.querySelectorAll<HTMLElement>('.image-hit').forEach((hit) => {
             hit.classList.toggle('selected', hit.dataset.imageBlock === live.current.selectedImageId);
           });
+          existing.querySelectorAll<HTMLElement>('.section-hit').forEach((hit) => {
+            hit.classList.toggle('selected', hit.dataset.sectionId === live.current.selectedSectionId);
+          });
+          const selectedCell = job.result!.cells[live.current.selectedSectionCell ?? -1];
+          if (
+            live.current.selectedSectionId &&
+            selectedCell?.page === p &&
+            !existing.querySelector(
+              `.section-hit[data-section-id="${CSS.escape(live.current.selectedSectionId)}"]`,
+            )
+          )
+            addSectionHit(existing, selectedCell, live.current.selectedSectionId, true);
           continue;
         }
         const layer = document.createElement('div');
@@ -109,6 +140,17 @@ export function Preview(props: Props) {
             hit.append(button);
             layer.append(hit);
           }
+        for (const region of job.result!.sectionRegions || [])
+          if (region.page === p) addSectionHit(layer, region, region.sectionId);
+        const selectedCell = job.result!.cells[live.current.selectedSectionCell ?? -1];
+        if (
+          live.current.selectedSectionId &&
+          selectedCell?.page === p &&
+          !(job.result!.sectionRegions || []).some(
+            (region) => region.sectionId === live.current.selectedSectionId,
+          )
+        )
+          addSectionHit(layer, selectedCell, live.current.selectedSectionId, true);
         page.div.append(layer);
       }
     };
@@ -158,9 +200,6 @@ export function Preview(props: Props) {
       },
     );
     const task = getDocument({ url: `/api/renders/${job.id}/pdf` });
-    task.onProgress = ({ loaded, total }: { loaded: number; total: number }) => {
-      if (total && !stopped) setProgress(Math.round((loaded / total) * 100));
-    };
     void task.promise
       .then((pdf) => {
         if (stopped) return;
@@ -244,7 +283,10 @@ export function Preview(props: Props) {
     holder.current
       ?.querySelectorAll<HTMLElement>('.image-hit')
       .forEach((hit) => hit.classList.toggle('selected', hit.dataset.imageBlock === props.selectedImageId));
-  }, [props.selectedImageId]);
+    holder.current
+      ?.querySelectorAll<HTMLElement>('.section-hit')
+      .forEach((hit) => hit.classList.toggle('selected', hit.dataset.sectionId === props.selectedSectionId));
+  }, [props.selectedImageId, props.selectedSectionId]);
   useEffect(() => {
     if (adapter && visible) {
       if (!props.findOpen) {
@@ -289,9 +331,9 @@ export function Preview(props: Props) {
         <div className="pdfViewer" ref={pages} />
       </div>
       {loading && (
-        <span className="viewer-progress" role="status">
-          {progress !== undefined && progress < 100 ? `Loading PDF · ${progress}%` : 'Drawing preview'}
-        </span>
+        <div className="viewer-loading" role="status" aria-label="Loading preview">
+          <LoaderCircle size={24} className="spin" aria-hidden="true" />
+        </div>
       )}
       {error && (
         <p className="viewer-error" role="alert">

@@ -1,4 +1,4 @@
-import { newRichFeatures, richFeaturesSchema, type RichFeatures as Features } from '@microbook/core';
+import { richFeaturesSchema, type RichFeatures as Features } from '@microbook/core';
 import { Dropdown } from './ui';
 import type { Workspace } from './LayoutControls';
 export function RichFeatures({
@@ -71,10 +71,6 @@ export function RichFeatures({
         {!w.doc?.pageList?.length && !w.doc?.blocks.some((b) => b.pageLabel) && (
           <small>No original page markers supplied by this book.</small>
         )}
-        <button className="full-button" onClick={() => edit(newRichFeatures())}>
-          Use new Rich defaults
-        </button>
-        <small>Changes apply to this book only, after Apply.</small>
       </details>
     );
   if (group === 'references')

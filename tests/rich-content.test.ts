@@ -119,9 +119,24 @@ it('replaces guide contents and resolves hidden pagebreak link targets', async (
       'test',
       dir,
     );
-    const result = prepareRichContent(doc, { ...defaultSettings(), rich: newRichFeatures() });
+    const contentsSection = doc.blocks.find((b) => b.tocContent)?.sectionId;
+    expect(contentsSection).toBeDefined();
+    const sectionOrder = [
+      ...doc.sections.filter((section) => section.id !== contentsSection).map((section) => section.id),
+      contentsSection!,
+    ];
+    const result = prepareRichContent(doc, {
+      ...defaultSettings(),
+      rich: newRichFeatures(),
+      sectionOrder,
+    });
     expect(doc.blocks.some((b) => blockText(b).includes('GUIDE-ONLY'))).toBe(true);
     expect(result.blocks.some((b) => blockText(b).includes('GUIDE-ONLY'))).toBe(false);
+    expect(result.blocks.find((b) => b.id === 'generated-toc-title')?.sectionId).toBe(contentsSection);
+    const contentsIndex = result.blocks.findIndex((b) => b.id === 'generated-toc-title');
+    expect(contentsIndex).toBeGreaterThan(
+      result.blocks.findLastIndex((b) => b.sectionId !== contentsSection),
+    );
     const target = result.anchors.get('OEBPS/text/one.xhtml#chapter1');
     expect(result.blocks.find((b) => b.id === target)?.kind).toBe('heading');
     expect(result.navigation.some((n) => n.blockId === target)).toBe(true);

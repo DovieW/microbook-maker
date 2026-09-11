@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { IconButton } from './ui';
 
 export function Navigation({
@@ -22,6 +22,9 @@ export function Navigation({
   };
   return (
     <nav className="navigation" aria-label="Preview navigation">
+      <IconButton label="First side" disabled={!total || value <= 1} onClick={() => onChange(1)}>
+        <ChevronsLeft size={17} />
+      </IconButton>
       <IconButton label="Previous" disabled={!total || value <= 1} onClick={() => onChange(value - 1)}>
         <ChevronLeft size={17} />
       </IconButton>
@@ -53,6 +56,9 @@ export function Navigation({
       )}
       <IconButton label="Next" disabled={!total || value >= total} onClick={() => onChange(value + 1)}>
         <ChevronRight size={17} />
+      </IconButton>
+      <IconButton label="Last side" disabled={!total || value >= total} onClick={() => onChange(total)}>
+        <ChevronsRight size={17} />
       </IconButton>
     </nav>
   );

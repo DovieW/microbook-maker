@@ -16,14 +16,15 @@ test('initial rendering uses a compact phase indicator and respects reduced moti
   await expect(loading).toHaveCount(1);
   await expect(loading).toBeVisible();
   await expect(loading).toContainText('Submitting render');
-  await expect(page.locator('.preview-empty .spin')).toHaveCount(0);
+  await expect(page.locator('.preview-empty .spin')).toBeVisible();
   await expect(loading.locator('.preview-loading-track')).toHaveCSS('height', '2px');
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await expect(loading.locator('.preview-loading-track > span')).toHaveCSS('animation-name', 'none');
   await expect(page.locator('.sidebar-action .render-activity')).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(loading).toHaveCount(1);
-  await expect(page.locator('.preview-empty .render-activity')).toBeVisible();
+  await expect(page.locator('.preview-empty .spin')).toBeVisible();
+  await expect(page.locator('.preview-activity .render-activity')).toBeVisible();
   await page.getByRole('button', { name: 'Open tools', exact: true }).click();
   await expect(loading).toHaveCount(1);
   await expect(page.locator('.sidebar-action .render-activity')).toBeVisible();

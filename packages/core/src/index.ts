@@ -235,6 +235,7 @@ export interface BookDocument {
   >;
 }
 export interface CellMap {
+  positionHeader?: { x: number; y: number; width: number; height: number };
   index: number;
   page: number;
   x: number;
@@ -300,6 +301,7 @@ export function cellAtLocation(cells: CellMap[], location: SourceLocation): numb
 export interface RenderResult {
   destinations?: Record<string, { page: number; x: number; y: number; cell: number }>;
   navigation?: { title: string; blockId: string; depth: number }[];
+  sectionRegions?: { sectionId: string; page: number; x: number; y: number; width: number; height: number }[];
   pages: number;
   sheets: number;
   cells: CellMap[];

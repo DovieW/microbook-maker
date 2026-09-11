@@ -53,6 +53,8 @@ export function useWorkspace() {
   const [libraryError, setLibraryError] = useState('');
   const libraryRequest = useRef<AbortController | undefined>(undefined);
   const [dragging, setDragging] = useState(false);
+  const [selectedSectionId, setSelectedSectionId] = useState<string>();
+  const [selectedSectionCell, setSelectedSectionCell] = useState<number>();
   const [actualZoom, setActualZoom] = useState(1);
   const generation = useRef(0);
   const exportNext = useRef<{ id: string; action: OutputAction } | undefined>(undefined);
@@ -85,10 +87,14 @@ export function useWorkspace() {
     [doc, preview, draft, kept],
   );
   const selectImage = (id: string) => {
+    setSelectedSectionId(undefined);
+    setSelectedSectionCell(undefined);
     if (doc) prefs.document(doc.id, { selectedImageId: id });
   };
   const jumpImage = (id: string) => {
     if (!doc) return;
+    setSelectedSectionId(undefined);
+    setSelectedSectionCell(undefined);
     const entry = imageLocations(doc, preview?.result, draft, true).find((i) => i.block.id === id);
     const target = entry?.cell || entry?.context;
     if (target) goTo(target.index, entry?.region);
@@ -97,6 +103,18 @@ export function useWorkspace() {
       ...(!kept ? { sourceBlock: id } : {}),
     });
   };
+  const jumpSection = (id: string, index: number) => {
+    if (!doc) return;
+    setSelectedSectionId(id);
+    setSelectedSectionCell(index);
+    prefs.document(doc.id, { selectedImageId: undefined });
+    const region = preview?.result?.sectionRegions?.find((item) => item.sectionId === id);
+    goTo(index, region);
+  };
+  useEffect(() => {
+    setSelectedSectionId(undefined);
+    setSelectedSectionCell(undefined);
+  }, [doc?.id]);
   const openImages = (id?: string) => {
     if (!doc) return;
     if (id) selectImage(id);
@@ -623,6 +641,9 @@ export function useWorkspace() {
     openImages,
     selectImage,
     jumpImage,
+    selectedSectionId,
+    selectedSectionCell,
+    jumpSection,
     mobileOpen,
     setMobileOpen,
     imageButton,

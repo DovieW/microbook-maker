@@ -1,6 +1,7 @@
 import { z } from 'zod';
 export const richFeaturesSchema = z.object({
   contents: z.enum(['publisher', 'compact', 'none']).default('publisher'),
+  contentsWrap: z.boolean().default(false),
   contentsDepth: z.enum(['chapters', 'all']).default('chapters'),
   bookmarks: z.boolean().default(false),
   bookmarkDepth: z.enum(['chapters', 'all']).default('chapters'),

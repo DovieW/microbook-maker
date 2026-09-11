@@ -183,6 +183,7 @@ export async function render(
     let cells: CellMap[];
     let destinations: RenderResult['destinations'];
     let navigation: RenderResult['navigation'];
+    let sectionRegions: RenderResult['sectionRegions'];
     let featureDiagnostics: RenderResult['diagnostics'] = [];
     let coverage: RenderResult['coverage'];
     let measurementCache: RenderResult['measurementCache'];
@@ -334,6 +335,7 @@ export async function render(
       words = layout.wordCount;
       destinations = layout.destinations;
       navigation = layout.navigation;
+      sectionRegions = layout.sectionRegions;
       featureDiagnostics = layout.diagnostics || [];
       cells = layout.cells;
       coverage = layout.coverage;
@@ -403,6 +405,7 @@ export async function render(
     const result: RenderResult = {
       destinations,
       navigation,
+      sectionRegions,
       imageRegions,
       pages,
       sheets: Math.ceil(pages / 2),

@@ -1,6 +1,7 @@
 import {
   bookBlockText,
   normalizedText,
+  orderedSections,
   selectedDocumentBlocks,
   type Block,
   type BookDocument,
@@ -247,7 +248,8 @@ export function prepareRichContent(doc: BookDocument, settings: RenderSettings) 
     );
   }
   if (options.contents === 'compact' && navigation(options.contentsDepth).length) {
-    const section = blocks.find((b) => b.kind !== 'image')?.sectionId || 'contents';
+    const contentsSection = doc.blocks.find((block) => block.tocContent)?.sectionId;
+    const section = contentsSection || blocks.find((b) => b.kind !== 'image')?.sectionId || 'contents';
     const tocBlocks = [
       { ...generated('toc-title', 'Contents', section), kind: 'heading' as const, level: 2 },
       generated(
@@ -261,8 +263,13 @@ export function prepareRichContent(doc: BookDocument, settings: RenderSettings) 
         tocDepth: n.depth,
       })),
     ];
-    const first = blocks.findIndex((b) => b.kind !== 'image');
-    blocks.splice(Math.max(0, first), 0, ...tocBlocks);
+    const ordered = orderedSections(doc, settings.sectionOrder);
+    const contentsIndex = ordered.findIndex((item) => item.id === contentsSection);
+    const followingSections = new Set(ordered.slice(contentsIndex + 1).map((item) => item.id));
+    const at = contentsSection
+      ? blocks.findIndex((block) => followingSections.has(block.sectionId))
+      : blocks.findIndex((block) => block.kind !== 'image');
+    blocks.splice(at < 0 ? blocks.length : at, 0, ...tocBlocks);
   }
   // Page-list-only EPUBs do not always provide explicit pagebreak elements.
   // Generated markers preserve all existing source block IDs and use the same compositor.

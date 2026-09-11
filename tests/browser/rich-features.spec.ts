@@ -1,7 +1,67 @@
 import { test, expect } from '@playwright/test';
-import { ready } from './helpers';
+import { preview, ready } from './helpers';
 // @ts-expect-error fixture generator
-import { richFixture } from '../../tools/rich-fixture.mjs';
+import { richEntries, richFixture } from '../../tools/rich-fixture.mjs';
+// @ts-expect-error fixture generator
+import { xhtml, zip } from '../../tools/fixtures.mjs';
+
+const guideContentsFixture = () =>
+  zip({
+    ...richEntries,
+    'OEBPS/book.opf': richEntries['OEBPS/book.opf']
+      .replace(
+        '</manifest>',
+        '<item id="guide-toc" href="text/contents.xhtml" media-type="application/xhtml+xml"/></manifest>',
+      )
+      .replace('<spine>', '<spine><itemref idref="guide-toc"/>')
+      .replace('</package>', '<guide><reference type="toc" href="text/contents.xhtml"/></guide></package>'),
+    'OEBPS/text/contents.xhtml': xhtml(
+      '<h1>Contents</h1><p><a href="one.xhtml#chapter1">First chapter</a></p>',
+    ),
+  });
+
+test('generated contents can be included or excluded from the Contents tab', async ({ page, request }) => {
+  await page.goto('/');
+  await page.getByLabel('Import book', { exact: true }).setInputFiles({
+    name: 'guide-contents.epub',
+    mimeType: 'application/epub+zip',
+    buffer: guideContentsFixture(),
+  });
+  const initial = await ready(page, request);
+  const documentResponse = await request.get(`/api/documents/${initial.documentId}`);
+  const document = await documentResponse.json();
+  await page.getByRole('tab', { name: 'Contents', exact: true }).click();
+  const include = page.getByRole('checkbox', { name: 'Include Contents', exact: true });
+  await expect(include).toBeChecked();
+  const row = page.locator('.contents-row').filter({ has: include });
+  await expect(row).not.toContainText('Not in preview');
+  await row.locator('.contents-jump').click();
+  await expect(row).toHaveClass(/selected/);
+  await expect(row.locator('.section-mini-preview canvas')).toBeVisible();
+  await expect(row.locator('.section-preview-loading')).toHaveCount(0);
+  await expect(preview(page).locator('.section-hit.selected')).toHaveCount(1);
+  const position = page.getByLabel('Position of Contents', { exact: true });
+  await position.fill(String(document.sections.length));
+  await position.press('Enter');
+  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  const reordered = await ready(page, request);
+  const contentsCell = reordered.result.cells.find((cell: any) =>
+    cell.blockIds.includes('generated-toc-title'),
+  );
+  const otherBlockIds = new Set(
+    document.blocks.filter((block: any) => !block.tocContent).map((block: any) => block.id),
+  );
+  const lastOtherCell = reordered.result.cells.findLast((cell: any) =>
+    cell.blockIds.some((id: string) => otherBlockIds.has(id)),
+  );
+  expect(contentsCell.index).toBeGreaterThanOrEqual(lastOtherCell.index);
+  await include.uncheck();
+  await expect(include).not.toBeChecked();
+  await expect(page.getByRole('button', { name: 'Apply', exact: true })).toBeEnabled();
+  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  const render = await ready(page, request);
+  expect(render.settings.rich.contents).toBe('none');
+});
 test('Rich defaults produce contents, bookmarks, full URLs, linked notes and exact destinations', async ({
   page,
   request,

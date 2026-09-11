@@ -95,9 +95,8 @@ def audit_pdf(pdf, document, settings, metadata, cells):
                 for cell in marker_cells:
                     slot = cell['index'] % 16
                     top = cell['y'] + (0.75 * ((4 if settings.get('foldGaps') else 0) + (1 if settings['borderStyle'] != 'none' else 0)) if slot >= 4 else 0)
-                    # The inline marker reserves 10em (capped at 45% of the flow), not a whole line.
-                    marker_right = cell['x'] + 1.5 + min(settings['fontSizePx'] * 7.5, (cell['width'] - 3) * .45)
-                    if cell['x'] <= x < marker_right and top <= y < top + settings['fontSizePx'] * settings.get('lineHeight', 1) * 0.75:
+                    marker = cell.get('positionHeader', {'x':cell['x'], 'y':top, 'width':cell['width'], 'height':settings['fontSizePx']*.75})
+                    if marker['x'] <= x < marker['x'] + marker['width'] and marker['y'] <= y < marker['y'] + marker['height']:
                         found = cell['index']
                         break
                 value = normalized(word.text or '')

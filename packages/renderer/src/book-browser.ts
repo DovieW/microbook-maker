@@ -1,6 +1,6 @@
 import { prepareRichContent } from '../../core/src/rich-content.ts';
 import { prepareWithSegments, layoutWithLines } from '@chenglou/pretext';
-import type { BookDocument, RenderSettings, Block, Inline, CellMap } from '@microbook/core';
+import type { BookDocument, RenderSettings, RenderResult, Block, Inline, CellMap } from '@microbook/core';
 import {
   imageOutputQuery,
   bookBlockText,
@@ -12,11 +12,12 @@ import {
 
 let activeDocument = '';
 const preparations = new Map<string, ReturnType<typeof prepareWithSegments>>();
-export async function renderBook(payload: {
+async function layoutBook(payload: {
   document: BookDocument;
   settings: RenderSettings;
   assetBase: string;
   fontStack: string;
+  positionLabels?: Record<number, string>;
 }) {
   const { document: book, settings: s, assetBase, fontStack } = payload;
   if (activeDocument !== book.id) {
@@ -53,7 +54,7 @@ export async function renderBook(payload: {
     [data-generated-inline]{text-indent:0}
     .reference-location{display:inline-block;width:34ch;max-width:100%;height:1.15em;line-height:1.15;font-size:.8em;white-space:nowrap;text-indent:0;vertical-align:middle;overflow:hidden}
     .compact-toc{display:grid;grid-template-columns:minmax(0,1fr) 17ch;gap:4px;text-align:left;line-height:1.1;margin-bottom:.15em}
-    .compact-toc-title{overflow-wrap:anywhere}
+    .compact-toc-title{min-width:0;${s.rich.contentsWrap ? 'overflow-wrap:anywhere;white-space:normal' : 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap'}}
     .compact-toc-location{font-size:.65em;white-space:nowrap;align-self:end}
     .special-passage{display:block!important;margin:${s.rich.passageGapEm}em 0!important;text-indent:0!important;text-align:left!important;text-align-last:left!important}
     .passage-poetry,.passage-letter{white-space:pre-line}
@@ -132,8 +133,8 @@ export async function renderBook(payload: {
     if (s.positionHeaders && current > 0 && slot % 4 === 0) {
       const position = document.createElement('span');
       position.className = 'cell-position';
-      // Reserve a fixed inline width; final counts cannot change pagination.
-      position.textContent = '0a / 0 · 0%';
+      // A following layout pass fits the final label when its measured width changes.
+      position.textContent = payload.positionLabels?.[current] || '0a / 0 · 0%';
       positionHeaders[current] = position;
       flow.append(position);
     }
@@ -212,7 +213,7 @@ export async function renderBook(payload: {
       margin-bottom:.1em;
     }
     .literary-heading .heading-title {display:block}
-    .cell-position {float:left;width:10em;max-width:45%;height:${s.fontSizePx * s.lineHeight}px;margin-right:.4em;font-size:1em;font-style:italic;line-height:${s.lineHeight};text-align:left;text-align-last:left;white-space:nowrap;color:#000;font-variant-numeric:tabular-nums}
+    .cell-position {float:left;width:auto;max-width:45%;overflow:hidden;text-overflow:ellipsis;height:${s.fontSizePx * s.lineHeight}px;margin-right:.4em;font-size:1em;font-style:italic;line-height:${s.lineHeight};text-align:left;text-align-last:left;white-space:nowrap;color:#000;font-variant-numeric:tabular-nums}
   `;
   document.head.append(headingStyle);
   function ensureHeader() {
@@ -922,6 +923,27 @@ export async function renderBook(payload: {
       y: (rect.top - bounds.top) * 0.75,
     };
   }
+  const sectionRegions: NonNullable<RenderResult['sectionRegions']> = [];
+  const sectionByBlock = new Map(selected.map((block) => [block.id, block.sectionId]));
+  const locatedSections = new Set<string>();
+  const pageNodes = Array.from(document.querySelectorAll<HTMLElement>('.page'));
+  for (const node of document.querySelectorAll<HTMLElement>('[data-block]')) {
+    const sectionId = sectionByBlock.get(node.dataset.block || '');
+    if (!sectionId || locatedSections.has(sectionId)) continue;
+    const page = node.closest<HTMLElement>('.page');
+    if (!page) continue;
+    const rect = node.getBoundingClientRect();
+    const bounds = page.getBoundingClientRect();
+    sectionRegions.push({
+      sectionId,
+      page: pageNodes.indexOf(page),
+      x: (rect.left - bounds.left) * 0.75,
+      y: (rect.top - bounds.top) * 0.75,
+      width: rect.width * 0.75,
+      height: rect.height * 0.75,
+    });
+    locatedSections.add(sectionId);
+  }
   const printLocation = (id: string) => {
     const d = destinations[id];
     return d
@@ -948,6 +970,8 @@ export async function renderBook(payload: {
       await img.decode();
     }
   sheetsValue!.textContent = String(Math.ceil(maps.length / 32));
+  const positionLabels: Record<number, string> = {};
+  let positionWidthsChanged = false;
   let readingOffset = 0;
   const readingLength = (text: string) => normalizedText(text).replace(/\s/g, '').length;
   const totalReadingLength = preparedContent.source.reduce(
@@ -959,6 +983,7 @@ export async function renderBook(payload: {
     readingOffset += readingLength(map.text);
     map.readingEnd = readingOffset;
     if (positionHeaders[map.index]) {
+      const previousWidth = positionHeaders[map.index].getBoundingClientRect().width;
       const side = `${Math.floor(map.page / 2) + 1}${map.page % 2 ? 'b' : 'a'}`;
       const percent = totalReadingLength ? Math.floor((map.readingStart / totalReadingLength) * 100) : 0;
       const firstId = map.blockIds.find((id) => !id.startsWith('generated-'));
@@ -972,6 +997,17 @@ export async function renderBook(payload: {
         (s.rich.pageReferences === 'headers' && pageLabel ? ' · p. ' + pageLabel : '');
       positionHeaders[map.index].style.overflow = 'hidden';
       positionHeaders[map.index].style.textOverflow = 'ellipsis';
+      positionLabels[map.index] = positionHeaders[map.index].textContent || '';
+      const headerRect = positionHeaders[map.index].getBoundingClientRect();
+      const pageRect = positionHeaders[map.index].closest('.page')!.getBoundingClientRect();
+      map.positionHeader = {
+        x: (headerRect.x - pageRect.x) * 0.75,
+        y: (headerRect.y - pageRect.y) * 0.75,
+        width: headerRect.width * 0.75,
+        height: headerRect.height * 0.75,
+      };
+      if (Math.abs(previousWidth - positionHeaders[map.index].getBoundingClientRect().width) > 0.05)
+        positionWidthsChanged = true;
     }
   }
   await (window as any).__microbookProgress?.('Checking layout');
@@ -1013,7 +1049,7 @@ export async function renderBook(payload: {
         overflows++;
     }
   }
-  if (expectedCharacters !== renderedCharacters || overflows)
+  if (!positionWidthsChanged && (expectedCharacters !== renderedCharacters || overflows))
     throw new Error(
       `Layout verification failed: ${overflows} overflows, ${renderedCharacters}/${expectedCharacters} characters`,
     );
@@ -1030,8 +1066,11 @@ export async function renderBook(payload: {
       throw new Error('Source coverage failed for ' + block.id);
   }
   return {
+    positionLabels,
+    positionWidthsChanged,
     wordCount: words,
     destinations,
+    sectionRegions,
     navigation: preparedContent.navigation,
     diagnostics: featureDiagnostics,
     cells: maps,
@@ -1044,4 +1083,16 @@ export async function renderBook(payload: {
       overflows,
     },
   };
+}
+
+/** Final counts can change a marker's width. Repaginate until text and marker widths agree. */
+export async function renderBook(payload: Parameters<typeof layoutBook>[0]) {
+  for (let pass = 0; pass < 8; pass++) {
+    const { positionLabels, positionWidthsChanged, ...result } = await layoutBook(payload);
+    if (!positionWidthsChanged) return result;
+    payload = { ...payload, positionLabels };
+  }
+  throw new Error(
+    'Position headers did not settle. Turn off position headers or adjust text size and retry.',
+  );
 }

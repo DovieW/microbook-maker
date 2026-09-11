@@ -178,6 +178,14 @@ export function LayoutControls({ w }: { w: Workspace }) {
           <p className="image-output-help">MicroBook {version}</p>
           {rich && (
             <>
+              <label className="check-field">
+                <span>Wrap printed contents titles</span>
+                <input
+                  type="checkbox"
+                  checked={s.rich.contentsWrap}
+                  onChange={(e) => w.edit({ rich: { ...s.rich, contentsWrap: e.target.checked } })}
+                />
+              </label>
               {number('marginMm', 'Page margins', 'mm', 0, 12, 0.5)}
               {check('sourcePageNumbers', 'Source page numbers')}
             </>

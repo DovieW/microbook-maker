@@ -203,8 +203,14 @@ test('printed-side input reaches the partial final side and Apply retains source
   });
   const original = await ready(page, request);
   await expect(page.getByLabel('Previous', { exact: true })).toBeDisabled();
+  await expect(page.getByLabel('First side', { exact: true })).toBeDisabled();
+  await page.getByLabel('Last side', { exact: true }).click();
+  await expect(page.getByLabel('Printed side', { exact: true })).toHaveValue('2');
+  await page.getByLabel('First side', { exact: true }).click();
+  await expect(page.getByLabel('Printed side', { exact: true })).toHaveValue('1');
   await jump(page, 2);
   await expect(page.getByLabel('Next', { exact: true })).toBeDisabled();
+  await expect(page.getByLabel('Last side', { exact: true })).toBeDisabled();
   const offset = original.result.cells[16].readingStart;
   await page.getByLabel('Text size in CSS pixels').fill('4');
   await applied(page);
