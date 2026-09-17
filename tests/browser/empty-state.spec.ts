@@ -21,6 +21,26 @@ test('opening a book remains discoverable after deletion and reload', async ({ p
   await expect(page.getByText('EPUB · TXT · Markdown', { exact: true })).toBeVisible();
 });
 
+test('History keeps its book tools pinned without an open book', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 500 });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'History', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Back', exact: true })).toBeDisabled();
+  await expect(page.locator('.books-actions')).toHaveCSS('position', 'sticky');
+  await page.getByRole('button', { name: 'Close tools', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Open tools', exact: true })).toBeFocused();
+});
+
+test('Back is disabled in desktop History when no book is open', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 700 });
+  await page.goto('/');
+  await expect(page.getByRole('tabpanel', { name: 'History', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Back', exact: true })).toBeDisabled();
+  await expect(page.getByRole('tabpanel', { name: 'History', exact: true })).toBeVisible();
+  await expect(page.getByLabel('Workspace sidebar', { exact: true })).toBeVisible();
+});
+
 test('open another book directly from the loaded workspace', async ({ page }) => {
   await page.goto('/');
   await upload(page);

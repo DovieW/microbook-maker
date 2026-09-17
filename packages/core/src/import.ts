@@ -17,7 +17,7 @@ import {
 
 import { IMPORT_LIMITS } from './import-limits.ts';
 export { IMPORT_LIMITS } from './import-limits.ts';
-export const IMPORT_REVISION = 4;
+export const IMPORT_REVISION = 5;
 const md = new MarkdownIt({ html: false, linkify: false, xhtmlOut: true });
 type XmlNode = any;
 const name = (n: XmlNode): string => (n.localName || n.nodeName || '').toLowerCase();
@@ -118,6 +118,7 @@ export async function importDocument(
     const files = doc.format === 'epub' ? await readArchive(input) : new Map<string, Buffer>();
     let spine: { path: string; title: string; targets?: Set<string> }[] = [];
     const media = new Map<string, string>();
+    let packageCover: { path: string; type: string } | undefined;
     const toc = new Map<string, string>();
     const tocTargets = new Set<string>();
     doc.navigation = [];
@@ -163,6 +164,13 @@ export async function importDocument(
         manifest.set(attr(item, 'id'), resource);
         media.set(resource.path, resource.type);
       }
+      const legacyCoverId = elements(pkg, 'meta').find(
+        (element) => attr(element, 'name').toLowerCase() === 'cover',
+      );
+      const coverItem =
+        [...manifest.values()].find((item) => item.properties.split(/\s+/).includes('cover-image')) ||
+        manifest.get(attr(legacyCoverId, 'content'));
+      if (coverItem?.type.startsWith('image/')) packageCover = coverItem;
       for (const reference of elements(pkg, 'reference'))
         if (attr(reference, 'type').split(/\s+/).includes('toc')) {
           try {
@@ -291,6 +299,58 @@ export async function importDocument(
     for (const [resource, targets] of ancillary) spine.push({ path: resource, title: 'Notes', targets });
     const assetByPath = new Map<string, string>();
     const notes: Block[] = [];
+    if (packageCover && files.has(packageCover.path)) {
+      const referencedInSpine = spine.some((item) => {
+        const source = xml(files.get(item.path)!.toString('utf8'), item.path);
+        return elements(source, 'img')
+          .concat(elements(source, 'image'))
+          .some((node) => {
+            const href = attr(node, 'src') || attr(node, 'href') || attr(node, 'xlink:href');
+            try {
+              return resolveArchivePath(item.path, href) === packageCover!.path;
+            } catch {
+              return false;
+            }
+          });
+      });
+      if (!referencedInSpine) {
+        const bytes = files.get(packageCover.path)!;
+        if (
+          ['image/png', 'image/jpeg', 'image/gif', 'image/svg+xml', 'image/webp'].includes(packageCover.type)
+        ) {
+          imageDimensions(bytes, packageCover.type);
+          const assetId = `a${doc.assets.length + 1}`;
+          const extension =
+            path.extname(packageCover.path).toLowerCase() ||
+            (
+              {
+                'image/png': '.png',
+                'image/jpeg': '.jpg',
+                'image/gif': '.gif',
+                'image/svg+xml': '.svg',
+                'image/webp': '.webp',
+              } as Record<string, string>
+            )[packageCover.type];
+          await fs.mkdir(path.join(directory, 'assets'), { recursive: true });
+          await fs.writeFile(path.join(directory, 'assets', assetId + extension), bytes);
+          doc.assets.push({
+            id: assetId,
+            path: `assets/${assetId}${extension}`,
+            mediaType: packageCover.type,
+            alt: `${doc.metadata.title} cover`,
+          });
+          assetByPath.set(packageCover.path, assetId);
+          doc.sections.push({ id: 'cover', title: 'Cover', source: packageCover.path });
+          addBlock({
+            kind: 'image',
+            sectionId: 'cover',
+            assetId,
+            source: packageCover.path,
+            inlines: [],
+          });
+        }
+      }
+    }
     for (const [index, item] of spine.entries()) {
       const source = xml(files.get(item.path)!.toString('utf8'), item.path);
       const body = elements(source, 'body')[0] || source.documentElement;

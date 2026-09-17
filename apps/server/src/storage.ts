@@ -3,7 +3,7 @@ import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { importDocument, IMPORT_REVISION } from '@microbook/core/import';
-import { defaultSettings, type BookDocument, type RenderJob } from '@microbook/core';
+import { blockText, defaultSettings, wordCount, type BookDocument, type RenderJob } from '@microbook/core';
 
 const writes = new Map<string, Promise<void>>();
 export async function atomicJson(file: string, value: unknown) {
@@ -110,6 +110,28 @@ export class Storage {
         for (const font of imported.publisherFonts)
           font.path = fontsDirectory + '/' + path.basename(font.path);
       }
+      const customSections = previous.sections.filter((section) => section.custom);
+      const customSectionIds = new Set(customSections.map((section) => section.id));
+      const customBlocks = previous.blocks.filter(
+        (block) => block.custom || customSectionIds.has(block.sectionId),
+      );
+      const customAssets = previous.assets.filter((asset) => asset.custom);
+      const replacements = new Map(
+        previous.blocks
+          .filter((block) => block.originalAssetId && block.assetId)
+          .map((block) => [block.id, block]),
+      );
+      imported.sections.push(...customSections);
+      imported.blocks = imported.blocks.map((block) => {
+        const replacement = replacements.get(block.id);
+        return replacement
+          ? { ...block, assetId: replacement.assetId, originalAssetId: block.assetId }
+          : block;
+      });
+      imported.blocks.push(...customBlocks);
+      imported.assets.push(...customAssets);
+      imported.contentRevision = previous.contentRevision;
+      imported.wordCount = wordCount(imported.blocks.map(blockText).join('\n'));
       await this.saveDocument({
         ...previous,
         ...imported,

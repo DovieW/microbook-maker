@@ -16,8 +16,15 @@ import {
   metadataSchema,
   activeJob,
   modeLabels,
+  customTextSchema,
+  addCustomText,
+  addCustomImage,
+  replaceImage,
+  restoreImage,
+  imageDimensions,
   type RenderJob,
   type LibraryDocument,
+  type Asset,
 } from '@microbook/core';
 import { Storage } from './storage.ts';
 
@@ -27,7 +34,7 @@ await store.init();
 const imageCache = new ImageOutputCache(path.join(store.generated, 'image-cache'));
 const app = express();
 app.disable('x-powered-by');
-app.use(express.json({ limit: '100kb' }));
+app.use(express.json({ limit: '250kb' }));
 app.use(
   '/api/image-test-print',
   imageTestPrint(
@@ -55,6 +62,38 @@ let baseUrl = '';
 let cancelTimer: ReturnType<typeof setTimeout> | undefined;
 const errorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error));
 const date = () => new Date().toISOString();
+const imageTypes = new Map([
+  ['.png', 'image/png'],
+  ['.jpg', 'image/jpeg'],
+  ['.jpeg', 'image/jpeg'],
+  ['.gif', 'image/gif'],
+  ['.webp', 'image/webp'],
+  ['.svg', 'image/svg+xml'],
+]);
+function uploadedImage(file?: Express.Multer.File) {
+  if (!file || !file.size || file.size > 20 * 1024 ** 2)
+    throw Object.assign(new Error('Choose a PNG, JPEG, WebP, GIF, or SVG image smaller than 20 MB'), {
+      status: 422,
+    });
+  const extension = path.extname(file.originalname).toLowerCase();
+  const mediaType = [...imageTypes.values()].includes(file.mimetype)
+    ? file.mimetype
+    : imageTypes.get(extension);
+  if (!mediaType)
+    throw Object.assign(new Error('Choose a PNG, JPEG, WebP, GIF, or SVG image'), { status: 422 });
+  try {
+    imageDimensions(file.buffer, mediaType);
+  } catch (error) {
+    throw Object.assign(error instanceof Error ? error : new Error('Invalid image'), { status: 422 });
+  }
+  const canonicalExtension =
+    mediaType === 'image/jpeg'
+      ? '.jpg'
+      : mediaType === 'image/svg+xml'
+        ? '.svg'
+        : `.${mediaType.split('/')[1]}`;
+  return { mediaType, extension: canonicalExtension };
+}
 const getDocument = (id: string) => {
   const doc = store.documents.get(id);
   if (!doc) throw Object.assign(new Error('Book not found'), { status: 404 });
@@ -270,9 +309,60 @@ app.get('/api/documents/:id', (req, res) =>
   }),
 );
 app.patch('/api/documents/:id', async (req, res) => {
-  const doc = getDocument(req.params.id);
+  const doc = getDocument(String(req.params.id));
   const metadata = metadataSchema.parse(req.body.metadata);
   const updated = { ...doc, metadata };
+  await store.saveDocument(updated);
+  res.json(updated);
+});
+app.post('/api/documents/:id/text', async (req, res) => {
+  const doc = getDocument(String(req.params.id));
+  const updated = addCustomText(doc, randomUUID(), customTextSchema.parse(req.body));
+  await store.saveDocument(updated);
+  res.status(201).json(updated);
+});
+app.post('/api/documents/:id/images', upload.single('file'), async (req, res) => {
+  const doc = getDocument(String(req.params.id));
+  const { mediaType, extension } = uploadedImage(req.file);
+  const id = randomUUID();
+  const assetId = `custom-asset-${id}`;
+  const assetPath = `custom-assets/${assetId}${extension}`;
+  await fs.mkdir(path.join(store.documentDir(doc.id), 'custom-assets'), { recursive: true });
+  await fs.writeFile(path.join(store.documentDir(doc.id), assetPath), req.file!.buffer);
+  const updated = addCustomImage(doc, {
+    id,
+    assetId,
+    path: assetPath,
+    mediaType,
+    title: String(req.body.title || '').trim() || 'Custom image',
+    alt: String(req.body.alt || ''),
+  });
+  await store.saveDocument(updated);
+  res.status(201).json(updated);
+});
+app.put('/api/documents/:id/images/:blockId', upload.single('file'), async (req, res) => {
+  const doc = getDocument(String(req.params.id));
+  const { mediaType, extension } = uploadedImage(req.file);
+  const assetId = `custom-asset-${randomUUID()}`;
+  const assetPath = `custom-assets/${assetId}${extension}`;
+  await fs.mkdir(path.join(store.documentDir(doc.id), 'custom-assets'), { recursive: true });
+  await fs.writeFile(path.join(store.documentDir(doc.id), assetPath), req.file!.buffer);
+  const blockId = String(req.params.blockId);
+  const current = doc.blocks.find((block) => block.id === blockId);
+  const old = doc.assets.find((asset) => asset.id === current?.assetId);
+  const asset: Asset = {
+    id: assetId,
+    path: assetPath,
+    mediaType,
+    alt: String(req.body.alt || '').trim() || old?.alt || 'Replacement image',
+    custom: true,
+  };
+  const updated = replaceImage(doc, blockId, asset);
+  await store.saveDocument(updated);
+  res.json(updated);
+});
+app.delete('/api/documents/:id/images/:blockId', async (req, res) => {
+  const updated = restoreImage(getDocument(req.params.id), String(req.params.blockId));
   await store.saveDocument(updated);
   res.json(updated);
 });
@@ -319,12 +409,10 @@ app.get('/api/documents/:id/assets/:asset', async (req, res) => {
 app.post('/api/documents/:id/renders', async (req, res) => {
   const doc = getDocument(req.params.id);
   if (doc.diagnostics.some((d) => d.code === 'legacy-source-unavailable'))
-    return res
-      .status(422)
-      .json({
-        error:
-          'The original source is unavailable. You can still print this PDF; open the original book to create a new layout.',
-      });
+    return res.status(422).json({
+      error:
+        'The original source is unavailable. You can still print this PDF; open the original book to create a new layout.',
+    });
   const settings = effectiveSettings(settingsSchema.parse(req.body.settings));
   if (
     settings.selectedSections &&
@@ -341,6 +429,7 @@ app.post('/api/documents/:id/renders', async (req, res) => {
     .update(
       JSON.stringify({
         source: doc.sourceHash,
+        contentRevision: doc.contentRevision || 0,
         metadata,
         settings,
         rendererFingerprint,
@@ -366,6 +455,7 @@ app.post('/api/documents/:id/renders', async (req, res) => {
     version: 1,
     id: randomUUID(),
     documentId: doc.id,
+    contentRevision: doc.contentRevision || 0,
     settings,
     metadata,
     cacheKey,

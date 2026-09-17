@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   activeJob,
   newRichFeatures,
+  orderedSections,
   sourceLocation,
   cellAtLocation,
   type SourceLocation,
@@ -74,6 +75,7 @@ export function useWorkspace() {
     !!doc &&
     !kept &&
     (!preview ||
+      (doc.contentRevision || 0) !== (preview.contentRevision || 0) ||
       !equal(effectiveSettings(draft), effectiveSettings(preview.settings)) ||
       !equal(metadata, preview.metadata));
   const availableFingerprint = (doc as DocumentDetail | undefined)?.rendererFingerprint;
@@ -520,6 +522,133 @@ export function useWorkspace() {
       setError(error instanceof SyntaxError ? 'Choose a valid JSON file.' : message(error));
     }
   }
+  async function applyDocumentChange(updated: BookDocument, addedSectionId?: string, addedImageId?: string) {
+    const selectedSections = addedSectionId
+      ? draft.selectedSections
+        ? [...new Set([...draft.selectedSections, addedSectionId])]
+        : null
+      : draft.selectedSections;
+    const sectionOrder =
+      addedSectionId && draft.sectionOrder.length
+        ? [...draft.sectionOrder.filter((id) => id !== addedSectionId), addedSectionId]
+        : draft.sectionOrder;
+    const next = settingsSchema.parse({ ...draft, selectedSections, sectionOrder });
+    setKept(undefined);
+    setDoc(updated);
+    prefs.edit(updated.id, next);
+    prefs.document(updated.id, {
+      keptId: undefined,
+      ...(addedImageId ? { selectedImageId: addedImageId } : {}),
+    });
+    if (addedImageId) prefs.patch({ sidebarTab: 'images' });
+    if (addedSectionId && !addedImageId) prefs.patch({ sidebarTab: 'contents' });
+    await apply(updated, next, metadata || updated.metadata);
+  }
+  function stageAddedContent(
+    updated: BookDocument,
+    addedSectionId: string | undefined,
+    addedImageId: string | undefined,
+    position: number,
+  ) {
+    const selectedSections = addedSectionId
+      ? draft.selectedSections
+        ? [...new Set([...draft.selectedSections, addedSectionId])]
+        : null
+      : draft.selectedSections;
+    const sectionOrder = orderedSections(updated, draft.sectionOrder)
+      .map((section) => section.id)
+      .filter((id) => id !== addedSectionId);
+    if (addedSectionId) {
+      const target = Math.max(1, Math.min(Math.trunc(position) || 1, sectionOrder.length + 1));
+      sectionOrder.splice(target - 1, 0, addedSectionId);
+    }
+    const next = settingsSchema.parse({ ...draft, selectedSections, sectionOrder });
+    setKept(undefined);
+    setDoc(updated);
+    prefs.edit(updated.id, next);
+    prefs.document(updated.id, {
+      keptId: undefined,
+      ...(addedImageId ? { selectedImageId: addedImageId } : {}),
+    });
+    prefs.patch({ sidebarTab: addedImageId ? 'images' : 'contents' });
+  }
+  async function addText(
+    title: string,
+    markdown: string,
+    position: number,
+    headingStyle: 'none' | 'compact' | 'chapter' | 'part',
+  ) {
+    if (!doc || kept) return;
+    setError('');
+    try {
+      const before = new Set(doc.sections.map((section) => section.id));
+      const updated = await api<BookDocument>(`/api/documents/${doc.id}/text`, {
+        method: 'POST',
+        body: JSON.stringify({ title, markdown, headingStyle }),
+      });
+      const section = updated.sections.find((entry) => !before.has(entry.id));
+      stageAddedContent(updated, section?.id, undefined, position);
+    } catch (error) {
+      setError(message(error));
+      throw error;
+    }
+  }
+  async function addImage(file: File, title: string, alt: string, position: number) {
+    if (!doc || kept) return;
+    setError('');
+    try {
+      const beforeSections = new Set(doc.sections.map((section) => section.id));
+      const beforeBlocks = new Set(doc.blocks.map((block) => block.id));
+      const body = new FormData();
+      body.append('file', file);
+      body.append('title', title);
+      body.append('alt', alt);
+      const updated = await api<BookDocument>(`/api/documents/${doc.id}/images`, {
+        method: 'POST',
+        body,
+      });
+      const section = updated.sections.find((entry) => !beforeSections.has(entry.id));
+      const block = updated.blocks.find((entry) => !beforeBlocks.has(entry.id) && entry.kind === 'image');
+      stageAddedContent(updated, section?.id, block?.id, position);
+    } catch (error) {
+      setError(message(error));
+      throw error;
+    }
+  }
+  async function replaceDocumentImage(blockId: string, file: File, alt: string) {
+    if (!doc || kept) return;
+    setError('');
+    try {
+      const body = new FormData();
+      body.append('file', file);
+      body.append('alt', alt);
+      const updated = await api<BookDocument>(
+        `/api/documents/${doc.id}/images/${encodeURIComponent(blockId)}`,
+        {
+          method: 'PUT',
+          body,
+        },
+      );
+      await applyDocumentChange(updated, undefined, blockId);
+    } catch (error) {
+      setError(message(error));
+      throw error;
+    }
+  }
+  async function restoreDocumentImage(blockId: string) {
+    if (!doc || kept) return;
+    setError('');
+    try {
+      const updated = await api<BookDocument>(
+        `/api/documents/${doc.id}/images/${encodeURIComponent(blockId)}`,
+        { method: 'DELETE' },
+      );
+      await applyDocumentChange(updated, undefined, blockId);
+    } catch (error) {
+      setError(message(error));
+      throw error;
+    }
+  }
   const edit = (value: Partial<RenderSettings>) => {
     const next = settingsSchema.safeParse({ ...draft, ...value });
     if (doc && next.success) prefs.edit(doc.id, next.data);
@@ -693,6 +822,10 @@ export function useWorkspace() {
     setDragging,
     importFile,
     importSettings,
+    addText,
+    addImage,
+    replaceDocumentImage,
+    restoreDocumentImage,
     apply,
     cancel,
     edit,

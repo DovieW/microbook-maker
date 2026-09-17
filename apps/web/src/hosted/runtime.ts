@@ -1,12 +1,20 @@
 import { renderImageTestPrint } from '../../../../packages/core/src/image-test-print';
+import { Buffer } from 'buffer';
 import { get, put, putOwned, entries, removeDocument } from './db';
 import { imageBlob } from './images';
 import {
   settingsSchema,
   effectiveSettings,
   metadataSchema,
+  customTextSchema,
+  addCustomText,
+  addCustomImage,
+  replaceImage,
+  restoreImage,
+  imageDimensions,
   type BookDocument,
   type RenderJob,
+  type Asset,
 } from '@microbook/core';
 const fingerprint = { renderer: 'hosted-browser-2' };
 const active = new Map<string, AbortController>();
@@ -21,6 +29,29 @@ channel.addEventListener('message', (event) => {
 const json = (data: unknown, status = 200) =>
   Response.json(data, { status, headers: { 'Cache-Control': 'no-store' } });
 const noContent = () => new Response(null, { status: 204 });
+const imageTypes = new Map([
+  ['.png', 'image/png'],
+  ['.jpg', 'image/jpeg'],
+  ['.jpeg', 'image/jpeg'],
+  ['.gif', 'image/gif'],
+  ['.webp', 'image/webp'],
+  ['.svg', 'image/svg+xml'],
+]);
+async function uploadedImage(file: FormDataEntryValue | null) {
+  if (!(file instanceof File) || !file.size || file.size > 20 * 1024 ** 2)
+    throw Error('Choose a PNG, JPEG, WebP, GIF, or SVG image smaller than 20 MB');
+  const extension = '.' + (file.name.split('.').pop() || '').toLowerCase();
+  const mediaType = [...imageTypes.values()].includes(file.type) ? file.type : imageTypes.get(extension);
+  if (!mediaType) throw Error('Choose a PNG, JPEG, WebP, GIF, or SVG image');
+  imageDimensions(Buffer.from(await file.arrayBuffer()), mediaType);
+  const canonicalExtension =
+    mediaType === 'image/jpeg'
+      ? '.jpg'
+      : mediaType === 'image/svg+xml'
+        ? '.svg'
+        : `.${mediaType.split('/')[1]}`;
+  return { file, mediaType, extension: canonicalExtension };
+}
 async function documentById(id: string) {
   const doc = await get<BookDocument>('doc:' + id);
   if (!doc) throw Error('This book was removed or its browser data was cleared. Open it again to continue.');
@@ -248,6 +279,53 @@ async function handle(request: Request): Promise<Response> {
         return noContent();
       }
     }
+    if (parts[3] === 'text' && method === 'POST') {
+      const updated = addCustomText(doc, crypto.randomUUID(), customTextSchema.parse(await request.json()));
+      await putOwned('doc:' + doc.id, { ...updated, documentId: doc.id });
+      return json(updated, 201);
+    }
+    if (parts[3] === 'images' && parts.length === 4 && method === 'POST') {
+      const form = await request.formData();
+      const { file, mediaType, extension } = await uploadedImage(form.get('file'));
+      const id = crypto.randomUUID();
+      const assetId = `custom-asset-${id}`;
+      const assetPath = `custom-assets/${assetId}${extension}`;
+      const updated = addCustomImage(doc, {
+        id,
+        assetId,
+        path: assetPath,
+        mediaType,
+        title: String(form.get('title') || '').trim() || 'Custom image',
+        alt: String(form.get('alt') || ''),
+      });
+      await putOwned('file:' + doc.id + '/' + assetPath, { documentId: doc.id, blob: file });
+      await putOwned('doc:' + doc.id, { ...updated, documentId: doc.id });
+      return json(updated, 201);
+    }
+    if (parts[3] === 'images' && parts[4] && method === 'PUT') {
+      const form = await request.formData();
+      const { file, mediaType, extension } = await uploadedImage(form.get('file'));
+      const assetId = `custom-asset-${crypto.randomUUID()}`;
+      const assetPath = `custom-assets/${assetId}${extension}`;
+      const current = doc.blocks.find((block) => block.id === parts[4]);
+      const old = doc.assets.find((asset) => asset.id === current?.assetId);
+      const asset: Asset = {
+        id: assetId,
+        path: assetPath,
+        mediaType,
+        alt: String(form.get('alt') || '').trim() || old?.alt || 'Replacement image',
+        custom: true,
+      };
+      const updated = replaceImage(doc, parts[4], asset);
+      await putOwned('file:' + doc.id + '/' + assetPath, { documentId: doc.id, blob: file });
+      await putOwned('doc:' + doc.id, { ...updated, documentId: doc.id });
+      return json(updated);
+    }
+    if (parts[3] === 'images' && parts[4] && method === 'DELETE') {
+      const updated = restoreImage(doc, parts[4]);
+      await putOwned('doc:' + doc.id, { ...updated, documentId: doc.id });
+      return json(updated);
+    }
     if (['source', 'assets', 'fonts'].includes(parts[3])) {
       const asset =
         parts[3] === 'assets'
@@ -283,7 +361,12 @@ async function handle(request: Request): Promise<Response> {
           settings.selectedSections.some((id) => !doc.sections.some((s) => s.id === id)))
       )
         return json({ error: 'Select at least one valid section' }, 422);
-      const cacheKey = JSON.stringify({ settings, metadata: doc.metadata, fingerprint });
+      const cacheKey = JSON.stringify({
+        settings,
+        metadata: doc.metadata,
+        contentRevision: doc.contentRevision || 0,
+        fingerprint,
+      });
       const cached = (await jobs(doc.id)).find(
         (j) => j.cacheKey === cacheKey && ['completed', 'queued', 'running'].includes(j.status),
       );
@@ -299,6 +382,7 @@ async function handle(request: Request): Promise<Response> {
         version: 1,
         id: crypto.randomUUID(),
         documentId: doc.id,
+        contentRevision: doc.contentRevision || 0,
         settings,
         metadata: structuredClone(doc.metadata),
         cacheKey,

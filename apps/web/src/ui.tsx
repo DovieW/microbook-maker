@@ -9,6 +9,7 @@ export function Dropdown({
   options,
   placeholder,
   className = '',
+  trigger,
 }: {
   id?: string;
   label: string;
@@ -17,14 +18,24 @@ export function Dropdown({
   options: ReadonlyArray<readonly [string, string]>;
   placeholder?: string;
   className?: string;
+  trigger?: React.ReactNode;
 }) {
   return (
     <Select.Root value={value} onValueChange={onChange}>
-      <Select.Trigger id={id} aria-label={label} className={`select-trigger ${className}`}>
-        <Select.Value placeholder={placeholder} />
-        <Select.Icon asChild>
-          <ChevronDown size={14} />
-        </Select.Icon>
+      <Select.Trigger
+        id={id}
+        aria-label={label}
+        title={trigger ? label : undefined}
+        className={`select-trigger ${className}`}
+      >
+        {trigger || (
+          <>
+            <Select.Value placeholder={placeholder} />
+            <Select.Icon asChild>
+              <ChevronDown size={14} />
+            </Select.Icon>
+          </>
+        )}
       </Select.Trigger>
       <Select.Portal>
         <Select.Content position="popper" sideOffset={6} collisionPadding={12} className="select-menu">

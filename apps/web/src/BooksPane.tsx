@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Plus, MoreHorizontal } from 'lucide-react';
+import { ArrowUpDown, Plus, MoreHorizontal } from 'lucide-react';
 import { modeLabels, type LibraryRender } from '@microbook/core';
-import { Dropdown } from './ui';
+import { Dropdown, IconButton } from './ui';
 import type { Workspace } from './LayoutControls';
 export function BooksPane({ w }: { w: Workspace }) {
   const [query, setQuery] = useState('');
@@ -41,20 +41,30 @@ export function BooksPane({ w }: { w: Workspace }) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
-        <button onClick={() => w.input.current?.click()}>
-          <Plus size={15} />
-          Import
-        </button>
+        <Dropdown
+          label="Sort books"
+          value={sort}
+          onChange={setSort}
+          className="books-sort"
+          trigger={
+            <span className="books-sort-icon" aria-hidden="true">
+              <ArrowUpDown size={16} />
+            </span>
+          }
+          options={[
+            ['recent', 'Recently opened'],
+            ['title', 'Title'],
+          ]}
+        />
+        <IconButton
+          label="Import"
+          className="books-import"
+          data-tooltip="Import book"
+          onClick={() => w.input.current?.click()}
+        >
+          <Plus size={16} />
+        </IconButton>
       </div>
-      <Dropdown
-        label="Sort books"
-        value={sort}
-        onChange={setSort}
-        options={[
-          ['recent', 'Recently opened'],
-          ['title', 'Title'],
-        ]}
-      />
       {w.libraryLoading && <p role="status">Loading books…</p>}
       {w.libraryError && (
         <div role="alert">

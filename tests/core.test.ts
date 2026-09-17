@@ -13,6 +13,10 @@ import {
   cellAtLocation,
   headingLabel,
   previewRegion,
+  addCustomText,
+  addCustomImage,
+  replaceImage,
+  restoreImage,
   selectedDocumentBlocks,
   type CellMap,
 } from '@microbook/core';
@@ -28,6 +32,78 @@ afterEach(async () => {
   await Promise.all(temporary.splice(0).map((dir) => fs.rm(dir, { recursive: true, force: true })));
 });
 describe('EPUB import', () => {
+  it('adds package-level EPUB cover artwork before the reading spine without duplicating inline covers', async () => {
+    const opf = syntheticEntries['OEBPS/book.opf'].replace(
+      '<item id="image"',
+      '<item id="cover" href="images/cover.svg" media-type="image/svg+xml" properties="cover-image"/><item id="image"',
+    );
+    const entries = {
+      ...syntheticEntries,
+      'OEBPS/book.opf': opf,
+      'OEBPS/images/cover.svg':
+        '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="300"><rect width="200" height="300"/></svg>',
+    };
+    const doc = await importEpub(entries);
+    expect(doc.sections[0]).toMatchObject({ id: 'cover', title: 'Cover' });
+    expect(doc.blocks[0]).toMatchObject({ kind: 'image', sectionId: 'cover', assetId: 'a1' });
+    expect(doc.assets[0].alt).toBe('A Little Journey cover');
+
+    const inline = await importEpub({
+      ...entries,
+      'OEBPS/text/one.xhtml': xhtml(
+        '<img src="../images/cover.svg" alt="Cover in reading order"/><p>Following text.</p>',
+      ),
+    });
+    expect(inline.sections.some((section) => section.id === 'cover')).toBe(false);
+    expect(inline.blocks.filter((block) => block.kind === 'image')).toHaveLength(1);
+  });
+
+  it('adds formatted text and images while retaining replaceable source artwork', async () => {
+    const source = await importEpub();
+    const withText = addCustomText(source, 'note', {
+      title: 'Reading note',
+      markdown: 'A **bold** note.\n\n- First\n- Second',
+    });
+    expect(withText.sections.at(-1)).toMatchObject({ title: 'Reading note', custom: true });
+    expect(withText.blocks.some((block) => block.id === 'custom-text-note-title')).toBe(false);
+    expect(
+      withText.blocks.some((block) => block.inlines.some((inline) => inline.marks?.includes('strong'))),
+    ).toBe(true);
+    const withChapterTitle = addCustomText(source, 'chapter-note', {
+      title: 'Reading note',
+      markdown: 'A note.',
+      headingStyle: 'chapter',
+    });
+    expect(
+      withChapterTitle.blocks.find((block) => block.id === 'custom-text-chapter-note-title'),
+    ).toMatchObject({ kind: 'heading', headingKind: 'chapter' });
+    const withImage = addCustomImage(withText, {
+      id: 'art',
+      assetId: 'custom-art',
+      title: 'New artwork',
+      alt: 'A custom illustration',
+      path: 'custom-assets/art.png',
+      mediaType: 'image/png',
+    });
+    const custom = withImage.blocks.find((block) => block.id === 'custom-image-block-art')!;
+    expect(custom).toMatchObject({ kind: 'image', assetId: 'custom-art', custom: true });
+    const original = withImage.blocks.find((block) => block.kind === 'image' && !block.custom)!;
+    const replaced = replaceImage(withImage, original.id, {
+      id: 'replacement',
+      path: 'custom-assets/replacement.png',
+      mediaType: 'image/png',
+      alt: 'Replacement',
+    });
+    expect(replaced.blocks.find((block) => block.id === original.id)).toMatchObject({
+      assetId: 'replacement',
+      originalAssetId: original.assetId,
+    });
+    expect(
+      restoreImage(replaced, original.id).blocks.find((block) => block.id === original.id),
+    ).toMatchObject({
+      assetId: original.assetId,
+    });
+  });
   it('excludes individual image occurrences and their captions without deleting source or headings', async () => {
     const doc = await importEpub(publisherEntries);
     const images = doc.blocks.filter((b) => b.kind === 'image' && !b.imageHeading);
@@ -223,10 +299,12 @@ it('uses explicit CSS pixels and isolates Classic settings', () => {
   expect(effectiveSettings({ mode: 'classic', headingScale: 2 }).headingScale).toBe(1.15);
   expect(effectiveSettings({ mode: 'classic', readingOrder: 'quadrants' }).readingOrder).toBe('quadrants');
   expect(effectiveSettings({ mode: 'classic', readingOrder: 'quadrants' }).foldGapEveryRow).toBe(false);
-  expect(effectiveSettings({ mode: 'book', readingOrder: 'quadrants', foldGapEveryRow: true }).foldGapEveryRow).toBe(
-    false,
-  );
-  expect(effectiveSettings({ mode: 'book', readingOrder: 'rows', foldGapEveryRow: false }).foldGapEveryRow).toBe(true);
+  expect(
+    effectiveSettings({ mode: 'book', readingOrder: 'quadrants', foldGapEveryRow: true }).foldGapEveryRow,
+  ).toBe(false);
+  expect(
+    effectiveSettings({ mode: 'book', readingOrder: 'rows', foldGapEveryRow: false }).foldGapEveryRow,
+  ).toBe(true);
   expect(settingsSchema.safeParse({ mode: 'classic', fontSizePx: 6.5 }).success).toBe(false);
   expect(settingsSchema.safeParse({ mode: 'book', fontSizePx: 6.5 }).success).toBe(true);
   expect(defaultSettings('book').partHeadingScale).toBeGreaterThan(

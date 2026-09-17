@@ -12,8 +12,8 @@ export async function tab(page: Page, name: string) {
     await page.getByRole('button', { name: 'History', exact: true }).click();
     return;
   }
-  if (await page.getByRole('button', { name: 'Back to layout', exact: true }).isVisible()) {
-    await page.getByRole('button', { name: 'Back to layout', exact: true }).click();
+  if (await page.getByRole('button', { name: 'Back', exact: true }).isVisible()) {
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
   }
   if (await page.getByRole('button', { name: 'Open tools', exact: true }).count()) {
     if (!(await page.getByRole('dialog').count()))

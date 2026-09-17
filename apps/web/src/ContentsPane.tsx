@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { orderedSections, type CellMap } from '@microbook/core';
 import { printedLocation } from './imageLocations';
 import { SectionPreview } from './SectionPreview';
+import { AddTextDialog } from './CustomContentDialogs';
 import type { Workspace } from './LayoutControls';
 export function ContentsPane({ w }: { w: Workspace }) {
   const [query, setQuery] = useState('');
@@ -49,13 +50,16 @@ export function ContentsPane({ w }: { w: Workspace }) {
   return (
     <div className="contents-pane">
       <div className="contents-toolbar">
-        <input
-          aria-label="Find section"
-          type="search"
-          placeholder="Find section…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
+        <div className="content-filter-row">
+          <input
+            aria-label="Find section"
+            type="search"
+            placeholder="Find section…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <AddTextDialog w={w} />
+        </div>
         <div className="list-summary">
           <span>
             {includedCount} / {w.doc.sections.length} included

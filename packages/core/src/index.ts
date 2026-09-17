@@ -10,6 +10,16 @@ export {
 } from './image-output.ts';
 import { richFeaturesSchema } from './rich-settings.ts';
 export { richFeaturesSchema, newRichFeatures, type RichFeatures } from './rich-settings.ts';
+export {
+  customTextSchema,
+  addCustomText,
+  addCustomImage,
+  replaceImage,
+  restoreImage,
+  type CustomTextInput,
+  type CustomImageInput,
+} from './custom-content.ts';
+export { imageDimensions } from './images.ts';
 
 export const fonts = [
   ['arial', 'Arial'],
@@ -171,6 +181,10 @@ export interface Block {
   linkedTargetKey?: string;
   listMarker?: string;
   listDepth?: number;
+  /** User-created content or a user-selected replacement for source artwork. */
+  custom?: boolean;
+  /** Original source asset retained so an image replacement can be undone. */
+  originalAssetId?: string;
 }
 export interface NavigationEntry {
   title: string;
@@ -191,11 +205,13 @@ export interface Asset {
   path: string;
   mediaType: string;
   alt: string;
+  custom?: boolean;
 }
 export interface Section {
   id: string;
   title: string;
   source: string;
+  custom?: boolean;
 }
 export interface Diagnostic {
   code: string;
@@ -205,6 +221,7 @@ export interface Diagnostic {
 export interface BookDocument {
   version: 1;
   importRevision?: number;
+  contentRevision?: number;
   id: string;
   format: 'txt' | 'markdown' | 'epub';
   originalName: string;
@@ -333,6 +350,8 @@ export interface RenderJob {
   version: 1;
   id: string;
   documentId: string;
+  /** Document content revision used to produce this render. */
+  contentRevision?: number;
   settings: RenderSettings;
   metadata: Metadata;
   cacheKey: string;

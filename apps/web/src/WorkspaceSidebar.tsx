@@ -10,12 +10,10 @@ import type { SidebarTab } from './store';
 export function WorkspaceSidebar({ w, narrow }: { w: Workspace; narrow: boolean }) {
   const tabs: [SidebarTab, string][] = [
     ...(w.doc ? [['layout', 'Layout'] as [SidebarTab, string]] : []),
-    ...(w.doc && w.mode === 'book' && w.doc.sections.length > 1
+    ...(w.doc && w.mode === 'book' && w.doc.sections.length > 0
       ? [['contents', 'Contents'] as [SidebarTab, string]]
       : []),
-    ...(w.doc && w.mode === 'book' && w.doc.blocks.some((b) => b.kind === 'image')
-      ? [['images', 'Images'] as [SidebarTab, string]]
-      : []),
+    ...(w.doc && w.mode === 'book' ? [['images', 'Images'] as [SidebarTab, string]] : []),
   ];
   const tab =
     w.prefs.sidebarTab === 'books'
@@ -29,12 +27,18 @@ export function WorkspaceSidebar({ w, narrow }: { w: Workspace; narrow: boolean 
   useEffect(() => {
     if (tab === 'books') void w.showLibrary();
   }, [tab, w.doc?.id, w.doc?.lastRenderId]);
+  const leaveHistory = () => {
+    if (w.doc) w.setTab('layout');
+    if (narrow) w.setMobileOpen(false);
+  };
   const contents = (
     <>
       {tab === 'books' ? (
         <div className="history-heading">
           <strong>History</strong>
-          {w.doc && <button onClick={() => w.setTab('layout')}>Back to layout</button>}
+          <button disabled={!w.doc} onClick={leaveHistory}>
+            Back
+          </button>
         </div>
       ) : (
         <div className="sidebar-tabs" role="tablist" aria-label="Workspace tools">

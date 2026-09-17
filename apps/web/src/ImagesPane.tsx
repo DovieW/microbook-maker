@@ -10,9 +10,11 @@ import { RotateCcw } from 'lucide-react';
 import { IconButton } from './ui';
 import { imageLocations, printedLocation } from './imageLocations';
 import { ImageHeadingControls } from './ImageHeadingControls';
+import { ImageContentDialog } from './CustomContentDialogs';
 import type { Workspace } from './LayoutControls';
 export function ImagesPane({ w }: { w: Workspace }) {
   const root = useRef<HTMLDivElement>(null);
+  const [query, setQuery] = useState('');
   const [previewImage, setPreviewImage] = useState<PreviewImage>();
   const previewTrigger = useRef<HTMLElement | null>(null);
   const showPreview = (trigger: HTMLElement, blockId: string, src: string, alt: string, title: string) => {
@@ -29,6 +31,9 @@ export function ImagesPane({ w }: { w: Workspace }) {
   const doc = w.doc!;
   const draft = w.kept ? settingsSchema.parse(w.kept.settings) : w.draft;
   const images = imageLocations(doc, w.preview?.result, draft);
+  const filteredImages = images.filter(({ asset, section }) =>
+    `${section} ${asset?.alt || ''}`.toLowerCase().includes(query.toLowerCase()),
+  );
   const headings = imageLocations(doc, w.preview?.result, draft, true).filter(
     (i) => !images.some((e) => e.block.id === i.block.id),
   );
@@ -70,6 +75,16 @@ export function ImagesPane({ w }: { w: Workspace }) {
         onClose={() => setPreviewImage(undefined)}
         returnFocus={() => previewTrigger.current?.focus()}
       />
+      <div className="images-toolbar content-filter-row">
+        <input
+          aria-label="Find image"
+          type="search"
+          placeholder="Find image…"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+        <ImageContentDialog w={w} />
+      </div>
       <a className="image-test-print" href="/api/image-test-print" target="_blank" rel="noopener">
         Test print · Compare image output
       </a>
@@ -164,7 +179,8 @@ export function ImagesPane({ w }: { w: Workspace }) {
         </details>
       )}
       <div className="image-list">
-        {images.map(({ block, asset, section, cell, context, heading }, i) => {
+        {filteredImages.map(({ block, asset, section, cell, context, heading }) => {
+          const i = images.findIndex((entry) => entry.block.id === block.id);
           const included = !!heading || !draft.excludedImageIds.includes(block.id);
           const active = block.id === w.docPrefs?.selectedImageId;
           return (
@@ -321,6 +337,16 @@ export function ImagesPane({ w }: { w: Workspace }) {
                       />
                     )}
                     {!heading && <ImageOutputControls w={w} blockId={block.id} />}
+                    {!heading && asset && (
+                      <div className="image-source-actions">
+                        <ImageContentDialog w={w} blockId={block.id} defaultAlt={asset.alt} />
+                        {block.originalAssetId && (
+                          <button onClick={() => void w.restoreDocumentImage(block.id)}>
+                            Restore original
+                          </button>
+                        )}
+                      </div>
+                    )}
                     {heading && (
                       <ImageHeadingControls doc={doc} block={block} draft={draft} onEdit={w.edit} />
                     )}
