@@ -1,6 +1,5 @@
 import { renderImageTestPrint } from '../../../../packages/core/src/image-test-print';
-import { usePreferences } from '../store';
-import { get, put, putOwned, entries, removeDocument, sweep, LIFETIME } from './db';
+import { get, put, putOwned, entries, removeDocument } from './db';
 import { imageBlob } from './images';
 import {
   settingsSchema,
@@ -23,11 +22,8 @@ const json = (data: unknown, status = 200) =>
   Response.json(data, { status, headers: { 'Cache-Control': 'no-store' } });
 const noContent = () => new Response(null, { status: 204 });
 async function documentById(id: string) {
-  const doc = await get<BookDocument & { expiresAt: number }>('doc:' + id);
-  if (!doc || doc.expiresAt <= Date.now()) {
-    if (doc) await removeDocument(id);
-    throw Error('This temporary book has expired or was deleted. Open it again to continue.');
-  }
+  const doc = await get<BookDocument>('doc:' + id);
+  if (!doc) throw Error('This book was removed or its browser data was cleared. Open it again to continue.');
   return doc;
 }
 async function jobs(id: string) {
@@ -202,7 +198,6 @@ async function handle(request: Request): Promise<Response> {
     return new Response(processed, { headers: { 'Content-Type': processed.type } });
   }
   if (url.pathname === '/api/documents') {
-    await expirePreferences();
     if (method === 'GET') {
       const rows = await entries(),
         allJobs = rows.filter(([k]) => k.startsWith('job:')).map(([, v]) => v);
@@ -223,7 +218,7 @@ async function handle(request: Request): Promise<Response> {
         return json({ error: 'Choose an EPUB, TXT, or Markdown file smaller than 50 MB' }, 422);
       const id = crypto.randomUUID(),
         result = await importBook(file, id);
-      const doc = { ...result.doc, expiresAt: Date.now() + LIFETIME };
+      const doc = result.doc;
       try {
         for (const [name, bytes] of result.files)
           await put('file:' + id + '/' + name, { documentId: id, blob: new Blob([bytes as BlobPart]) });
@@ -368,7 +363,6 @@ async function handle(request: Request): Promise<Response> {
   return json({ error: 'Endpoint is not available in this edition' }, 404);
 }
 export async function startHosted() {
-  await expirePreferences();
   const live = new Set<string>();
   const hear = (event: MessageEvent) => {
     if (event.data.type === 'active') for (const id of event.data.ids) live.add(id);
@@ -409,17 +403,4 @@ export async function startHosted() {
     await new Promise<void>((resolve) =>
       navigator.serviceWorker.addEventListener('controllerchange', () => resolve(), { once: true }),
     );
-  setInterval(() => void expirePreferences(true), 60000);
-}
-
-async function expirePreferences(reload = false) {
-  const expired = await sweep();
-  if (!expired?.length) return;
-  const state = usePreferences.getState();
-  const current = state.lastDocumentId;
-  usePreferences.setState({
-    documents: Object.fromEntries(Object.entries(state.documents).filter(([id]) => !expired.includes(id))),
-    lastDocumentId: current && expired.includes(current) ? undefined : current,
-  });
-  if (reload && current && expired.includes(current)) location.reload();
 }

@@ -1,5 +1,6 @@
 import { version } from '../../../package.json';
-import { Download, RotateCcw } from 'lucide-react';
+import { useRef } from 'react';
+import { Download, RotateCcw, Upload } from 'lucide-react';
 import { defaultSettings, fonts, modeLabels, settingsSchema, type RenderSettings } from '@microbook/core';
 import { Dropdown } from './ui';
 import { HeadingDetection } from './HeadingDetection';
@@ -8,6 +9,7 @@ import { MetadataEditor } from './MetadataEditor';
 import type { useWorkspace } from './useWorkspace';
 export type Workspace = ReturnType<typeof useWorkspace>;
 export function LayoutControls({ w }: { w: Workspace }) {
+  const settingsInput = useRef<HTMLInputElement>(null);
   const s = settingsSchema.parse(w.kept?.settings || w.draft);
   const rich = s.mode === 'book';
   const number = (
@@ -103,11 +105,7 @@ export function LayoutControls({ w }: { w: Workspace }) {
           />
         </label>
         {check('foldGaps', 'Space at folds')}
-        {s.foldGaps && (
-          <>
-            {number('foldGapMm', 'Fold gap size', 'mm', 0.5, 6, 0.25)}
-          </>
-        )}
+        {s.foldGaps && <>{number('foldGapMm', 'Fold gap size', 'mm', 0.5, 6, 0.25)}</>}
         {rich && (
           <>
             {check('positionHeaders', 'Position headers')}
@@ -212,22 +210,39 @@ export function LayoutControls({ w }: { w: Workspace }) {
               {check('sourcePageNumbers', 'Source page numbers')}
             </>
           )}
-          <button
-            className="full-button"
-            onClick={() => {
-              const url = URL.createObjectURL(
-                new Blob([JSON.stringify(s, null, 2)], { type: 'application/json' }),
-              );
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = 'microbook-settings.json';
-              a.click();
-              setTimeout(() => URL.revokeObjectURL(url), 1000);
-            }}
-          >
-            <Download size={14} />
-            Settings JSON
-          </button>
+          <div className="settings-file-actions">
+            <button
+              className="full-button"
+              onClick={() => {
+                const url = URL.createObjectURL(
+                  new Blob([JSON.stringify(s, null, 2)], { type: 'application/json' }),
+                );
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'microbook-settings.json';
+                a.click();
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+              }}
+            >
+              <Download size={14} />
+              Export settings
+            </button>
+            <button className="full-button" onClick={() => settingsInput.current?.click()}>
+              <Upload size={14} />
+              Import settings
+            </button>
+            <input
+              ref={settingsInput}
+              className="sr-only"
+              type="file"
+              accept=".json,application/json"
+              aria-label="Import settings JSON"
+              onChange={(event) => {
+                void w.importSettings(event.target.files?.[0]);
+                event.target.value = '';
+              }}
+            />
+          </div>
           <button
             className="full-button"
             onClick={() => w.doc && w.prefs.edit(w.doc.id, defaultSettings(w.mode))}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RenderJob } from '@microbook/core';
-import { post } from './api';
+import { downloadPdf, post } from './api';
 export type OutputAction = 'print' | 'download';
 export function useOutput() {
   const [fallback, setFallback] = useState<RenderJob>();
@@ -21,10 +21,7 @@ export function useOutput() {
       await post(`/api/renders/${job.id}/lease`);
       if (sequence !== token.current) return;
       if (action === 'download') {
-        const a = document.createElement('a');
-        a.href = `/api/renders/${job.id}/download`;
-        a.download = '';
-        a.click();
+        await downloadPdf(job);
         return;
       }
       if (!navigator.pdfViewerEnabled) {

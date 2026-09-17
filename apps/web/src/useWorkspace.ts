@@ -481,6 +481,45 @@ export function useWorkspace() {
       if (input.current) input.current.value = '';
     }
   }
+  async function importSettings(file?: File) {
+    if (!file) return;
+    if (!doc || !metadata) {
+      setError('Open a book before importing settings.');
+      return;
+    }
+    if (file.size > 1024 * 1024) {
+      setError('Settings JSON must be smaller than 1 MB.');
+      return;
+    }
+    try {
+      const parsed = settingsSchema.safeParse(JSON.parse(await file.text()));
+      if (!parsed.success) throw Error('Choose a MicroBook settings JSON file.');
+      const sectionIds = new Set(doc.sections.map((section) => section.id));
+      const imageIds = new Set(doc.blocks.filter((block) => block.kind === 'image').map((block) => block.id));
+      const validImages = <T>(values: Record<string, T>) =>
+        Object.fromEntries(Object.entries(values).filter(([id]) => imageIds.has(id)));
+      const selectedSections = parsed.data.selectedSections?.filter((id) => sectionIds.has(id));
+      const imported: RenderSettings = {
+        ...parsed.data,
+        selectedSections: selectedSections?.length ? selectedSections : null,
+        sectionOrder: parsed.data.sectionOrder.filter((id) => sectionIds.has(id)),
+        excludedImageIds: parsed.data.excludedImageIds.filter((id) => imageIds.has(id)),
+        imageCellSpans: validImages(parsed.data.imageCellSpans),
+        imageTreatments: validImages(parsed.data.imageTreatments),
+        imageOutputOverrides: validImages(parsed.data.imageOutputOverrides),
+        imageRotations: validImages(parsed.data.imageRotations),
+      };
+      output.cancel();
+      setKept(undefined);
+      exportNext.current = undefined;
+      prefs.patch({ explicitMode: imported.mode, sidebarTab: 'layout' });
+      prefs.edit(doc.id, imported);
+      prefs.document(doc.id, { mode: imported.mode, keptId: undefined });
+      await apply(doc, imported, metadata);
+    } catch (error) {
+      setError(error instanceof SyntaxError ? 'Choose a valid JSON file.' : message(error));
+    }
+  }
   const edit = (value: Partial<RenderSettings>) => {
     const next = settingsSchema.safeParse({ ...draft, ...value });
     if (doc && next.success) prefs.edit(doc.id, next.data);
@@ -653,6 +692,7 @@ export function useWorkspace() {
     dragging,
     setDragging,
     importFile,
+    importSettings,
     apply,
     cancel,
     edit,

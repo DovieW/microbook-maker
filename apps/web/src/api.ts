@@ -35,10 +35,23 @@ export async function api<T>(url: string, options?: RequestInit): Promise<T> {
 }
 export const post = <T>(url: string, body: unknown = {}) =>
   api<T>(url, { method: 'POST', body: JSON.stringify(body) });
-export async function exportPdf(job: Pick<RenderJob, 'id'>) {
-  const { url } = await post<{ url: string }>(`/api/renders/${job.id}/export`);
+export async function downloadPdf(job: Pick<RenderJob, 'id' | 'metadata'>) {
+  const response = await fetch(`/api/renders/${job.id}/download`, {
+    signal: AbortSignal.timeout(120_000),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error || `Could not download the PDF (${response.status})`);
+  }
+  const blob = await response.blob();
+  if (blob.type && blob.type !== 'application/pdf') throw new Error('The completed PDF is unavailable');
+  const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = '';
+  link.download = `${job.metadata.title.replace(/[^\p{L}\p{N} ._-]/gu, '') || 'microbook'}.pdf`;
+  link.hidden = true;
+  document.body.append(link);
   link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }

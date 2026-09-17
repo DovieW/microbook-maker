@@ -2,20 +2,20 @@
 
 The hosted beta is **https://microbook.dovieweinstock.workers.dev**. The personal Docker/TrueNAS edition and the hosted edition use the same repository and workspace UI.
 
-| | Personal Docker / TrueNAS | Cloudflare beta |
-|---|---|---|
-| Library | Persistent server volumes | This browser's IndexedDB |
-| Import and image processing | Personal server | Visitor's device |
-| Layout | Pinned server Chromium | Visitor's browser with bundled fonts |
-| PDF creation | Personal server | Stateless Cloudflare Browser Run |
-| Retention | Latest layouts and kept versions | 24 hours from import, including versions |
-| Accounts | Shared private Library | None; browser storage is isolated |
+|                             | Personal Docker / TrueNAS        | Cloudflare beta                                    |
+| --------------------------- | -------------------------------- | -------------------------------------------------- |
+| Library                     | Persistent server volumes        | This browser's IndexedDB                           |
+| Import and image processing | Personal server                  | Visitor's device                                   |
+| Layout                      | Pinned server Chromium           | Visitor's browser with bundled fonts               |
+| PDF creation                | Personal server                  | Stateless Cloudflare Browser Run                   |
+| Retention                   | Latest layouts and kept versions | Until the visitor removes them or clears site data |
+| Accounts                    | Shared private Library           | None; browser storage is isolated                  |
 
 ## Temporary books and privacy
 
 EPUB, TXT, and Markdown sources are imported on the visitor's device. To create a PDF, the application sends the prepared book content, including its images and embedded fonts, to Cloudflare over HTTPS. The Worker returns the PDF without storing it in a server Library, bucket, or database. Application request logging is disabled. This is not a promise that the hosting provider has no operational logs.
 
-Books, PDFs, thumbnails, and image caches expire 24 hours after import. Deletion runs while the application is open or on the next visit; a closed browser cannot run our cleanup timer. History also offers immediate removal. Clearing site data removes everything. Private/incognito windows may discard it earlier. Kept versions do not extend expiration. Download anything you want to keep.
+Books, PDFs, thumbnails, and image caches remain in that browser until the visitor removes the book from History or clears site data. Private/incognito windows and browser storage policies may discard them earlier. Download anything you want to keep outside the browser.
 
 Only process material you are authorized to use through permission, a license, public-domain status, or applicable law. The app cannot determine copyright ownership. Private processing does not itself establish permission or legal immunity. For a broader public launch, establish a working copyright contact and obtain qualified US advice about applicable obligations; see the [US Copyright Office's Section 512 guidance](https://www.copyright.gov/512/).
 

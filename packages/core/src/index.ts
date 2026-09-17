@@ -437,6 +437,10 @@ export function imageHeadingTreatment(doc: BookDocument, block: Block, settings?
   return automaticImageHeadings(doc).get(block.id);
 }
 const detectedTextHeadings = new WeakMap<BookDocument, Map<string, HeadingKind>>();
+const comparableHeading = (text: string) =>
+  normalizedText(text)
+    .toLocaleLowerCase('en')
+    .replace(/[^\p{L}\p{N}]+/gu, '');
 /** Infer only short opening headings; numbering alone in body text is insufficient. */
 export function automaticTextHeadings(doc: BookDocument): Map<string, HeadingKind> {
   const cached = detectedTextHeadings.get(doc);
@@ -501,10 +505,73 @@ export function customHeadingKind(block: Block, settings: RenderSettings): Headi
   if (text.length > 500) return;
   return settings.customHeadingRules?.find((r) => matchesHeadingPattern(text, r.pattern))?.headingKind;
 }
+function canonicalHeadingInlines(inlines: Inline[]): Inline[] {
+  let changed = false;
+  const canonical = inlines.map((inline) => {
+    const marks = inline.marks?.filter((mark) => mark !== 'strong' && mark !== 'em');
+    if (marks?.length === inline.marks?.length) return inline;
+    changed = true;
+    return { ...inline, ...(marks?.length ? { marks } : { marks: undefined }) };
+  });
+  return changed ? canonical : inlines;
+}
+/** Join EPUBs that encode an opening heading label and title as separate paragraphs. */
+function canonicalHeadingBlocks(doc: BookDocument, blocks: Block[]): Block[] {
+  const titles = new Map(doc.sections.map((section) => [section.id, comparableHeading(section.title)]));
+  const remove = new Set<number>();
+  const replacements = new Map<number, Block>();
+  const bySection = new Map<string, number[]>();
+  for (const [index, block] of blocks.entries()) {
+    if (block.kind === 'separator' || block.pageLabel || !blockText(block).trim()) continue;
+    const indexes = bySection.get(block.sectionId) || [];
+    indexes.push(index);
+    bySection.set(block.sectionId, indexes);
+  }
+  for (const indexes of bySection.values()) {
+    const [firstIndex, titleIndex] = indexes;
+    if (firstIndex === undefined || titleIndex === undefined) continue;
+    const first = blocks[firstIndex],
+      title = blocks[titleIndex],
+      firstText = normalizedText(blockText(first)),
+      titleText = normalizedText(blockText(title)),
+      label = headingLabel(firstText),
+      numeric = /^\d{1,4}\s*[:.–—-]?$/u.test(firstText),
+      kind = first.headingKind || label?.kind || (numeric ? 'chapter' : undefined);
+    if (
+      !kind ||
+      !['paragraph', 'heading'].includes(first.kind) ||
+      !['paragraph', 'heading'].includes(title.kind) ||
+      titleText.length > 160 ||
+      (label && normalizedText(firstText.slice(label.length))) ||
+      comparableHeading(`${firstText} ${titleText}`) !== titles.get(first.sectionId)
+    )
+      continue;
+    const anchorKeys = [...new Set([...(first.anchorKeys || []), ...(title.anchorKeys || [])])];
+    replacements.set(firstIndex, {
+      ...first,
+      kind: 'heading',
+      headingKind: kind,
+      level: first.level || 2,
+      align: undefined,
+      publisherFont: first.publisherFont || title.publisherFont,
+      anchorKeys: anchorKeys.length ? anchorKeys : undefined,
+      inlines: canonicalHeadingInlines([...first.inlines, { text: ' ', generated: true }, ...title.inlines]),
+    });
+    remove.add(titleIndex);
+  }
+  return blocks.flatMap((block, index) => {
+    if (remove.has(index)) return [];
+    const replacement = replacements.get(index);
+    if (replacement) return [replacement];
+    return block.kind === 'heading' && block.headingKind
+      ? [{ ...block, inlines: canonicalHeadingInlines(block.inlines) }]
+      : [block];
+  });
+}
 export function selectedDocumentBlocks(doc: BookDocument, settings?: RenderSettings): Block[] {
   // IDs refer to occurrences, not assets: repeated illustrations remain independently selectable.
   // Chapter artwork rendered as text is not an illustration and must retain its heading.
-  const blocks =
+  const interpreted =
     settings?.mode === 'book'
       ? doc.blocks.map((b) => {
           if (b.kind !== 'image') {
@@ -522,6 +589,7 @@ export function selectedDocumentBlocks(doc: BookDocument, settings?: RenderSetti
           return b.imageHeading ? { ...b, imageHeading: undefined, headingKind: undefined } : b;
         })
       : doc.blocks;
+  const blocks = settings?.mode === 'book' ? canonicalHeadingBlocks(doc, interpreted) : interpreted;
   const excluded = new Set(
     settings?.mode === 'book'
       ? blocks

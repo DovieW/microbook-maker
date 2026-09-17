@@ -10,6 +10,7 @@ const app = express();
 app.post('/_cloud/print', express.text({ type: 'text/html', limit: '24mb' }), async (req, res) => {
   const page = await browser.newPage();
   try {
+    await fs.mkdir('.artifacts/hosted', { recursive: true });
     await fs.writeFile('.artifacts/hosted/prepared.html', req.body);
     await page.setContent(req.body, { waitUntil: 'domcontentloaded' });
     await page.evaluate(() => document.fonts.ready);

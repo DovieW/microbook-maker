@@ -1,4 +1,3 @@
-export const LIFETIME = 24 * 60 * 60 * 1000;
 let connection: Promise<IDBDatabase> | undefined;
 function database() {
   return (connection ||= new Promise((resolve, reject) => {
@@ -58,7 +57,7 @@ export async function putOwned(key: string, value: { documentId: string; [key: s
       records = tx.objectStore('records');
     const request = records.get('doc:' + value.documentId);
     request.onsuccess = () => {
-      if (request.result?.expiresAt > Date.now()) records.put(value, key);
+      if (request.result) records.put(value, key);
     };
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
@@ -81,12 +80,4 @@ export async function removeDocument(id: string) {
     tx.onerror = () => reject(tx.error);
     tx.onabort = () => reject(tx.error);
   });
-}
-export async function sweep() {
-  const rows = await entries();
-  const expired = rows
-    .filter(([key, doc]) => key.startsWith('doc:') && doc.expiresAt <= Date.now())
-    .map(([, doc]) => doc.id as string);
-  for (const id of expired) await removeDocument(id);
-  return expired;
 }

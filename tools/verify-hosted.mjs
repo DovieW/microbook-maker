@@ -47,6 +47,11 @@ try {
     async (id) => [...new Uint8Array(await fetch(`/api/renders/${id}/pdf`).then((r) => r.arrayBuffer()))],
     rich.id,
   );
+  const downloadEvent = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Download PDF', exact: true }).click();
+  const download = await downloadEvent;
+  assert.deepEqual(new Uint8Array(await fs.readFile(await download.path())), new Uint8Array(bytes));
+  assert.match(download.suggestedFilename(), /\.pdf$/);
   await fs.mkdir('.artifacts/hosted', { recursive: true });
   await fs.writeFile('.artifacts/hosted/rich.pdf', Buffer.from(bytes));
   await page.waitForSelector('.page canvas', { timeout: 15000 });

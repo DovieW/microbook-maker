@@ -307,6 +307,17 @@ summary > span {
   margin-top: 12px;
   font-size: 12px;
 }
+.settings-file-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+.settings-file-actions .full-button {
+  min-width: 0;
+  margin-top: 0;
+  padding-inline: 8px;
+}
 .muted {
   color: var(--muted);
   border-color: transparent;
@@ -2526,13 +2537,6 @@ summary > span {
   max-width: 58%;
 }
 
-.hosted-notice {
-  font-size: 12px;
-  line-height: 1.45;
-  color: var(--text-muted, #a5b5bc);
-  margin: 0 0 14px;
-  overflow-wrap: anywhere;
-}
 .hosted-welcome {
   box-sizing: border-box;
   width: min(300px, calc(100vw - 48px));

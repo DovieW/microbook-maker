@@ -93,7 +93,9 @@ export default function App() {
       onDrop={(e) => {
         e.preventDefault();
         w.setDragging(false);
-        void w.importFile(e.dataTransfer.files[0]);
+        const file = e.dataTransfer.files[0];
+        if (/\.json$/i.test(file?.name || '')) void w.importSettings(file);
+        else void w.importFile(file);
       }}
     >
       <input
@@ -203,7 +205,7 @@ export default function App() {
                   {import.meta.env.VITE_HOSTED === '1' && (
                     <div className="hosted-welcome">
                       <strong>Hosted beta</strong>
-                      <span>Books stay in this browser for 24 hours.</span>
+                      <span>Books stay in this browser until you remove them.</span>
                       <small>Use books you’re allowed to process.</small>
                     </div>
                   )}
@@ -324,7 +326,7 @@ export default function App() {
           )}
         </main>
       </div>
-      {w.dragging && <div className="drop-overlay">Open book</div>}
+      {w.dragging && <div className="drop-overlay">Open book or import settings</div>}
       {(narrow ? !w.mobileOpen : !w.prefs.sidebarOpen) && w.error && (
         <button className="activity-badge" onClick={toggleSidebar}>
           {w.error ? 'Action needed' : w.job?.phase || 'Processing'}
