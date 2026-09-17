@@ -6,6 +6,9 @@ module.exports = async (payload) => {
         headerInfo,
         totalWords,
         foldGaps,
+        foldGapMm = 2.5,
+        foldGapEveryRow = true,
+        readingOrder = 'rows',
         optimizationLimits,
         batchWords = false,
         justifyAllCells = false,
@@ -14,21 +17,30 @@ module.exports = async (payload) => {
       let pageIndex = 0;
       let isCurrentPageFront = true;
 
-      const foldGapPx = 4;
+      const foldGapPx = foldGapMm * 96 / 25.4 / 2;
+      const readingSlots = readingOrder === 'quadrants'
+        ? [0, 1, 4, 5, 2, 3, 6, 7, 8, 9, 12, 13, 10, 11, 14, 15]
+        : [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+
+      function orderedGridItems() {
+        return Array.from(document.querySelectorAll('.page')).flatMap((page) => {
+          const bySlot = new Map(
+            Array.from(page.querySelectorAll('.grid-item')).map((item) => [Number(item.dataset.slot), item])
+          );
+          return readingSlots.flatMap((slot) => bySlot.has(slot) ? [bySlot.get(slot)] : []);
+        });
+      }
 
       function applyFoldGapPadding(gridItem, cellIndex) {
         if (!foldGaps) {
           return;
         }
 
-        if (cellIndex < 4) {
-          gridItem.style.paddingBottom = `${foldGapPx}px`;
-        } else if (cellIndex >= 4 && cellIndex < 12) {
-          gridItem.style.paddingTop = `${foldGapPx}px`;
-          gridItem.style.paddingBottom = `${foldGapPx}px`;
-        } else {
-          gridItem.style.paddingTop = `${foldGapPx}px`;
-        }
+        const row = Math.floor(cellIndex / 4);
+        const topGap = foldGapEveryRow ? row > 0 : row === 2;
+        const bottomGap = foldGapEveryRow ? row < 3 : row === 1;
+        gridItem.style.paddingTop = topGap ? `${foldGapPx}px` : '0';
+        gridItem.style.paddingBottom = bottomGap ? `${foldGapPx}px` : '0';
 
         if (cellIndex % 4 === 1) {
           gridItem.style.paddingRight = `${foldGapPx}px`;
@@ -52,6 +64,9 @@ module.exports = async (payload) => {
         for (let i = 0; i < 16; i += 1) {
           const gridItem = document.createElement('div');
           gridItem.className = 'grid-item';
+          gridItem.dataset.slot = String(i);
+          gridItem.style.gridRow = String(Math.floor(i / 4) + 1);
+          gridItem.style.gridColumn = String((i % 4) + 1);
 
           let paddingClass = '';
           if (i < 4) {
@@ -148,7 +163,9 @@ module.exports = async (payload) => {
             }
 
             gridItem.appendChild(mainHeader);
-          } else if (i % 4 === 0) {
+          } else if (
+            readingOrder === 'quadrants' ? [0, 2, 8, 10].includes(i) : i % 4 === 0
+          ) {
             const miniSheetNumContainer = document.createElement('span');
             const miniSheetNum = document.createElement('span');
             const miniSheetNumPercentage = document.createElement('span');
@@ -173,7 +190,7 @@ module.exports = async (payload) => {
         isCurrentPageFront = !isCurrentPageFront;
         pageIndex += 1;
 
-        return Array.from(document.querySelectorAll('.grid-item'));
+        return orderedGridItems();
       }
 
       function buildTokenClass(token) {
@@ -1170,8 +1187,8 @@ module.exports = async (payload) => {
         isCurrentPageFront = !isCurrentPageFront;
       }
 
-      const allGridItems = document.querySelectorAll('.grid-item');
-      Array.from(allGridItems).slice(-15).forEach((block) => {
+      const allGridItems = orderedGridItems();
+      allGridItems.slice(-15).forEach((block) => {
         const cloneBlock = block.cloneNode(true);
         const spanElement = cloneBlock.querySelector('.miniSheetNum');
         if (spanElement) {

@@ -46,7 +46,7 @@ export function RichFeatures({
   );
   if (group === 'navigation')
     return (
-      <details>
+      <details className="layout-accordion-start">
         <summary>Navigation &amp; references</summary>
         {select('contents', 'Printed contents', [
           ['compact', 'Compact generated'],
@@ -61,6 +61,11 @@ export function RichFeatures({
         {select('bookmarkDepth', 'Bookmark depth', [
           ['chapters', 'Parts and chapters'],
           ['all', 'All sections'],
+        ])}
+        {select('sheetHeaders', 'Sheet headers', [
+          ['every', 'Every sheet'],
+          ['first', 'First sheet only'],
+          ['off', 'Off'],
         ])}
         {check('chapterHeaders', 'Chapter names in mini headers')}
         {select('pageReferences', 'Original page references', [

@@ -87,6 +87,34 @@ it('keeps linked captions, table URLs and excluded-note references in source ord
   }
 });
 
+it('does not print locations for linked chapter headings', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'rich-heading-link-'));
+  try {
+    const doc = await importDocument(richFixture(), 'rich.epub', 'test', dir);
+    const heading = doc.blocks.find((b) => b.kind === 'heading')!;
+    const target = doc.blocks.find((b) => b.id !== heading.id && b.anchorKeys?.length)!;
+    const targetKey = target.anchorKeys![0];
+    heading.inlines = [{ text: 'Linked chapter', targetKey }];
+
+    const paragraph = doc.blocks.find((b) => b.kind === 'paragraph' && b.id !== target.id)!;
+    paragraph.inlines = [{ text: 'See this section', targetKey }];
+
+    const result = prepareRichContent(doc, {
+      ...defaultSettings(),
+      rich: { ...newRichFeatures(), contents: 'publisher' },
+    });
+    const preparedHeading = result.blocks.find((b) => b.id === heading.id)!;
+    const preparedParagraph = result.blocks.find((b) => b.id === paragraph.id)!;
+
+    expect(preparedHeading.inlines.some((inline) => inline.locationTarget)).toBe(false);
+    expect(blockText(preparedHeading)).toBe('Linked chapter');
+    expect(preparedParagraph.inlines.some((inline) => inline.locationTarget)).toBe(true);
+    expect(blockText(preparedParagraph)).toBe('See this section [location]');
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
 it('replaces guide contents and resolves hidden pagebreak link targets', async () => {
   // @ts-expect-error shared original fixture
   const { richEntries } = await import('../tools/rich-fixture.mjs');

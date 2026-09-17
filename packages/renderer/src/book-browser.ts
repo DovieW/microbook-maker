@@ -27,7 +27,7 @@ async function layoutBook(payload: {
   document.body.replaceChildren();
   document.body.classList.add('measuring');
   const style = document.createElement('style');
-  style.textContent = `@page{size:Letter portrait;margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0}body{font-family:${fontStack};font-size:${s.fontSizePx}px;color:#000} .page{width:816px;height:1056px;position:relative;break-after:page;overflow:hidden;background:white}.page:last-child{break-after:auto}.cell{position:absolute;overflow:hidden;padding:0 2px ${s.foldGaps ? 4 : 0}px}.flow{height:100%;overflow:visible;text-align:justify;text-align-last:left;line-height:${s.lineHeight}}p,blockquote,pre,li,h1,h2,h3,h4,h5,h6{margin:0;padding:0;font-size:1em;line-height:${s.lineHeight};overflow-wrap:anywhere}body.measuring p{ text-align:left!important;text-align-last:left!important }p{text-align:justify;text-align-last:left;text-indent:${s.paragraphIndentEm}em;margin-bottom:${s.paragraphStyle === 'spaced' ? s.lineHeight : s.paragraphGapEm}em}h1,h2,h3,h4,h5,h6{text-align:left;text-align-last:left;font-weight:700;font-size:${s.headingScale}em;line-height:1.05;margin:0.2em 0 0.1em}blockquote{font-style:italic}pre{white-space:pre-wrap;font-family:monospace;text-align:left;text-align-last:left}table{width:100%;table-layout:fixed;border-collapse:collapse;font-size:1em;line-height:${s.lineHeight}}td{border:0.4px solid #000;padding:1px;overflow-wrap:anywhere}img{display:block;object-fit:contain;margin:0 auto}hr{border:0;border-top:0.5px solid #000;margin:0.4em 15%}.book-header{overflow-wrap:anywhere;text-align:left;font-size:1.4em;font-weight:700;line-height:1.05;margin-bottom:0.4em}.list-item[data-marker]:before{content:attr(data-marker);}.source-page{font-size:.8em;color:#000;text-align:right;line-height:1}.book-author{font-size:0.7em;font-weight:400;margin-top:0.15em}`;
+  style.textContent = `@page{size:Letter portrait;margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0}body{font-family:${fontStack};font-size:${s.fontSizePx}px;color:#000} .page{width:816px;height:1056px;position:relative;break-after:page;overflow:hidden;background:white}.page:last-child{break-after:auto}.cell{position:absolute;overflow:hidden;padding:0 2px}.flow{height:100%;overflow:visible;text-align:justify;text-align-last:left;line-height:${s.lineHeight}}p,blockquote,pre,li,h1,h2,h3,h4,h5,h6{margin:0;padding:0;font-size:1em;line-height:${s.lineHeight};overflow-wrap:anywhere}body.measuring p{ text-align:left!important;text-align-last:left!important }p{text-align:justify;text-align-last:left;text-indent:${s.paragraphIndentEm}em;margin-bottom:${s.paragraphStyle === 'spaced' ? s.lineHeight : s.paragraphGapEm}em}h1,h2,h3,h4,h5,h6{text-align:left;text-align-last:left;font-weight:700;font-size:${s.headingScale}em;line-height:1.05;margin:0.2em 0 0.1em}blockquote{font-style:italic}pre{white-space:pre-wrap;font-family:monospace;text-align:left;text-align-last:left}table{width:100%;table-layout:fixed;border-collapse:collapse;font-size:1em;line-height:${s.lineHeight}}td{border:0.4px solid #000;padding:1px;overflow-wrap:anywhere}img{display:block;object-fit:contain;margin:0 auto}hr{border:0;border-top:0.5px solid #000;margin:0.4em 15%}.book-header{overflow-wrap:anywhere;text-align:left;font-size:1.4em;font-weight:700;line-height:1.05;margin-bottom:0.4em}.list-item[data-marker]:before{content:attr(data-marker);}.source-page{font-size:.8em;color:#000;text-align:right;line-height:1}.book-author{font-size:0.7em;font-weight:400;margin-top:0.15em}`;
   document.head.querySelectorAll('style').forEach((e) => e.remove());
   document.head.append(style);
   await document.fonts.ready;
@@ -37,12 +37,14 @@ async function layoutBook(payload: {
   const maps: CellMap[] = [];
   const flows: HTMLElement[] = [];
   const positionHeaders: HTMLElement[] = [];
+  const sheetHeaders = new Map<number, { element: HTMLElement; count: HTMLElement; details: HTMLElement }>();
   let spreadFull = false;
   let page: HTMLElement;
   let current = -1;
   let expectedCharacters = 0;
   let renderedCharacters = 0;
   let overflows = 0;
+  const overflowDetails: string[] = [];
   let cacheHits = 0;
   let cacheMisses = 0;
   const preparedContent = prepareRichContent(book, s);
@@ -96,6 +98,28 @@ async function layoutBook(payload: {
       sides: Math.ceil(maps.length / 16),
     });
   };
+  const slots =
+    s.readingOrder === 'quadrants'
+      ? [0, 1, 4, 5, 2, 3, 6, 7, 8, 9, 12, 13, 10, 11, 14, 15]
+      : [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+  const makeSheetHeader = () => {
+    const element = document.createElement('div');
+    element.className = 'sheet-header';
+    const line = document.createElement('div');
+    line.className = 'sheet-header-line';
+    const title = document.createElement('strong');
+    title.className = 'sheet-header-title';
+    title.textContent = book.metadata.title;
+    const count = document.createElement('span');
+    count.className = 'sheet-header-count';
+    count.textContent = '0 / 0';
+    const details = document.createElement('div');
+    details.className = 'sheet-header-details';
+    details.textContent = book.metadata.author || 'MicroBook';
+    line.append(title, count);
+    element.append(line, details);
+    return { element, count, details };
+  };
   function nextCell() {
     reportProgress();
     current++;
@@ -104,7 +128,7 @@ async function layoutBook(payload: {
       page.className = 'page';
       document.body.append(page);
     }
-    const slot = current % 16;
+    const slot = slots[current % 16];
     const x = margin + (slot % 4) * cellWidth;
     const y = margin + Math.floor(slot / 4) * cellHeight;
     const cell = document.createElement('div');
@@ -120,17 +144,29 @@ async function layoutBook(payload: {
       if (slot >= 4) cell.style.borderTop = `1px ${s.borderStyle} black`;
     }
     if (s.foldGaps) {
-      cell.style.paddingTop = slot >= 4 ? '4px' : '0';
-      cell.style.paddingBottom = slot < 12 ? '4px' : '0';
-      if (slot % 4 === 1) cell.style.paddingRight = '4px';
-      if (slot % 4 === 2) cell.style.paddingLeft = '4px';
+      const halfGap = `${((s.foldGapMm * 96) / 25.4 / 2).toFixed(3)}px`;
+      const row = Math.floor(slot / 4);
+      const topGap = s.foldGapEveryRow ? row > 0 : row === 2;
+      const bottomGap = s.foldGapEveryRow ? row < 3 : row === 1;
+      cell.style.paddingTop = topGap ? halfGap : '0';
+      cell.style.paddingBottom = bottomGap ? halfGap : '0';
+      if (slot % 4 === 1) cell.style.paddingRight = halfGap;
+      if (slot % 4 === 2) cell.style.paddingLeft = halfGap;
     }
     const flow = document.createElement('div');
     flow.className = 'flow';
     // A first heading's top margin must stay inside the measured cell. Collapsing it
     // through this container moves the whole 100%-height flow below its clipping edge.
     flow.style.display = 'flow-root';
-    if (s.positionHeaders && current > 0 && slot % 4 === 0) {
+    cell.dataset.slot = String(slot);
+    const needsSheetHeader = s.rich.sheetHeaders === 'every' && current > 0 && current % 32 === 0;
+    const needsPositionHeader =
+      s.readingOrder === 'quadrants' ? [0, 2, 8, 10].includes(slot) : slot % 4 === 0;
+    if (needsSheetHeader) {
+      const sheetHeader = makeSheetHeader();
+      sheetHeaders.set(current, sheetHeader);
+      flow.append(sheetHeader.element);
+    } else if (s.positionHeaders && current > 0 && needsPositionHeader) {
       const position = document.createElement('span');
       position.className = 'cell-position';
       // A following layout pass fits the final label when its measured width changes.
@@ -143,6 +179,7 @@ async function layoutBook(payload: {
     flows.push(flow);
     maps.push({
       index: current,
+      slot,
       page: Math.floor(current / 16),
       x: x * 0.75,
       y: y * 0.75,
@@ -159,33 +196,34 @@ async function layoutBook(payload: {
   const title = document.createElement('div');
   title.className = 'book-title';
   title.textContent = book.metadata.title;
-  const info = document.createElement('div');
-  info.className = 'book-info';
+  const byline = document.createElement('div');
+  byline.className = 'book-byline';
+  byline.textContent = [book.metadata.author, book.metadata.year, book.metadata.series]
+    .filter(Boolean)
+    .join(' · ');
+  const stats = document.createElement('div');
+  stats.className = 'book-stats';
   const words = wordCount(preparedContent.source.map(bookBlockText).join('\n\n'));
   const minutes = Math.ceil(words / 215);
-  const readTime = `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
-  let sheetsValue: HTMLElement;
-  for (const [label, value] of [
-    ['Sheets', '0'],
-    ['Words', words.toLocaleString('en-US')],
-    ['Read time', readTime],
-    ['Author', book.metadata.author || '—'],
-    ['Year', book.metadata.year || '—'],
-    ['Text size', `${s.fontSizePx} px`],
-    ...(book.metadata.series ? [['Series', book.metadata.series]] : []),
-  ]) {
-    const item = document.createElement('div');
-    const key = document.createElement('b');
-    key.textContent = label + ': ';
-    const text = document.createElement('span');
-    text.textContent = value;
-    if (label === 'Sheets') sheetsValue = text;
-    item.append(key, text);
-    info.append(item);
-  }
-  header.append(title, info);
+  const formatMinutes = (value: number) => {
+    const hours = Math.floor(value / 60);
+    const remainder = value % 60;
+    return hours ? `${hours}h${remainder ? ` ${remainder}m` : ''}` : `${remainder}m`;
+  };
+  const sheetsValue = document.createElement('span');
+  sheetsValue.textContent = '0';
+  stats.append(
+    sheetsValue,
+    ' sheets · ',
+    words.toLocaleString('en-US'),
+    ' words · about ',
+    formatMinutes(minutes),
+  );
+  header.append(title);
+  if (byline.textContent) header.append(byline);
+  header.append(stats);
   const headerStyle = document.createElement('style');
-  headerStyle.textContent = `.book-header{font-size:1em;font-weight:400;line-height:1.2;border:0.7px solid #000;padding:4px;margin:0 0 3px;display:flow-root}.book-title{font-size:2em;line-height:1.05;font-weight:700;letter-spacing:-.02em;margin-bottom:4px}.book-info{display:grid;grid-template-columns:1fr 1fr;gap:2px 5px;font-variant-numeric:tabular-nums}.book-info>div{min-width:0;text-align:left}.book-info>div:first-child span{display:inline-block;min-width:4ch}.source-page{text-align:left}.image-group{display:flow-root}`;
+  headerStyle.textContent = `.book-header{font-size:1em;font-weight:400;line-height:1.15;border:0;border-bottom:.8px solid #000;padding:1px 1px 4px;margin:0 0 3px;display:flow-root;text-align:left;text-align-last:left}.book-title{font-size:1.7em;line-height:1.05;font-weight:700;letter-spacing:-.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.book-byline{font-size:.9em;margin-top:.2em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.book-stats{font-size:.72em;line-height:1.25;margin-top:.45em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}.sheet-header{border-bottom:.7px solid #000;padding:1px 1px 3px;margin:0 0 3px;text-align:left;text-align-last:left;line-height:1.15}.sheet-header-line{display:flex;gap:.5em;align-items:baseline}.sheet-header-title{font-size:1.15em;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sheet-header-count{margin-left:auto;flex:none;font-size:.9em;font-variant-numeric:tabular-nums}.sheet-header-details{margin-top:.2em;font-size:.72em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-variant-numeric:tabular-nums}.source-page{text-align:left}.image-group{display:flow-root}`;
   document.head.append(headerStyle);
   const headingStyle = document.createElement('style');
   headingStyle.textContent = `
@@ -216,12 +254,25 @@ async function layoutBook(payload: {
     .cell-position {float:left;width:auto;max-width:45%;overflow:hidden;text-overflow:ellipsis;height:${s.fontSizePx * s.lineHeight}px;margin-right:.4em;font-size:1em;font-style:italic;line-height:${s.lineHeight};text-align:left;text-align-last:left;white-space:nowrap;color:#000;font-variant-numeric:tabular-nums}
   `;
   document.head.append(headingStyle);
+  function clearGeneratedHeader(target: HTMLElement) {
+    const position = target.querySelector<HTMLElement>(':scope > .cell-position');
+    if (position) {
+      position.remove();
+      delete positionHeaders[current];
+    }
+    const sheetHeader = target.querySelector<HTMLElement>(':scope > .sheet-header');
+    if (sheetHeader) {
+      sheetHeader.remove();
+      sheetHeaders.delete(current);
+    }
+  }
   function ensureHeader() {
-    if (header.isConnected) return;
+    if (s.rich.sheetHeaders === 'off' || header.isConnected) return;
     if (spreadFull) {
       flow = nextCell();
       spreadFull = false;
     }
+    clearGeneratedHeader(flow);
     flow.append(header);
     if (
       header.getBoundingClientRect().bottom + s.fontSizePx * s.lineHeight >
@@ -229,6 +280,7 @@ async function layoutBook(payload: {
     ) {
       header.remove();
       flow = nextCell();
+      clearGeneratedHeader(flow);
       flow.append(header);
     }
   }
@@ -608,8 +660,17 @@ async function layoutBook(payload: {
       if ((s.imageCellSpans[block.id] ?? (s.twoCellImages ? 2 : 1)) === 2) {
         // A spread owns two neighboring physical slots on the same printed row.
         // Keep the source map at 16 slots/side; either slot previews the complete image.
-        if (flow.querySelector(':scope > :not(.cell-position)')) flow = nextCell();
-        if (current % 4 === 3) {
+        // Moving past an invalid final column can land on a generated sheet header.
+        // Recheck both constraints until the chosen owner is empty and has an adjacent
+        // physical continuation in the selected reading order.
+        for (;;) {
+          if (Array.from(flow.children).some((child) => !child.classList.contains('cell-position'))) {
+            flow = nextCell();
+            continue;
+          }
+          const slot = maps[current].slot ?? current % 16;
+          const cannotStartSpread = s.readingOrder === 'quadrants' ? slot % 2 === 1 : slot % 4 === 3;
+          if (!cannotStartSpread) break;
           maps[current].blank = true;
           flow = nextCell();
         }
@@ -717,17 +778,25 @@ async function layoutBook(payload: {
           (height, label) => height + label.getBoundingClientRect().height,
           0,
         );
-        const availableHeight = flow.clientHeight - captionHeight - labelHeight - 2;
+        // Images can follow a running sheet header or ordinary content. Measure from
+        // the group's actual top rather than treating the entire cell as available.
+        const availableHeight =
+          flow.getBoundingClientRect().bottom -
+          group.getBoundingClientRect().top -
+          captionHeight -
+          labelHeight -
+          2;
+        if (availableHeight < s.fontSizePx) return false;
         const scale = Math.min(
           s.imageScale,
           ((flow.clientWidth - 2) * s.imageScale) / img.naturalWidth,
-          (Math.max(s.fontSizePx, availableHeight) * s.imageScale) / img.naturalHeight,
+          (availableHeight * s.imageScale) / img.naturalHeight,
         );
         img.style.width = `${img.naturalWidth * scale}px`;
         img.style.height = `${img.naturalHeight * scale}px`;
+        return true;
       };
-      sizeImage();
-      if (!fit(group)) {
+      if (!sizeImage() || !fit(group)) {
         group.remove();
         flow = nextCell();
         flow.append(group);
@@ -918,7 +987,7 @@ async function layoutBook(payload: {
     node.id = 'destination-' + id;
     destinations[id] = {
       page: cell.page,
-      cell: (cell.index % 16) + 1,
+      cell: (cell.slot ?? cell.index % 16) + 1,
       x: (rect.left - bounds.left) * 0.75,
       y: (rect.top - bounds.top) * 0.75,
     };
@@ -969,7 +1038,8 @@ async function layoutBook(payload: {
       img.src = canvas.toDataURL('image/png');
       await img.decode();
     }
-  sheetsValue!.textContent = String(Math.ceil(maps.length / 32));
+  const totalSheets = Math.ceil(maps.length / 32);
+  sheetsValue.textContent = String(totalSheets);
   const positionLabels: Record<number, string> = {};
   let positionWidthsChanged = false;
   let readingOffset = 0;
@@ -982,6 +1052,29 @@ async function layoutBook(payload: {
     map.readingStart = readingOffset;
     readingOffset += readingLength(map.text);
     map.readingEnd = readingOffset;
+    const sheetHeader = sheetHeaders.get(map.index);
+    if (sheetHeader) {
+      const sheet = Math.floor(map.page / 2) + 1;
+      const percent = totalReadingLength ? Math.floor((map.readingStart / totalReadingLength) * 100) : 0;
+      const remainingMinutes = totalReadingLength
+        ? Math.ceil((minutes * Math.max(0, totalReadingLength - map.readingStart)) / totalReadingLength)
+        : 0;
+      sheetHeader.count.textContent = `${sheet} / ${totalSheets}`;
+      sheetHeader.details.textContent = [
+        book.metadata.author || 'MicroBook',
+        `${percent}% complete`,
+        remainingMinutes ? `about ${formatMinutes(remainingMinutes)} left` : 'complete',
+      ].join(' · ');
+      map.sheetLabel = sheetHeader.element.textContent || '';
+      const headerRect = sheetHeader.element.getBoundingClientRect();
+      const pageRect = sheetHeader.element.closest('.page')!.getBoundingClientRect();
+      map.sheetHeader = {
+        x: (headerRect.x - pageRect.x) * 0.75,
+        y: (headerRect.y - pageRect.y) * 0.75,
+        width: headerRect.width * 0.75,
+        height: headerRect.height * 0.75,
+      };
+    }
     if (positionHeaders[map.index]) {
       const previousWidth = positionHeaders[map.index].getBoundingClientRect().width;
       const side = `${Math.floor(map.page / 2) + 1}${map.page % 2 ? 'b' : 'a'}`;
@@ -998,6 +1091,7 @@ async function layoutBook(payload: {
       positionHeaders[map.index].style.overflow = 'hidden';
       positionHeaders[map.index].style.textOverflow = 'ellipsis';
       positionLabels[map.index] = positionHeaders[map.index].textContent || '';
+      map.positionLabel = positionLabels[map.index];
       const headerRect = positionHeaders[map.index].getBoundingClientRect();
       const pageRect = positionHeaders[map.index].closest('.page')!.getBoundingClientRect();
       map.positionHeader = {
@@ -1010,6 +1104,16 @@ async function layoutBook(payload: {
         positionWidthsChanged = true;
     }
   }
+  for (const map of maps)
+    map.printedText = Array.from(flows[map.index].children)
+      .filter(
+        (child) =>
+          !child.classList.contains('book-header') &&
+          !child.classList.contains('sheet-header') &&
+          !child.classList.contains('cell-position'),
+      )
+      .map((child) => `${(child as HTMLElement).dataset.marker || ''}${child.textContent || ''}`)
+      .join('\n');
   await (window as any).__microbookProgress?.('Checking layout');
   const justifyStarted = performance.now();
   document.body.classList.remove('measuring');
@@ -1024,17 +1128,29 @@ async function layoutBook(payload: {
     const top = cellBounds.top + parseFloat(cellStyle.borderTopWidth) + parseFloat(cellStyle.paddingTop);
     const bottom =
       cellBounds.bottom - parseFloat(cellStyle.borderBottomWidth) - parseFloat(cellStyle.paddingBottom);
-    if (bounds.top < top - 0.25 || bounds.bottom > bottom + 0.25) overflows++;
+    if (bounds.top < top - 0.25 || bounds.bottom > bottom + 0.25) {
+      overflows++;
+      overflowDetails.push(
+        `cell ${flows.indexOf(f) + 1} flow ${bounds.top.toFixed(1)}-${bounds.bottom.toFixed(1)} outside ${top.toFixed(1)}-${bottom.toFixed(1)}`,
+      );
+    }
     for (const child of Array.from(f.children)) {
       if (child.classList.contains('cell-position')) continue;
       const rect = child.getBoundingClientRect();
+      // Split inline fragments can leave an empty direct child at a cell boundary.
+      // It has no box or printable ink, so it cannot overflow the cell.
+      if (!rect.width && !rect.height && !child.scrollWidth && !child.scrollHeight) continue;
       if (
         rect.bottom > bounds.bottom + 0.25 ||
         rect.right > bounds.right + 0.25 ||
         rect.left < bounds.left - 0.25 ||
         child.scrollWidth > Math.ceil(rect.width) + 1
-      )
+      ) {
         overflows++;
+        overflowDetails.push(
+          `cell ${flows.indexOf(f) + 1} ${child.className || child.tagName} ${rect.width.toFixed(1)}x${rect.height.toFixed(1)} scroll ${child.scrollWidth}x${child.scrollHeight}`,
+        );
+      }
     }
     for (const child of f.querySelectorAll(
       '.image-spread img, .image-spread p, .image-spread .source-page',
@@ -1045,13 +1161,17 @@ async function layoutBook(payload: {
         rect.bottom > bounds.bottom + 0.25 ||
         rect.left < bounds.left - 0.25 ||
         rect.right > bounds.right + 0.25
-      )
+      ) {
         overflows++;
+        overflowDetails.push(
+          `cell ${flows.indexOf(f) + 1} spread ${child.className || child.tagName} ${rect.width.toFixed(1)}x${rect.height.toFixed(1)}`,
+        );
+      }
     }
   }
   if (!positionWidthsChanged && (expectedCharacters !== renderedCharacters || overflows))
     throw new Error(
-      `Layout verification failed: ${overflows} overflows, ${renderedCharacters}/${expectedCharacters} characters`,
+      `Layout verification failed: ${overflows} overflows, ${renderedCharacters}/${expectedCharacters} characters${overflowDetails.length ? ` (${overflowDetails.join('; ')})` : ''}`,
     );
   for (const block of selected) {
     if (block.generated || block.kind === 'image' || block.kind === 'separator' || block.kind === 'table')

@@ -105,12 +105,28 @@ export async function render(
       },
       totalWords: normalized.wordCount,
       foldGaps: settings.foldGaps,
+      foldGapMm: settings.foldGapMm,
+      foldGapEveryRow: settings.foldGapEveryRow,
+      readingOrder: settings.readingOrder,
       optimizationLimits: { maxBlocks: 320, maxDurationMs: 4000 },
       batchWords: true,
       justifyAllCells: true,
     });
     const pages = Array.from(document.querySelectorAll('.page'));
-    const cells: CellMap[] = Array.from(document.querySelectorAll('.grid-item')).map((node, index) => {
+    const slots =
+      settings.readingOrder === 'quadrants'
+        ? [0, 1, 4, 5, 2, 3, 6, 7, 8, 9, 12, 13, 10, 11, 14, 15]
+        : [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+    const cellNodes = pages.flatMap((page) => {
+      const bySlot = new Map(
+        Array.from(page.querySelectorAll<HTMLElement>('.grid-item')).map((node) => [
+          Number(node.dataset.slot),
+          node,
+        ]),
+      );
+      return slots.flatMap((slot) => (bySlot.has(slot) ? [bySlot.get(slot)!] : []));
+    });
+    const cells: CellMap[] = cellNodes.map((node, index) => {
       const rect = node.getBoundingClientRect(),
         page = node.closest('.page')!,
         bounds = page.getBoundingClientRect();
@@ -118,6 +134,7 @@ export async function render(
       clone.querySelectorAll('.main-header,.miniSheetNum').forEach((e) => e.remove());
       return {
         index,
+        slot: Number(node.dataset.slot),
         page: pages.indexOf(page),
         x: (rect.x - bounds.x) * 0.75,
         y: (rect.y - bounds.y) * 0.75,

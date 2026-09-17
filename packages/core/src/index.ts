@@ -36,6 +36,9 @@ export const settingsSchema = z
     fontSizePx: z.number().min(4).max(12).default(6),
     borderStyle: z.enum(['dashed', 'solid', 'dotted', 'none']).default('solid'),
     foldGaps: z.boolean().default(true),
+    foldGapMm: z.number().min(0.5).max(6).default(2.5),
+    foldGapEveryRow: z.boolean().default(true),
+    readingOrder: z.enum(['rows', 'quadrants']).default('rows'),
     lineHeight: z.number().min(1).max(1.6).default(1),
     paragraphStyle: z.enum(['lines', 'markers', 'continuous', 'spaced']).default('continuous'),
     paragraphIndentEm: z.number().min(0).max(3).default(0),
@@ -236,7 +239,12 @@ export interface BookDocument {
 }
 export interface CellMap {
   positionHeader?: { x: number; y: number; width: number; height: number };
+  positionLabel?: string;
+  sheetHeader?: { x: number; y: number; width: number; height: number };
+  sheetLabel?: string;
   index: number;
+  /** Zero-based physical position on the printed 4 × 4 side. */
+  slot?: number;
   page: number;
   x: number;
   y: number;
@@ -245,6 +253,8 @@ export interface CellMap {
   sectionId?: string;
   blockIds: string[];
   text: string;
+  /** Final visible text in this cell, including generated navigation and references. */
+  printedText?: string;
   ranges?: { blockId: string; start: number; end: number }[];
   readingStart?: number;
   readingEnd?: number;
@@ -546,15 +556,21 @@ export const documentText = (doc: BookDocument, settings?: RenderSettings) =>
 export const wordCount = (text: string) => text.trim().split(/\s+/u).filter(Boolean).length;
 export function effectiveSettings(input: unknown): RenderSettings {
   const s = settingsSchema.parse(input);
-  return s.mode === 'classic'
+  // Reading order determines which horizontal boundaries interrupt the flow.
+  // Keep the legacy field in saved settings, but prevent contradictory combinations.
+  const normalized = { ...s, foldGapEveryRow: s.readingOrder === 'rows' };
+  return normalized.mode === 'classic'
     ? {
         ...defaultSettings('classic'),
-        fontFamily: s.fontFamily,
-        fontSizePx: s.fontSizePx,
-        borderStyle: s.borderStyle,
-        foldGaps: s.foldGaps,
+        fontFamily: normalized.fontFamily,
+        fontSizePx: normalized.fontSizePx,
+        borderStyle: normalized.borderStyle,
+        foldGaps: normalized.foldGaps,
+        foldGapMm: normalized.foldGapMm,
+        foldGapEveryRow: normalized.foldGapEveryRow,
+        readingOrder: normalized.readingOrder,
       }
-    : s;
+    : normalized;
 }
 
 /** Group occurrences by their exact imported asset, never by visual guesses. */

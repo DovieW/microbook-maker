@@ -215,8 +215,18 @@ it('uses explicit CSS pixels and isolates Classic settings', () => {
   expect(defaultSettings().paragraphIndentEm).toBe(0);
   expect(defaultSettings().sourcePageNumbers).toBe(false);
   expect(defaultSettings().twoCellImages).toBe(false);
+  expect(defaultSettings().foldGapMm).toBe(2.5);
+  expect(defaultSettings().foldGapEveryRow).toBe(true);
+  expect(defaultSettings().readingOrder).toBe('rows');
+  expect(defaultSettings('book').rich.sheetHeaders).toBe('every');
   expect(defaultSettings().partHeadingStyle).toBe('upright');
   expect(effectiveSettings({ mode: 'classic', headingScale: 2 }).headingScale).toBe(1.15);
+  expect(effectiveSettings({ mode: 'classic', readingOrder: 'quadrants' }).readingOrder).toBe('quadrants');
+  expect(effectiveSettings({ mode: 'classic', readingOrder: 'quadrants' }).foldGapEveryRow).toBe(false);
+  expect(effectiveSettings({ mode: 'book', readingOrder: 'quadrants', foldGapEveryRow: true }).foldGapEveryRow).toBe(
+    false,
+  );
+  expect(effectiveSettings({ mode: 'book', readingOrder: 'rows', foldGapEveryRow: false }).foldGapEveryRow).toBe(true);
   expect(settingsSchema.safeParse({ mode: 'classic', fontSizePx: 6.5 }).success).toBe(false);
   expect(settingsSchema.safeParse({ mode: 'book', fontSizePx: 6.5 }).success).toBe(true);
   expect(defaultSettings('book').partHeadingScale).toBeGreaterThan(

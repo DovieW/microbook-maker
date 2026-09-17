@@ -74,6 +74,9 @@ test('Contents separates search, jumps and inclusion; mobile drawer closes on na
   await upload(page, 'structured.epub');
   const original = await ready(page, request);
   await expect(page.getByRole('checkbox', { name: 'Space at folds', exact: true })).toBeChecked();
+  await expect(page.getByLabel('Fold gap size', { exact: true })).toHaveValue('2.5');
+  await expect(page.getByRole('checkbox', { name: 'Space every row', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('combobox', { name: 'Reading order', exact: true })).toHaveText('Across rows');
   await expect(page.getByRole('combobox', { name: 'Fold lines', exact: true })).toHaveText('Solid');
   await page.getByRole('combobox', { name: 'Print font', exact: true }).click();
   await page.getByRole('option', { name: 'Times New Roman', exact: true }).click();

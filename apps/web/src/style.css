@@ -1295,7 +1295,17 @@ summary > span {
 }
 .list-summary button {
   font-size: 10px;
-  padding-right: 0;
+  min-height: 30px;
+  padding: 4px 0 4px 8px;
+  color: var(--muted);
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+}
+.list-summary button:hover {
+  background: transparent;
+  color: #c7d3e4;
+  text-decoration-color: currentColor;
 }
 .contents-row {
   border-bottom: 1px solid var(--line);
@@ -2078,6 +2088,232 @@ summary > span {
   background: #000b;
   z-index: 80;
 }
+
+/* Print guidance stays useful without obscuring the workspace or becoming a cramped mobile sheet. */
+.tips-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: #02070dcc;
+  backdrop-filter: blur(4px);
+}
+.tips-dialog {
+  position: fixed;
+  z-index: 91;
+  inset: 5dvh 50% auto auto;
+  transform: translateX(50%);
+  width: min(760px, calc(100vw - 32px));
+  max-height: 90dvh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+  border: 1px solid #334454;
+  border-radius: 14px;
+  background: #101c28;
+  box-shadow: 0 24px 80px #0009;
+  color: #e4ebf1;
+}
+.tips-dialog > header,
+.tips-dialog > footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  background: #101c28;
+}
+.tips-dialog > header {
+  border-bottom: 1px solid var(--line);
+}
+.tips-dialog > footer {
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+}
+.tips-dialog > footer button {
+  min-width: 78px;
+  background: var(--accent);
+  color: #08231d;
+  font-weight: 700;
+}
+.tips-dialog h2 {
+  margin: 0;
+  font-size: 20px;
+  letter-spacing: -0.02em;
+}
+.tips-dialog header p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.tips-content {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 20px;
+  font-size: 14px;
+  line-height: 1.55;
+  scrollbar-gutter: stable;
+}
+.tips-callout {
+  display: grid;
+  gap: 3px;
+  margin-bottom: 22px;
+  padding: 14px 16px;
+  border: 1px solid #3d6f64;
+  border-radius: 10px;
+  background: #142b2a;
+}
+.tips-callout strong {
+  color: #a7e2d1;
+  font-size: 15px;
+}
+.tips-callout span,
+.tips-dialog section p,
+.tips-dialog dd,
+.tips-dialog li {
+  color: #c5d0d9;
+}
+.tips-dialog section {
+  padding: 4px 0 24px;
+}
+.tips-dialog section + section {
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+.tips-section-heading {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  margin-bottom: 14px;
+}
+.tips-section-heading > svg {
+  margin-top: 2px;
+  color: var(--accent);
+}
+.tips-section-heading h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #f1f5f8;
+}
+.tips-section-heading p {
+  margin: 3px 0 0;
+}
+.tips-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 14px 34px;
+}
+.tips-facts > div,
+.tips-printer-card {
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #0c1722;
+}
+.tips-facts dt,
+.tips-printer-card strong {
+  margin-bottom: 4px;
+  color: #eaf1f5;
+  font-size: 12px;
+  font-weight: 700;
+}
+.tips-facts dd {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.tips-checklist,
+.tips-steps {
+  display: grid;
+  gap: 7px;
+  margin: 0 0 14px 34px;
+  padding-left: 20px;
+}
+.tips-note {
+  margin: 0 0 14px 34px;
+  padding: 10px 12px;
+  border-left: 3px solid #d7b66b;
+  background: #282416;
+  font-size: 12px;
+}
+.tips-printer-card {
+  display: grid;
+  gap: 2px;
+  margin: 0 0 12px 34px;
+}
+.tips-printer-card span {
+  color: #bfcbd4;
+}
+.tips-dialog section > p {
+  margin: 0 0 14px 34px;
+}
+.tips-dialog .tips-toner {
+  padding: 10px 12px;
+  border-left: 3px solid var(--accent);
+  background: #142622;
+}
+.tips-dialog a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 34px;
+  color: #95dbc8;
+  font-weight: 600;
+  text-underline-offset: 3px;
+}
+.tips-action {
+  height: 30px;
+  padding: 0 9px;
+  gap: 5px;
+}
+@media (max-width: 650px) {
+  .tips-action span {
+    display: none;
+  }
+  .tips-action {
+    width: 34px;
+    padding: 0;
+  }
+  .tips-dialog {
+    inset: 0;
+    transform: none;
+    width: 100vw;
+    max-height: none;
+    height: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+  .tips-dialog > header,
+  .tips-dialog > footer {
+    padding: 12px 14px;
+  }
+  .tips-dialog > footer span {
+    display: none;
+  }
+  .tips-dialog > footer {
+    justify-content: flex-end;
+  }
+  .tips-content {
+    padding: 16px;
+    font-size: 14px;
+  }
+  .tips-facts {
+    grid-template-columns: 1fr;
+  }
+  .tips-facts,
+  .tips-checklist,
+  .tips-steps,
+  .tips-note,
+  .tips-printer-card,
+  .tips-dialog section > p,
+  .tips-dialog a {
+    margin-left: 0;
+  }
+}
 .image-preview-dialog {
   position: fixed;
   inset: 4vh 4vw;
@@ -2297,6 +2533,30 @@ summary > span {
   margin: 0 0 14px;
   overflow-wrap: anywhere;
 }
+.hosted-welcome {
+  box-sizing: border-box;
+  width: min(300px, calc(100vw - 48px));
+  display: grid;
+  gap: 3px;
+  margin-top: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  color: var(--muted);
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.hosted-welcome strong {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+}
+.hosted-welcome small {
+  color: inherit;
+  font-size: inherit;
+}
 
 .contents-order-tools {
   display: flex;
@@ -2393,6 +2653,9 @@ summary > span {
 }
 .redesign .sidebar-body .layout-controls > fieldset > details {
   margin-top: 0;
+}
+.redesign .sidebar-body .layout-controls > fieldset > details.layout-accordion-start {
+  margin-top: 10px;
 }
 
 .contents-toolbar {

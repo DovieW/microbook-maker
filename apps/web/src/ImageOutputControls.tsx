@@ -33,18 +33,11 @@ export function ImageOutputControls({ w, blockId }: { w: Workspace; blockId?: st
           ))}
         </select>
       </label>
-      {blockId && !override && (
+      {!blockId && (
         <p className="image-output-help">
-          Using book setting: {imageOutputModes.find((m) => m.value === output.mode)?.label}
-          {output.mode === 'laser'
-            ? ` · ${laserContrastLevels.find((l) => l.value === output.strength)?.label}`
-            : ''}
-          . Choose an output above to change this image.
+          {imageOutputModes.find((m) => m.value === output.mode)?.description}
         </p>
       )}
-      <p className="image-output-help">
-        {imageOutputModes.find((m) => m.value === output.mode)?.description}
-      </p>
       {output.mode === 'laser' && (!blockId || override) && (
         <>
           <label className="field">
@@ -61,9 +54,11 @@ export function ImageOutputControls({ w, blockId }: { w: Workspace; blockId?: st
               ))}
             </select>
           </label>
-          <p className="image-output-help">
-            {laserContrastLevels.find((l) => l.value === output.strength)?.description}
-          </p>
+          {!blockId && (
+            <p className="image-output-help">
+              {laserContrastLevels.find((l) => l.value === output.strength)?.description}
+            </p>
+          )}
         </>
       )}
       {!blockId && (

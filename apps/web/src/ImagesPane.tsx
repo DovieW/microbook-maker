@@ -263,31 +263,6 @@ export function ImagesPane({ w }: { w: Workspace }) {
                     </button>
                   )}
                   <fieldset className="image-detail" disabled={!!w.kept}>
-                    <ImageTreatmentControls w={w} block={block} heading={heading} />
-                    {!heading && (
-                      <ImageRotationControls
-                        rotation={draft.imageRotations[block.id] ?? 0}
-                        onChange={(rotation) =>
-                          w.edit({ imageRotations: { ...draft.imageRotations, [block.id]: rotation } })
-                        }
-                        count={
-                          doc.blocks.filter((b) => b.kind === 'image' && b.assetId === block.assetId).length
-                        }
-                        onMatch={() =>
-                          w.edit({
-                            imageRotations: {
-                              ...draft.imageRotations,
-                              ...Object.fromEntries(
-                                doc.blocks
-                                  .filter((b) => b.kind === 'image' && b.assetId === block.assetId)
-                                  .map((b) => [b.id, draft.imageRotations[block.id] ?? 0]),
-                              ),
-                            },
-                          })
-                        }
-                      />
-                    )}
-                    {!heading && <ImageOutputControls w={w} blockId={block.id} />}
                     {!heading && draft.imageTreatments[block.id]?.kind !== 'flourish' && (
                       <div className="image-layout-choice">
                         <label>
@@ -321,6 +296,31 @@ export function ImagesPane({ w }: { w: Workspace }) {
                         )}
                       </div>
                     )}
+                    <ImageTreatmentControls w={w} block={block} heading={heading} />
+                    {!heading && (
+                      <ImageRotationControls
+                        rotation={draft.imageRotations[block.id] ?? 0}
+                        onChange={(rotation) =>
+                          w.edit({ imageRotations: { ...draft.imageRotations, [block.id]: rotation } })
+                        }
+                        count={
+                          doc.blocks.filter((b) => b.kind === 'image' && b.assetId === block.assetId).length
+                        }
+                        onMatch={() =>
+                          w.edit({
+                            imageRotations: {
+                              ...draft.imageRotations,
+                              ...Object.fromEntries(
+                                doc.blocks
+                                  .filter((b) => b.kind === 'image' && b.assetId === block.assetId)
+                                  .map((b) => [b.id, draft.imageRotations[block.id] ?? 0]),
+                              ),
+                            },
+                          })
+                        }
+                      />
+                    )}
+                    {!heading && <ImageOutputControls w={w} blockId={block.id} />}
                     {heading && (
                       <ImageHeadingControls doc={doc} block={block} draft={draft} onEdit={w.edit} />
                     )}

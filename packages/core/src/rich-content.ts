@@ -191,7 +191,17 @@ export function prepareRichContent(doc: BookDocument, settings: RenderSettings) 
         for (const inline of next.slice(-group.length)) inline.targetKey = target ? '@' + target : undefined;
         if (!target)
           warn('link-target', 'A linked section is missing or excluded; its label was retained.', b.source);
-        if (target && options.internalReferences && !notes.has(first.targetKey) && !b.generated)
+        // Some publishers wrap chapter headings in backlinks to their contents page. Those
+        // links are useful in an ebook, but printing a location beside every chapter heading
+        // makes the heading look like source text (and can expose the pagination placeholder).
+        // Keep printable locations for actual cross-references in prose and contents entries.
+        if (
+          target &&
+          options.internalReferences &&
+          !notes.has(first.targetKey) &&
+          !b.generated &&
+          b.kind !== 'heading'
+        )
           next.push({ text: ' [location]', generated: true, locationTarget: target });
       } else if (first.href) {
         const url = externalUrl(first.href);

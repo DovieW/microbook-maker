@@ -21,6 +21,7 @@ import { Navigation } from './Navigation';
 import { IconButton } from './ui';
 import { modeLabels } from '@microbook/core';
 import { printedLocation } from './imageLocations';
+import { PrintTips } from './PrintTips';
 import type { FindState } from './Preview';
 const Preview = lazy(() => import('./Preview').then((m) => ({ default: m.Preview })));
 export default function App() {
@@ -129,6 +130,7 @@ export default function App() {
           </span>
         )}
         <div className="header-actions">
+          <PrintTips />
           <button className="open-book-action" onClick={() => w.input.current?.click()}>
             <Plus size={15} />
             <span>Open book</span>
@@ -199,10 +201,11 @@ export default function App() {
                   <span>EPUB · TXT · Markdown</span>
                   <small>or drop a file here</small>
                   {import.meta.env.VITE_HOSTED === '1' && (
-                    <p className="hosted-notice" style={{ maxWidth: 380 }}>
-                      Free Cloudflare beta. Books stay in this browser for up to 24 hours; print documents are
-                      sent to Cloudflare for conversion. Only process material you are authorized to use.
-                    </p>
+                    <div className="hosted-welcome">
+                      <strong>Hosted beta</strong>
+                      <span>Books stay in this browser for 24 hours.</span>
+                      <small>Use books you’re allowed to process.</small>
+                    </div>
                   )}
                 </div>
               )}

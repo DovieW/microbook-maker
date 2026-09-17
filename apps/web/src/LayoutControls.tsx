@@ -1,6 +1,6 @@
 import { version } from '../../../package.json';
 import { Download, RotateCcw } from 'lucide-react';
-import { defaultSettings, fonts, modeLabels, type RenderSettings } from '@microbook/core';
+import { defaultSettings, fonts, modeLabels, settingsSchema, type RenderSettings } from '@microbook/core';
 import { Dropdown } from './ui';
 import { HeadingDetection } from './HeadingDetection';
 import { RichFeatures } from './RichFeatures';
@@ -8,7 +8,7 @@ import { MetadataEditor } from './MetadataEditor';
 import type { useWorkspace } from './useWorkspace';
 export type Workspace = ReturnType<typeof useWorkspace>;
 export function LayoutControls({ w }: { w: Workspace }) {
-  const s = w.kept?.settings || w.draft;
+  const s = settingsSchema.parse(w.kept?.settings || w.draft);
   const rich = s.mode === 'book';
   const number = (
     key: keyof RenderSettings,
@@ -85,13 +85,35 @@ export function LayoutControls({ w }: { w: Workspace }) {
             onChange={(borderStyle) => w.edit({ borderStyle: borderStyle as RenderSettings['borderStyle'] })}
           />
         </label>
+        <label className="field">
+          <span>Reading order</span>
+          <Dropdown
+            label="Reading order"
+            value={s.readingOrder}
+            options={[
+              ['rows', 'Across rows'],
+              ['quadrants', 'By quadrant'],
+            ]}
+            onChange={(readingOrder) =>
+              w.edit({
+                readingOrder: readingOrder as RenderSettings['readingOrder'],
+                foldGapEveryRow: readingOrder === 'rows',
+              })
+            }
+          />
+        </label>
         {check('foldGaps', 'Space at folds')}
+        {s.foldGaps && (
+          <>
+            {number('foldGapMm', 'Fold gap size', 'mm', 0.5, 6, 0.25)}
+          </>
+        )}
         {rich && (
           <>
-            <RichFeatures w={w} group="navigation" />
-            <RichFeatures w={w} group="references" />
             {check('positionHeaders', 'Position headers')}
             {number('lineHeight', 'Line height', '×', 1, 1.6, 0.05)}
+            <RichFeatures w={w} group="navigation" />
+            <RichFeatures w={w} group="references" />
             <details>
               <summary>Paragraphs</summary>
               <label className="field">

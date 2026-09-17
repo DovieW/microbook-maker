@@ -77,6 +77,7 @@ test('SVG stays vector in original mode; processed SVG keeps aspect ratio and bl
   const result = await cache.process(source, { mode: 'laser', strength: 'gentle' });
   const meta = await sharp(result).metadata();
   expect(meta.width! / meta.height!).toBe(27 / 14);
+  expect([meta.width, meta.height]).toEqual([108, 56]);
   expect((await sharp(result).stats()).channels[0].min).toBe(0);
 });
 test('permanent print samples remain independent of documents and use the shared processing cache', async () => {

@@ -72,15 +72,17 @@ export class ImageOutputCache {
     try {
       await fs.mkdir(this.directory, { recursive: true });
       const metadata = await sharp(bytes, { limitInputPixels: 40_000_000 }).metadata();
-      // Rasterize SVG at print resolution while bounding memory. Raster inputs keep all pixels.
+      // Rasterize SVG at print resolution while bounding memory. Four source pixels per CSS
+      // pixel is roughly 384 DPI and avoids retaining enormous decoded copies when one SVG is
+      // repeated throughout a book. Raster inputs keep all of their original pixels.
       const density =
         metadata.format === 'svg'
           ? 72 *
             Math.max(
               1,
               Math.min(
-                8,
-                Math.floor(Math.sqrt(36_000_000 / ((metadata.width || 1) * (metadata.height || 1)))),
+                4,
+                Math.floor(Math.sqrt(16_000_000 / ((metadata.width || 1) * (metadata.height || 1)))),
               ),
             )
           : 72;

@@ -16,6 +16,20 @@ def normalized(text):
     return re.sub(r'[\s\u00ad\u202a-\u202e\u2066-\u2069]', '', unicodedata.normalize('NFC', text))
 
 
+def matches_ellipsized(actual, expected):
+    if actual == expected:
+        return True
+    if '…' not in actual:
+        return False
+    cursor = 0
+    for part in actual.split('…'):
+        found = expected.find(part, cursor)
+        if found < 0:
+            return False
+        cursor = found + len(part)
+    return True
+
+
 def tag(node):
     return node.tag.split('}')[-1] if isinstance(node.tag, str) else ''
 
@@ -51,7 +65,7 @@ def audit_source(source, document):
     return {'complete': True, 'characters': len(expected)}
 
 
-def audit_pdf(pdf, document, settings, metadata, cells):
+def audit_pdf(pdf, document, settings, metadata, cells, rendered_word_count=None):
     text = subprocess.check_output(['pdftotext', '-raw', str(pdf), '-']).decode('utf-8')
     selected = settings.get('selectedSections')
     blocks = [b for b in document['blocks'] if not selected or b['sectionId'] in selected]
@@ -69,12 +83,16 @@ def audit_pdf(pdf, document, settings, metadata, cells):
 
     words = len('\n\n'.join(reading_text(b) for b in blocks).split())
     minutes = math.ceil(words / 215)
+    header_words = rendered_word_count or words
+    header_minutes = math.ceil(header_words / 215)
     info = subprocess.check_output(['pdfinfo', str(pdf)]).decode('utf-8')
     pages = int(re.search(r'^Pages:\s+(\d+)', info, re.M)[1])
     position_count = 0
-    if settings.get('positionHeaders', False):
-        # Read text in PDF drawing order, and validate generated markers in their actual
-        # cell rectangles. Never strip matching numbers/percentages from the book itself.
+    rich = settings.get('rich', {})
+    sheet_headers = rich.get('sheetHeaders', 'every')
+    if settings.get('positionHeaders', False) or sheet_headers == 'every':
+        # Read text in PDF drawing order, and validate generated headers in their actual
+        # rectangles. Never strip matching titles, numbers, or percentages from the book itself.
         tree = ET.fromstring(subprocess.check_output(['pdftotext', '-raw', '-bbox', str(pdf), '-']))
         def reading_length(value):
             value = re.sub(r'\s', '', unicodedata.normalize('NFC', value).replace('\u00ad', ''))
@@ -86,22 +104,32 @@ def audit_pdf(pdf, document, settings, metadata, cells):
         marker_ranges = []
         for page_index, page in enumerate(n for n in tree.iter() if tag(n) == 'page'):
             page_cells = [c for c in cells if c['page'] == page_index]
-            marker_cells = [c for c in page_cells if c['index'] > 0 and c['index'] % 4 == 0 and not c.get('blank')]
-            marker_words = {c['index']: [] for c in marker_cells}
+            sheet_cells = ([c for c in page_cells if c['index'] > 0 and c['index'] % 32 == 0 and not c.get('blank')]
+                           if sheet_headers == 'every' else [])
+            marker_cells = ([c for c in page_cells
+                             if c['index'] > 0 and c['index'] % 4 == 0 and not c.get('blank')
+                             and c not in sheet_cells] if settings.get('positionHeaders', False) else [])
+            generated_cells = marker_cells + sheet_cells
+            generated_words = {c['index']: [] for c in generated_cells}
             for word in (n for n in page.iter() if tag(n) == 'word'):
                 x = (float(word.attrib['xMin']) + float(word.attrib['xMax'])) / 2
                 y = (float(word.attrib['yMin']) + float(word.attrib['yMax'])) / 2
                 found = None
-                for cell in marker_cells:
-                    slot = cell['index'] % 16
-                    top = cell['y'] + (0.75 * ((4 if settings.get('foldGaps') else 0) + (1 if settings['borderStyle'] != 'none' else 0)) if slot >= 4 else 0)
-                    marker = cell.get('positionHeader', {'x':cell['x'], 'y':top, 'width':cell['width'], 'height':settings['fontSizePx']*.75})
-                    if marker['x'] <= x < marker['x'] + marker['width'] and marker['y'] <= y < marker['y'] + marker['height']:
+                for cell in generated_cells:
+                    slot = cell.get('slot', cell['index'] % 16)
+                    row = slot // 4
+                    every_row = settings.get('foldGapEveryRow', True)
+                    top_gap = every_row and row > 0 or not every_row and row == 2
+                    gap = settings.get('foldGapMm', 2.5) * 96 / 25.4 / 2 if settings.get('foldGaps') and top_gap else 0
+                    border = 1 if row > 0 and settings['borderStyle'] != 'none' else 0
+                    top = cell['y'] + 0.75 * (gap + border)
+                    region = cell.get('sheetHeader') or cell.get('positionHeader', {'x':cell['x'], 'y':top, 'width':cell['width'], 'height':settings['fontSizePx']*.75})
+                    if region['x'] <= x < region['x'] + region['width'] and region['y'] <= y < region['y'] + region['height']:
                         found = cell['index']
                         break
                 value = normalized(word.text or '')
                 if found is not None:
-                    marker_words[found].append(word.text or '')
+                    generated_words[found].append(word.text or '')
                     # Bbox uses visual order within RTL words; raw preserves their
                     # logical reading order. Locate ASCII markers by verified drawing
                     # offsets, but retain raw source text (including all RTL runs).
@@ -110,16 +138,38 @@ def audit_pdf(pdf, document, settings, metadata, cells):
                     marker_ranges.append((character_offset, character_offset+len(value)))
                 character_offset += len(value)
             for cell in page_cells:
-                if cell['index'] == 0 or cell['index'] % 4 != 0 or cell.get('blank'):
+                is_sheet_header = cell in sheet_cells
+                is_position_header = cell in marker_cells
+                if not is_sheet_header and not is_position_header:
                     offset += reading_length(cell['text'])
                     continue
                 percent = math.floor(offset / total * 100) if total else 0
-                expected_marker = f'{page_index//2+1}{"b" if page_index%2 else "a"} / {math.ceil(pages/2)} · {percent}%'
-                actual_marker = ''.join(marker_words[cell['index']])
-                if normalized(actual_marker) != normalized(expected_marker):
-                    raise AssertionError(f'Cell {cell["index"]+1} position header: {actual_marker!r}, expected {expected_marker!r}')
+                if is_sheet_header:
+                    remaining = math.ceil(header_minutes * max(0, total - offset) / total) if total else 0
+                    def duration(value):
+                        hours, remainder = divmod(value, 60)
+                        return f'{hours}h' + (f' {remainder}m' if remainder else '') if hours else f'{remainder}m'
+                    status = f'about {duration(remaining)} left' if remaining else 'complete'
+                    expected_header = cell.get('sheetLabel') or (
+                        metadata['title'] + f'{page_index//2+1} / {math.ceil(pages/2)}'
+                        + (metadata.get('author') or 'MicroBook') + ' · '
+                        + f'{percent}% complete · ' + status)
+                    actual_header = ''.join(generated_words[cell['index']])
+                    normalized_actual = normalized(actual_header)
+                    normalized_expected = normalized(expected_header)
+                    valid = matches_ellipsized(normalized_actual, normalized_expected)
+                    if not valid:
+                        raise AssertionError(f'Cell {cell["index"]+1} sheet header: {actual_header!r}, expected {expected_header!r}')
+                else:
+                    expected_marker = cell.get('positionLabel') or f'{page_index//2+1}{"b" if page_index%2 else "a"} / {math.ceil(pages/2)} · {percent}%'
+                    actual_marker = ''.join(generated_words[cell['index']])
+                    normalized_actual = normalized(actual_marker)
+                    normalized_expected = normalized(expected_marker)
+                    valid = matches_ellipsized(normalized_actual, normalized_expected)
+                    if not valid:
+                        raise AssertionError(f'Cell {cell["index"]+1} position header: {actual_marker!r}, expected {expected_marker!r}')
+                    position_count += 1
                 offset += reading_length(cell['text'])
-                position_count += 1
         if character_offset != len(raw):
             raise AssertionError('Raw and bounding-box PDF text lengths differ')
         remaining = []
@@ -129,24 +179,33 @@ def audit_pdf(pdf, document, settings, metadata, cells):
             offset = end
         remaining.append(raw[offset:])
         text = ''.join(remaining)
-    header = (metadata['title'] + f'Sheets: {math.ceil(pages/2)}Words: {words:,}'
-              + f'Read time: {minutes//60}h {minutes%60}mAuthor: {metadata.get("author") or "—"}'
-              + f'Year: {metadata.get("year") or "—"}Text size: {settings["fontSizePx"]:g} px'
-              + (f'Series: {metadata["series"]}' if metadata.get('series') else ''))
-    expected = ''.join((b.get('pageLabel', '') if settings.get('sourcePageNumbers') else '') + b.get('listMarker', '') + reading_text(b) for b in blocks)
+    def duration(value):
+        hours, remainder = divmod(value, 60)
+        return f'{hours}h' + (f' {remainder}m' if remainder else '') if hours else f'{remainder}m'
+    byline = ' · '.join(str(value) for value in
+                        [metadata.get('author'), metadata.get('year'), metadata.get('series')] if value)
+    header = (metadata['title'] + byline + f'{math.ceil(pages/2)} sheets · {header_words:,} words · about {duration(header_minutes)}')
+    # The cell map is the renderer's physical text contract. It includes generated
+    # contents, detected image headings, section reordering, and source-page labels.
+    # Source-to-document fidelity is checked separately by audit_source.
+    expected = ''.join(cell.get('printedText', cell['text']) for cell in cells)
     # CSS list markers are presentation. Poppler can add bidi controls around RTL text.
     expected = normalized(expected).replace('•', '')
     actual = normalized(text).replace('•', '')
     normalized_header = normalized(header).replace('•', '')
-    if actual.count(normalized_header) != 1:
-        raise AssertionError('PDF must contain exactly one title/info panel with correct physical counts')
-    # Artwork and its captions may precede the first ordinary text cell. Independently
-    # validate the panel once, then check all source text in order regardless of its placement.
-    actual = actual.replace(normalized_header, '', 1)
+    if sheet_headers == 'off':
+        if normalized_header and normalized_header in actual:
+            raise AssertionError('PDF contains a title/info panel while sheet headers are off')
+    else:
+        if actual.count(normalized_header) != 1:
+            raise AssertionError('PDF must contain exactly one opening title/info panel with correct physical counts')
+        # Artwork and its captions may precede the first ordinary text cell. Independently
+        # validate the panel once, then check all source text in order regardless of its placement.
+        actual = actual.replace(normalized_header, '', 1)
     if settings.get('paragraphStyle') == 'markers':
         expected = expected.replace('¶', '')
         actual = actual.replace('¶', '')
-    if expected != actual:
+    if not matches_ellipsized(actual, expected):
         first = next((i for i, (a, b) in enumerate(zip(expected, actual)) if a != b), min(len(expected), len(actual)))
         raise AssertionError(f'PDF text differs at {first}: expected {expected[max(0,first-40):first+100]!r}, received {actual[max(0,first-40):first+100]!r} ({len(expected)}/{len(actual)} characters)')
     return {'complete': True, 'characters': len(expected), 'positionHeaders': position_count}
@@ -165,5 +224,6 @@ if __name__ == '__main__':
         result['spine'] = audit_source(args.source, document)
     if args.pdf:
         job = json.loads(pathlib.Path(args.job).read_text())
-        result['pdf'] = audit_pdf(args.pdf, document, job['settings'], job['metadata'], job['result']['cells'])
+        result['pdf'] = audit_pdf(args.pdf, document, job['settings'], job['metadata'],
+                                  job['result']['cells'], job['result'].get('wordCount'))
     print(json.dumps(result))

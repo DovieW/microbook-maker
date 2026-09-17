@@ -74,6 +74,21 @@ test('selected image controls override and reset the global one/two-cell layout'
   expect(span(wide, images[0].id)).toBe(2);
   expect(span(wide, images[1].id)).toBe(1);
   expect(span(wide, images[2].id)).toBe(2);
+  await tab(page, 'Layout');
+  await page.getByRole('combobox', { name: 'Reading order', exact: true }).click();
+  await page.getByRole('option', { name: 'By quadrant', exact: true }).click();
+  await applied(page);
+  const quadrant = await ready(page, request);
+  expect(quadrant.settings.readingOrder).toBe('quadrants');
+  expect(quadrant.settings.foldGapEveryRow).toBe(false);
+  for (const owner of quadrant.result.cells.filter((cell: any) => cell.span === 2)) {
+    const continuation = quadrant.result.cells[owner.index + 1];
+    expect(owner.slot % 2).toBe(0);
+    expect(continuation.continuationOf).toBe(owner.index);
+    expect(continuation.page).toBe(owner.page);
+    expect(continuation.slot).toBe(owner.slot + 1);
+  }
+  await tab(page, 'Images');
   await page.getByLabel('Include image 2', { exact: true }).uncheck();
   await expect(page.getByLabel('Two cells for image 2', { exact: true })).toBeDisabled();
   await page.getByLabel('Include image 2', { exact: true }).check();

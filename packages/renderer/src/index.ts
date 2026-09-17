@@ -265,6 +265,9 @@ export async function render(
         },
         totalWords: words,
         foldGaps: job.settings.foldGaps,
+        foldGapMm: job.settings.foldGapMm,
+        foldGapEveryRow: job.settings.foldGapEveryRow,
+        readingOrder: job.settings.readingOrder,
         optimizationLimits: { maxBlocks: 320, maxDurationMs: 4000 },
         batchWords: true,
         justifyAllCells: true,
@@ -277,8 +280,21 @@ export async function render(
         () => (window as any).__microbookLayoutReport?.durationMs || 0,
       );
       timings.paginate = performance.now() - paginateAt - timings.justification;
-      cells = await page.evaluate(() =>
-        Array.from(document.querySelectorAll('.grid-item')).map((node, index) => {
+      cells = await page.evaluate((readingOrder) => {
+        const slots =
+          readingOrder === 'quadrants'
+            ? [0, 1, 4, 5, 2, 3, 6, 7, 8, 9, 12, 13, 10, 11, 14, 15]
+            : [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+        const nodes = Array.from(document.querySelectorAll('.page')).flatMap((page) => {
+          const bySlot = new Map(
+            Array.from(page.querySelectorAll<HTMLElement>('.grid-item')).map((node) => [
+              Number(node.dataset.slot),
+              node,
+            ]),
+          );
+          return slots.flatMap((slot) => (bySlot.has(slot) ? [bySlot.get(slot)!] : []));
+        });
+        return nodes.map((node, index) => {
           const rect = node.getBoundingClientRect();
           const parent = node.closest('.page')!;
           const bounds = parent.getBoundingClientRect();
@@ -286,6 +302,7 @@ export async function render(
           clone.querySelectorAll('.main-header,.miniSheetNum').forEach((e) => e.remove());
           return {
             index,
+            slot: Number((node as HTMLElement).dataset.slot),
             page: Array.from(document.querySelectorAll('.page')).indexOf(parent),
             x: (rect.left - bounds.left) * 0.75,
             y: (rect.top - bounds.top) * 0.75,
@@ -294,8 +311,8 @@ export async function render(
             blockIds: [],
             text: clone.textContent || '',
           };
-        }),
-      );
+        });
+      }, job.settings.readingOrder);
       const actual = normalizedText(cells.map((c) => c.text).join(' '));
       let cursor = 0;
       let found = 0;
