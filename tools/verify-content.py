@@ -37,7 +37,11 @@ def opening_headers(text, title, byline, stats):
     matches = set()
     for start in range(len(lines) - len(fields) + 1):
         candidate = lines[start:start + len(fields)]
-        if candidate[-1] != fields[-1]:
+        stats_match = candidate[-1] == fields[-1] or re.fullmatch(
+            re.escape(fields[-1]) + r'·Printed(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\d{1,2},\d{4}',
+            candidate[-1],
+        )
+        if not stats_match:
             continue
         if all(actual == expected or (
                 actual.endswith('…') and len(actual) > 1 and expected.startswith(actual[:-1]))

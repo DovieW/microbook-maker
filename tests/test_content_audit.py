@@ -18,6 +18,7 @@ class OpeningHeaderAudit(unittest.TestCase):
 
     def test_accepts_full_and_truncated_metadata(self):
         self.assertTrue(self.matches(f'{self.title}\n{self.byline}\n{self.stats}'))
+        self.assertTrue(self.matches(f'{self.title}\n{self.byline}\n{self.stats} · Printed Sep 18, 2026'))
         self.assertTrue(self.matches(f'A very long…\nAn author…\n{self.stats}'))
         self.assertTrue(self.matches(f'A very long…\n{self.stats}', byline=''))
 
@@ -29,7 +30,8 @@ class OpeningHeaderAudit(unittest.TestCase):
     def test_counts_and_duration_must_be_exact(self):
         for stats in [self.stats.replace('3 sheets', '4 sheets'),
                       self.stats.replace('30,245', '30,244'),
-                      self.stats.replace('21m', '22m'), '3 sheets…']:
+                      self.stats.replace('21m', '22m'), '3 sheets…',
+                      self.stats + ' · Printed someday']:
             self.assertFalse(self.matches(f'{self.title}\n{self.byline}\n{stats}'))
 
 
