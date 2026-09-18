@@ -132,6 +132,8 @@ async function publicBooks() {
   for (const book of corpus) {
     book.file = path.resolve(`.cache/public-books/${book.id}.epub`);
     let data = await fs.readFile(book.file).catch(() => null);
+    if (!data)
+      data = await fs.readFile(`tests/fixtures/public-books/${book.id}.epub`).catch(() => null);
     if (!data) {
       const response = await fetch(book.url);
       if (!response.ok) throw Error(`Fixture download failed: ${book.url}`);

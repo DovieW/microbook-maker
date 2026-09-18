@@ -1,0 +1,29 @@
+name: Cache pinned public books
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  cache:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify and copy archived editions
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          cache = Path('.cache/public-books')
+          cache.mkdir(parents=True, exist_ok=True)
+          for book in json.loads(Path('tests/public-books.json').read_text()):
+              source = Path('tests/fixtures/public-books') / (book['id'] + '.epub')
+              data = source.read_bytes()
+              assert hashlib.sha256(data).hexdigest() == book['sha256'], book['id']
+              (cache / source.name).write_bytes(data)
+              print('Verified', book['id'])
+          PY
+      - uses: actions/cache/save@v4
+        with:
+          path: .cache/public-books
+          key: public-books-${{ hashFiles('tests/public-books.json') }}
