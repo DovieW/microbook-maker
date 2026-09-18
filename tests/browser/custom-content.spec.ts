@@ -59,7 +59,21 @@ test('custom text and image content render, reorder, replace, and restore', asyn
     await page.getByRole('button', { name: 'Apply', exact: true }).click();
     const withCustomContent = await ready(page, request);
     expect(withCustomContent.id).not.toBe(initial.id);
-    await page.locator('.image-title').filter({ hasText: 'Custom cover' }).click();
+    const customDocument = await (await request.get(`/api/documents/${documentId}`)).json();
+    const coverSection = customDocument.sections.find((section: any) => section.title === 'Custom cover');
+    const coverRow = page.locator(`.contents-list [data-section-id="${coverSection.id}"]`);
+    await expect(coverRow).toHaveCount(1);
+    await expect(coverRow).toHaveClass(/content-image-row/);
+    const coverCheckbox = coverRow.getByRole('checkbox', { name: /^Include image/ });
+    await coverCheckbox.uncheck();
+    await expect(coverCheckbox).not.toBeChecked();
+    await expect(page.locator('[aria-label="Print preview"]:visible')).toHaveAttribute(
+      'data-render-id',
+      withCustomContent.id,
+    );
+    await page.getByRole('button', { name: 'Revert changes', exact: true }).click();
+    await expect(coverCheckbox).toBeChecked();
+    await page.locator('.content-image-row .contents-jump').filter({ hasText: 'Custom cover' }).click();
     await expect(page.getByRole('button', { name: 'Replace image', exact: true })).toBeVisible();
 
     const sourceDetails = page.getByRole('button', { name: 'Image 1 details', exact: true });

@@ -122,3 +122,37 @@ test('an EPUB image can be placed between sections and restored to its source po
   await applied(page);
   expect((await ready(page, request)).settings.sectionOrder).not.toContain(`image:${image.id}`);
 });
+
+test('hover and cancelled drags never reorder content', async ({ page }) => {
+  await page.goto('/');
+  await upload(page, 'structured.epub');
+  const initial = await ready(page);
+  await tab(page, 'Content');
+  const tokens = () =>
+    page
+      .locator('[data-content-token]')
+      .evaluateAll((rows) => rows.map((row) => row.getAttribute('data-content-token')));
+  const original = await tokens();
+  const handles = [
+    page.locator('.contents-row .contents-drag').first(),
+    page.locator('.content-image-row .contents-drag').first(),
+  ];
+  for (const handle of handles) {
+    await handle.hover();
+    await page.mouse.move(700, 100);
+    await expect(page.locator('.reorder-target')).toHaveCount(0);
+    await handle.click();
+    await expect(page.locator('.reorder-target')).toHaveCount(0);
+    await handle.hover();
+    const box = (await handle.boundingBox())!;
+    await page.mouse.down();
+    await page.mouse.move(box.x + 20, box.y + 100, { steps: 4 });
+    await expect(page.locator('.reorder-target')).toHaveCount(1);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+    await expect(page.locator('.reorder-target')).toHaveCount(0);
+    expect(await tokens()).toEqual(original);
+  }
+  await expect(preview(page)).toHaveAttribute('data-render-id', initial);
+  await expect(page.getByRole('button', { name: 'Apply', exact: true })).toBeDisabled();
+});

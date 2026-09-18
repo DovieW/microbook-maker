@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { imageOrderToken, orderedContent, type CellMap, type ContentOrderItem } from '@microbook/core';
 import { ListFilter } from 'lucide-react';
-import { printedLocation } from './imageLocations';
+import { printedLocation, imageLocations } from './imageLocations';
 import { SectionPreview } from './SectionPreview';
 import { AddContentDialog } from './CustomContentDialogs';
 import { ImagesPane } from './ImagesPane';
+import { ContentPosition, ContentRowHeader } from './ContentRow';
 import type { Workspace } from './LayoutControls';
 
 type ContentFilter = 'all' | 'sections' | 'images' | 'custom';
@@ -38,6 +39,9 @@ export function ContentsPane({ w }: { w: Workspace }) {
   const order = orderedContent(doc, settings.sectionOrder);
   const sections = new Map(doc.sections.map((section) => [section.id, section]));
   const images = doc.blocks.filter((block) => block.kind === 'image');
+  const editableImageIds = new Set(
+    imageLocations(doc, w.preview?.result, settings).map((entry) => entry.block.id),
+  );
   const detached = new Set(order.filter((item) => item.kind === 'image').map((item) => item.id));
   const contentsSections = new Set(
     doc.blocks.filter((block) => block.tocContent).map((block) => block.sectionId),
@@ -57,6 +61,12 @@ export function ContentsPane({ w }: { w: Workspace }) {
     return matches && (filter !== 'custom' || !!block?.custom || !!asset?.custom);
   };
   const topLevelTokens = order.map((item) => (item.kind === 'section' ? item.id : imageOrderToken(item.id)));
+  const targetPosition = (token: string) => {
+    const explicit = topLevelTokens.indexOf(token);
+    if (explicit >= 0) return explicit + 1;
+    const parent = images.find((image) => imageOrderToken(image.id) === token)?.sectionId;
+    return Math.max(1, topLevelTokens.indexOf(parent || '') + 1);
+  };
   const move = (token: string, position: number, label: string) => {
     if (
       w.kept ||
@@ -179,7 +189,14 @@ export function ContentsPane({ w }: { w: Workspace }) {
           const matchingImages = sectionImages.filter((image) => visibleImage(image.id));
           const sectionMatches = section.title.toLowerCase().includes(query.toLowerCase());
           const customMatches = filter !== 'custom' || !!section.custom;
-          const showSection = showSections && sectionMatches && customMatches;
+          const sectionBlocks = doc.blocks.filter((block) => block.sectionId === section.id);
+          // A section containing a single image is one editable item, not two copies of its title.
+          const imageOnly =
+            sectionBlocks.length === 1 &&
+            sectionBlocks[0].kind === 'image' &&
+            sectionImages.length === 1 &&
+            editableImageIds.has(sectionImages[0].id);
+          const showSection = showSections && sectionMatches && customMatches && !(showImages && imageOnly);
           if (!showSection && (!showImages || matchingImages.length === 0)) return null;
           return (
             <div className="content-section-group" key={section.id}>
@@ -199,7 +216,7 @@ export function ContentsPane({ w }: { w: Workspace }) {
                   max={topLevelTokens.length}
                   drag={drag}
                   setDrag={setDrag}
-                  targetPosition={(token) => topLevelTokens.indexOf(token) + 1}
+                  targetPosition={targetPosition}
                   move={(position) => move(section.id, position, section.title)}
                 />
               )}
@@ -212,9 +229,10 @@ export function ContentsPane({ w }: { w: Workspace }) {
                       key={image.id}
                       w={w}
                       id={image.id}
+                      sectionId={imageOnly ? section.id : undefined}
                       label={`Image ${imageIndex + 1}`}
                       position={sectionPosition}
-                      max={topLevelTokens.length + (section.custom ? 0 : 1)}
+                      max={topLevelTokens.length + (section.custom || imageOnly ? 0 : 1)}
                       drag={drag}
                       setDrag={setDrag}
                       targetPosition={(token) => {
@@ -226,7 +244,7 @@ export function ContentsPane({ w }: { w: Workspace }) {
                       }}
                       onMove={(position) =>
                         move(
-                          section.custom ? section.id : imageOrderToken(image.id),
+                          section.custom || imageOnly ? section.id : imageOrderToken(image.id),
                           position,
                           `image ${imageIndex + 1}`,
                         )
@@ -250,6 +268,7 @@ function ContentImage({
   max,
   detached = false,
   movable = true,
+  sectionId,
   drag,
   setDrag,
   targetPosition,
@@ -263,76 +282,42 @@ function ContentImage({
   max: number;
   detached?: boolean;
   movable?: boolean;
+  sectionId?: string;
   drag: { token: string; target: string } | null;
   setDrag: (drag: { token: string; target: string } | null) => void;
   targetPosition: (token: string) => number;
   onMove: (position: number) => void;
   onRestore?: () => void;
 }) {
-  const token = imageOrderToken(id);
+  const token = sectionId || imageOrderToken(id);
   const active = w.docPrefs?.selectedImageId === id;
-  const pointerTarget = useRef(token);
-  const contentAt = (clientY: number) => {
-    const rows = Array.from(document.querySelectorAll<HTMLElement>('[data-content-token]'));
-    return rows.reduce<{ token: string; distance: number } | undefined>((best, row) => {
-      const candidate = row.dataset.contentToken;
-      if (!candidate) return best;
-      const rect = row.getBoundingClientRect();
-      const distance = Math.abs(clientY - (rect.top + rect.bottom) / 2);
-      return !best || distance < best.distance ? { token: candidate, distance } : best;
-    }, undefined)?.token;
-  };
   return (
     <div
       className={`content-image-row${active ? ' selected' : ''}${detached ? ' detached' : ''}${drag?.target === token ? ' reorder-target' : ''}`}
+      data-section-id={sectionId}
       data-content-token={token}
       aria-current={active ? true : undefined}
     >
-      {(movable || detached) && (
-        <div className="contents-position content-image-position">
-          <button
-            className="contents-drag"
-            aria-label={`Move ${label.toLowerCase()}; use arrow keys to reorder`}
-            disabled={!!w.kept}
-            onKeyDown={(event) => {
-              if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
-                event.preventDefault();
-                onMove(position + (event.key === 'ArrowUp' ? -1 : 1));
-              }
-              if (event.key === 'Escape') setDrag(null);
-            }}
-            onPointerDown={(event) => {
-              if (event.button !== 0) return;
-              event.currentTarget.setPointerCapture(event.pointerId);
-              pointerTarget.current = token;
-              setDrag({ token, target: token });
-            }}
-            onPointerMove={(event) => {
-              const target = contentAt(event.clientY);
-              if (target) {
-                pointerTarget.current = target;
-                setDrag({ token, target });
-              }
-              const body = event.currentTarget.closest('.sidebar-body');
-              if (body) {
-                const rect = body.getBoundingClientRect();
-                if (event.clientY < rect.top + 40) body.scrollTop -= 16;
-                if (event.clientY > rect.bottom - 40) body.scrollTop += 16;
-              }
-            }}
-            onPointerUp={(event) => {
-              pointerTarget.current = contentAt(event.clientY) || pointerTarget.current;
-              if (pointerTarget.current !== token) onMove(targetPosition(pointerTarget.current));
-              setDrag(null);
-            }}
-            onPointerCancel={() => setDrag(null)}
-          >
-            ⋮⋮
-          </button>
-          <Position title={label} value={position} max={max} disabled={!!w.kept} move={onMove} />
-        </div>
-      )}
-      <ImagesPane w={w} embedded imageIds={[id]} />
+      <ImagesPane
+        w={w}
+        embedded
+        imageIds={[id]}
+        sectionId={sectionId}
+        rowPosition={
+          (movable || detached) && (
+            <ContentPosition
+              token={token}
+              title={label}
+              position={position}
+              max={max}
+              disabled={!!w.kept}
+              setDrag={setDrag}
+              targetPosition={targetPosition}
+              move={onMove}
+            />
+          )
+        }
+      />
       {detached && (
         <button className="content-image-restore" type="button" disabled={!!w.kept} onClick={onRestore}>
           Restore original position
@@ -375,17 +360,6 @@ function SectionRow({
 }) {
   if (item.kind !== 'section') return null;
   const active = w.selectedSectionId === item.id;
-  const pointerTarget = useRef(item.id);
-  const sectionAt = (clientY: number) => {
-    const rows = Array.from(document.querySelectorAll<HTMLElement>('[data-section-id]'));
-    return rows.reduce<{ id: string; distance: number } | undefined>((best, row) => {
-      const id = row.dataset.sectionId;
-      if (!id) return best;
-      const rect = row.getBoundingClientRect();
-      const distance = Math.abs(clientY - (rect.top + rect.bottom) / 2);
-      return !best || distance < best.distance ? { id, distance } : best;
-    }, undefined)?.id;
-  };
   return (
     <div
       className={`contents-row${active ? ' selected' : ''}${drag?.target === item.id ? ' reorder-target' : ''}`}
@@ -393,58 +367,25 @@ function SectionRow({
       data-content-token={item.id}
       aria-current={active ? true : undefined}
     >
-      <div className="contents-row-main">
-        <div className="contents-position">
-          <button
-            className="contents-drag"
-            aria-label={`Move ${title}; use arrow keys to reorder`}
+      <ContentRowHeader
+        position={
+          <ContentPosition
+            token={item.id}
+            title={title}
+            position={position}
+            max={max}
             disabled={!!w.kept}
-            onKeyDown={(event) => {
-              if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
-                event.preventDefault();
-                move(position + (event.key === 'ArrowUp' ? -1 : 1));
-              }
-              if (event.key === 'Escape') setDrag(null);
-            }}
-            onPointerDown={(event) => {
-              if (event.button !== 0) return;
-              event.currentTarget.setPointerCapture(event.pointerId);
-              pointerTarget.current = item.id;
-              setDrag({ token: item.id, target: item.id });
-            }}
-            onPointerMove={(event) => {
-              const target = sectionAt(event.clientY);
-              if (target) {
-                pointerTarget.current = target;
-                setDrag({ token: item.id, target });
-              }
-              const body = event.currentTarget.closest('.sidebar-body');
-              if (body) {
-                const rect = body.getBoundingClientRect();
-                if (event.clientY < rect.top + 40) body.scrollTop -= 16;
-                if (event.clientY > rect.bottom - 40) body.scrollTop += 16;
-              }
-            }}
-            onPointerUp={(event) => {
-              pointerTarget.current = sectionAt(event.clientY) || pointerTarget.current;
-              if (pointerTarget.current !== item.id) move(targetPosition(pointerTarget.current));
-              setDrag(null);
-            }}
-            onPointerCancel={() => setDrag(null)}
-          >
-            ⋮⋮
-          </button>
-          <Position title={title} value={position} max={max} disabled={!!w.kept} move={move} />
-        </div>
-        <button
-          className="contents-jump"
-          aria-expanded={active}
-          disabled={!location}
-          onClick={() => location && w.jumpSection(item.id, location.index)}
-        >
-          <span>{title}</span>
-          <small>{location ? printedLocation(location.page) : 'Not in preview'}</small>
-        </button>
+            setDrag={setDrag}
+            targetPosition={targetPosition}
+            move={move}
+          />
+        }
+        title={title}
+        location={location ? printedLocation(location.page) : 'Not in preview'}
+        expanded={active}
+        disabled={!location}
+        onOpen={() => location && w.jumpSection(item.id, location.index)}
+      >
         <input
           type="checkbox"
           aria-label={`Include ${title}`}
@@ -462,7 +403,7 @@ function SectionRow({
             });
           }}
         />
-      </div>
+      </ContentRowHeader>
       {active && location && w.preview && (
         <SectionPreview
           renderId={w.preview.id}
@@ -472,48 +413,5 @@ function SectionRow({
         />
       )}
     </div>
-  );
-}
-
-function Position({
-  title,
-  value,
-  max,
-  disabled,
-  move,
-}: {
-  title: string;
-  value: number;
-  max: number;
-  disabled: boolean;
-  move: (n: number) => void;
-}) {
-  const [text, setText] = useState(String(value));
-  useEffect(() => setText(String(value)), [value]);
-  const commit = () => {
-    const n = Number(text);
-    if (Number.isInteger(n) && n >= 1 && n <= max && n !== value) move(n);
-    else setText(String(value));
-  };
-  return (
-    <input
-      className="contents-position-input"
-      type="number"
-      inputMode="numeric"
-      min={1}
-      max={max}
-      aria-label={`Position of ${title}`}
-      disabled={disabled}
-      value={text}
-      onChange={(event) => setText(event.target.value)}
-      onBlur={commit}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter') {
-          event.preventDefault();
-          commit();
-        }
-        if (event.key === 'Escape') setText(String(value));
-      }}
-    />
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { repeatedImageGroups, imageOutputQuery, settingsSchema } from '@microbook/core';
 import { RepeatedImageControls } from './RepeatedImageControls';
 import { ImageOutputControls } from './ImageOutputControls';
@@ -10,6 +10,7 @@ import { RotateCcw } from 'lucide-react';
 import { IconButton } from './ui';
 import { imageLocations, printedLocation } from './imageLocations';
 import { ImageHeadingControls } from './ImageHeadingControls';
+import { ContentRowHeader } from './ContentRow';
 import { ImageContentDialog } from './CustomContentDialogs';
 import type { Workspace } from './LayoutControls';
 export function ImagesPane({
@@ -18,12 +19,16 @@ export function ImagesPane({
   imageIds,
   embedded = false,
   controlsOnly = false,
+  rowPosition,
+  sectionId,
 }: {
   w: Workspace;
   query?: string;
   imageIds?: string[];
   embedded?: boolean;
   controlsOnly?: boolean;
+  rowPosition?: ReactNode;
+  sectionId?: string;
 }) {
   const root = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState('');
@@ -61,7 +66,14 @@ export function ImagesPane({
       `[data-image-id="${CSS.escape(w.docPrefs?.selectedImageId || '')}"]`,
     );
     if (node?.closest('details')) node.closest('details')!.open = true;
-    node?.scrollIntoView({ block: 'nearest' });
+    const header = node?.querySelector('.content-row-header') || node;
+    header?.scrollIntoView({ block: 'nearest' });
+    const body = node?.closest('.sidebar-body');
+    const toolbar = body?.querySelector('.contents-toolbar');
+    if (header && body && toolbar) {
+      const overlap = toolbar.getBoundingClientRect().bottom + 8 - header.getBoundingClientRect().top;
+      if (overlap > 0) body.scrollTop -= overlap;
+    }
   }, [w.docPrefs?.selectedImageId]);
   return (
     <div className={`images-pane${embedded ? ' embedded-images' : ''}`} ref={root}>
@@ -206,8 +218,59 @@ export function ImagesPane({
         <div className="image-list">
           {filteredImages.map(({ block, asset, section, cell, context, heading }) => {
             const i = images.findIndex((entry) => entry.block.id === block.id);
-            const included = !!heading || !draft.excludedImageIds.includes(block.id);
+            const included =
+              (!!heading || !draft.excludedImageIds.includes(block.id)) &&
+              (!sectionId || !draft.selectedSections || draft.selectedSections.includes(sectionId));
             const active = block.id === w.docPrefs?.selectedImageId;
+            const thumbnail = (
+              <button
+                className="image-thumbnail"
+                aria-label={`Preview image ${i + 1}`}
+                onClick={(event) =>
+                  asset &&
+                  showPreview(
+                    event.currentTarget,
+                    block.id,
+                    `/api/documents/${doc.id}/assets/${asset.id}`,
+                    asset.alt,
+                    section,
+                  )
+                }
+              >
+                {asset && <img src={`/api/documents/${doc.id}/assets/${asset.id}`} alt="" loading="lazy" />}
+              </button>
+            );
+            const include = (
+              <input
+                type="checkbox"
+                aria-label={`Include image ${i + 1}`}
+                disabled={!!w.kept || !!heading || !draft.includeImages}
+                checked={included}
+                onChange={(e) =>
+                  w.edit({
+                    ...(sectionId
+                      ? {
+                          selectedSections: e.target.checked
+                            ? [
+                                ...new Set([
+                                  ...(draft.selectedSections || doc.sections.map((s) => s.id)),
+                                  sectionId,
+                                ]),
+                              ]
+                            : (draft.selectedSections || doc.sections.map((s) => s.id)).filter(
+                                (id) => id !== sectionId,
+                              ),
+                        }
+                      : {}),
+                    excludedImageIds: e.target.checked
+                      ? draft.excludedImageIds.filter((id) => id !== block.id)
+                      : sectionId
+                        ? draft.excludedImageIds
+                        : [...new Set([...draft.excludedImageIds, block.id])].sort(),
+                  })
+                }
+              />
+            );
             return (
               <div
                 className={`image-choice${active ? ' selected' : ''}${included ? '' : ' excluded'}`}
@@ -223,69 +286,54 @@ export function ImagesPane({
                     w.selectImage(block.id);
                 }}
               >
-                <div className="image-choice-main">
-                  <button
-                    className="image-thumbnail"
-                    aria-label={`Preview image ${i + 1}`}
-                    onClick={(event) =>
-                      asset &&
-                      showPreview(
-                        event.currentTarget,
-                        block.id,
-                        `/api/documents/${doc.id}/assets/${asset.id}`,
-                        asset.alt,
-                        section,
-                      )
-                    }
+                {embedded ? (
+                  <ContentRowHeader
+                    position={rowPosition}
+                    title={section || `Image ${i + 1}`}
+                    location={cell ? printedLocation(cell.page) : 'Not in preview'}
+                    label={`Image ${i + 1} details`}
+                    expanded={active}
+                    onOpen={() => w.jumpImage(block.id)}
+                    thumbnail={thumbnail}
                   >
-                    {asset && (
-                      <img src={`/api/documents/${doc.id}/assets/${asset.id}`} alt="" loading="lazy" />
-                    )}
-                  </button>
-                  <div className="image-description">
-                    <button
-                      className="image-title"
-                      aria-label={`Image ${i + 1} details`}
-                      aria-expanded={active}
-                      onClick={() => w.selectImage(block.id)}
-                      title={section}
-                    >
-                      {section || `Image ${i + 1}`}
-                    </button>
-                    {!embedded && (
-                      <small>
-                        Image {i + 1}
-                        {heading ? ' · Heading' : ''}
-                      </small>
-                    )}
-                    {!cell && !embedded && <small>Not in preview</small>}
-                    <button
-                      className="image-location"
-                      aria-label={
-                        cell
-                          ? `Show image ${i + 1}: ${printedLocation(cell.page)}`
-                          : `Go to context for image ${i + 1}`
-                      }
-                      disabled={!cell && !context}
-                      onClick={() => w.jumpImage(block.id)}
-                    >
-                      {cell ? printedLocation(cell.page) : embedded ? 'Not in preview' : 'Go to context'}
-                    </button>
+                    {include}
+                  </ContentRowHeader>
+                ) : (
+                  <div className="image-choice-main">
+                    {thumbnail}
+                    <div className="image-description">
+                      <button
+                        className="image-title"
+                        aria-label={`Image ${i + 1} details`}
+                        aria-expanded={active}
+                        onClick={() => w.selectImage(block.id)}
+                        title={section}
+                      >
+                        {section || `Image ${i + 1}`}
+                      </button>
+                      {!embedded && (
+                        <small>
+                          Image {i + 1}
+                          {heading ? ' · Heading' : ''}
+                        </small>
+                      )}
+                      {!cell && !embedded && <small>Not in preview</small>}
+                      <button
+                        className="image-location"
+                        aria-label={
+                          cell
+                            ? `Show image ${i + 1}: ${printedLocation(cell.page)}`
+                            : `Go to context for image ${i + 1}`
+                        }
+                        disabled={!cell && !context}
+                        onClick={() => w.jumpImage(block.id)}
+                      >
+                        {cell ? printedLocation(cell.page) : embedded ? 'Not in preview' : 'Go to context'}
+                      </button>
+                    </div>
+                    {include}
                   </div>
-                  <input
-                    type="checkbox"
-                    aria-label={`Include image ${i + 1}`}
-                    disabled={!!w.kept || !!heading || !draft.includeImages}
-                    checked={included}
-                    onChange={(e) =>
-                      w.edit({
-                        excludedImageIds: e.target.checked
-                          ? draft.excludedImageIds.filter((id) => id !== block.id)
-                          : [...new Set([...draft.excludedImageIds, block.id])].sort(),
-                      })
-                    }
-                  />
-                </div>
+                )}
                 {active && (
                   <div className="image-expanded">
                     {asset && (

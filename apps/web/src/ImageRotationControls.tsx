@@ -1,4 +1,4 @@
-import { RotateCcw, RotateCw } from 'lucide-react';
+import { RotateCcw, RotateCw, Undo2 } from 'lucide-react';
 import { IconButton } from './ui';
 export function ImageRotationControls({
   rotation,
@@ -26,9 +26,9 @@ export function ImageRotationControls({
       >
         <RotateCw size={18} />
       </IconButton>
-      <button disabled={!rotation} onClick={() => onChange(0)}>
-        Reset orientation
-      </button>
+      <IconButton label="Reset orientation" disabled={!rotation} onClick={() => onChange(0)}>
+        <Undo2 size={18} />
+      </IconButton>
       {onMatch && count > 1 && (
         <button onClick={onMatch}>Apply orientation to all {count} matching images</button>
       )}

@@ -16,7 +16,7 @@ test('image locations, exact overlays and context jumps survive zoom, Apply, exc
   const images = doc.blocks.filter((b: any) => b.kind === 'image' && !b.imageHeading);
   await tab(page, 'Content');
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await page.getByRole('button', { name: /^Show image 18:/ }).click();
+  await page.getByRole('button', { name: 'Image 18 details', exact: true }).click();
   const target = initial.result.cells.find((c: any) => c.blockIds.includes(images[17].id));
   await expect(page.getByLabel('Printed side', { exact: true })).toHaveValue(String(target.page + 1));
   const check = async (job: any) => {
@@ -49,8 +49,8 @@ test('image locations, exact overlays and context jumps survive zoom, Apply, exc
   await applied(page);
   await ready(page);
   await expect(preview(page).locator('.image-hit.selected')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Go to context for image 18', exact: true }).click();
-  await page.getByRole('button', { name: /^Show image 17:/ }).click();
+  await page.getByRole('button', { name: 'Image 18 details', exact: true }).click();
+  await page.getByRole('button', { name: 'Image 17 details', exact: true }).click();
   await expect(page.locator('.image-choice.selected')).toHaveAttribute('data-image-id', images[16].id);
   await tab(page, 'Layout');
   const edit = preview(page).locator('.image-hit.selected button');
@@ -65,10 +65,11 @@ test('image locations, exact overlays and context jumps survive zoom, Apply, exc
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await tab(page, 'Content');
-  const sideBefore = await page.getByLabel('Printed side', { exact: true }).inputValue();
   await page.getByRole('button', { name: 'Image 1 details', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await tab(page, 'Content');
   await expect(page.getByRole('dialog')).toHaveCount(1);
-  await expect(page.getByLabel('Printed side', { exact: true })).toHaveValue(sideBefore);
+  await expect(page.getByLabel('Printed side', { exact: true })).toHaveValue('1');
   const expanded = page.locator('.image-choice.selected');
   await expect(expanded.locator('.image-large-preview')).toBeVisible();
   expect((await expanded.locator('.image-large-preview').boundingBox())!.width).toBeGreaterThan(250);
@@ -84,12 +85,12 @@ test('image locations, exact overlays and context jumps survive zoom, Apply, exc
   expect(
     await imageDialog.locator('.image-preview-stage').evaluate((el) => el.scrollWidth > el.clientWidth),
   ).toBe(true);
-  await expect(page.getByLabel('Printed side', { exact: true })).toHaveValue(sideBefore);
+  await expect(page.getByLabel('Printed side', { exact: true })).toHaveValue('1');
   await page.keyboard.press('Escape');
   await expect(imageDialog).toHaveCount(0);
   await expect(page.getByRole('dialog')).toHaveCount(1);
   await expect(thumbnail).toBeFocused();
-  await page.getByRole('button', { name: /^Show image 1:/ }).click();
+  await page.getByRole('button', { name: 'Image 1 details', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByLabel('Printed side', { exact: true })).toHaveValue('1');
   await tab(page, 'Content');
@@ -137,7 +138,7 @@ test('legacy Cell preferences and unidentified image regions migrate without ren
   await expect(preview(page)).toHaveAttribute('data-render-id', id);
   await expect(page.getByRole('button', { name: 'Fit to width', exact: true })).toHaveText('125%');
   await tab(page, 'Content');
-  await page.getByRole('button', { name: /^Show image 18:/ }).click();
+  await page.getByRole('button', { name: 'Image 18 details', exact: true }).click();
   await expect(page.getByLabel('Printed side', { exact: true })).not.toHaveValue('1');
   await expect(preview(page).locator('.image-hit')).toHaveCount(0);
   expect(renders).toBe(1);
@@ -166,5 +167,5 @@ test('mobile failure retains displayed image locations and offers Retry in the s
   await page.getByRole('button', { name: 'Retry', exact: true }).click();
   await expect(drawer.getByRole('button', { name: 'Apply', exact: true })).toBeDisabled();
   await expect(preview(page)).not.toHaveAttribute('data-render-id', id);
-  await expect(page.getByRole('button', { name: 'Go to context for image 1', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Image 1 details', exact: true })).toBeEnabled();
 });
