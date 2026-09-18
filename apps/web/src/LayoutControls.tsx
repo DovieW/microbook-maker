@@ -208,6 +208,26 @@ export function LayoutControls({ w }: { w: Workspace }) {
               </label>
               {number('marginMm', 'Page margins', 'mm', 0, 12, 0.5)}
               {check('sourcePageNumbers', 'Source page numbers')}
+              <label className="field">
+                <span>Opening image order</span>
+                <Dropdown
+                  label="Opening image order"
+                  value={s.rich.openingImageOrder}
+                  options={[
+                    ['text-first', 'Text first'],
+                    ['image-first', 'Image first'],
+                    ['source', 'Keep source order'],
+                  ]}
+                  onChange={(openingImageOrder) =>
+                    w.edit({
+                      rich: {
+                        ...s.rich,
+                        openingImageOrder: openingImageOrder as typeof s.rich.openingImageOrder,
+                      },
+                    })
+                  }
+                />
+              </label>
             </>
           )}
           <div className="settings-file-actions">

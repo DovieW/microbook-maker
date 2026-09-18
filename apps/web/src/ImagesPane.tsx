@@ -165,51 +165,50 @@ export function ImagesPane({
           {repeatedImageGroups(doc).map((group) => {
             const asset = doc.assets.find((a) => a.id === group[0].assetId);
             const includedCount = group.filter((b) => !draft.excludedImageIds.includes(b.id)).length;
-            const applied = group.every((b) => draft.imageTreatments[b.id]?.kind === 'flourish');
             return (
-              <div className="repeated-image" key={group[0].assetId}>
-                {asset && <img src={`/api/documents/${doc.id}/assets/${asset.id}`} alt="Repeated artwork" />}
-                <span>{group.length} occurrences</span>
-                <input
-                  type="checkbox"
-                  aria-label={`Include all ${group.length} occurrences of repeated image ${group[0].assetId}`}
-                  title={includedCount === group.length ? 'Uncheck all occurrences' : 'Check all occurrences'}
-                  disabled={!!w.kept || !draft.includeImages}
-                  checked={includedCount === group.length}
-                  ref={(node) => {
-                    if (node) node.indeterminate = includedCount > 0 && includedCount < group.length;
-                  }}
-                  onChange={(event) => {
-                    const ids = new Set(group.map((b) => b.id));
-                    w.edit({
-                      excludedImageIds: event.target.checked
-                        ? draft.excludedImageIds.filter((id) => !ids.has(id))
-                        : [...new Set([...draft.excludedImageIds, ...ids])].sort(),
-                    });
-                  }}
-                />
-                <button
-                  disabled={!!w.kept}
-                  onClick={() =>
-                    w.edit({
-                      imageTreatments: {
-                        ...draft.imageTreatments,
-                        ...Object.fromEntries(
-                          group.map((b) => [
-                            b.id,
-                            applied
-                              ? { kind: 'image' as const }
-                              : { kind: 'flourish' as const, widthEm: 4, gapEm: 0.25 },
-                          ]),
-                        ),
-                      },
-                    })
-                  }
-                >
-                  {applied ? 'Use as illustrations' : 'Use as flourishes'}
-                </button>
-                <RepeatedImageControls w={w} group={group} />
-              </div>
+              <details className="repeated-image" key={group[0].assetId}>
+                <summary>
+                  {asset && <img src={`/api/documents/${doc.id}/assets/${asset.id}`} alt="" loading="lazy" />}
+                  <span>
+                    <strong>{group.length} matching images</strong>
+                    <small>Shared artwork and settings</small>
+                  </span>
+                  <input
+                    type="checkbox"
+                    aria-label={`Include all ${group.length} occurrences of repeated image ${group[0].assetId}`}
+                    title={
+                      includedCount === group.length ? 'Uncheck all occurrences' : 'Check all occurrences'
+                    }
+                    disabled={!!w.kept || !draft.includeImages}
+                    checked={includedCount === group.length}
+                    ref={(node) => {
+                      if (node) node.indeterminate = includedCount > 0 && includedCount < group.length;
+                    }}
+                    onClick={(event) => event.stopPropagation()}
+                    onChange={(event) => {
+                      const ids = new Set(group.map((b) => b.id));
+                      w.edit({
+                        excludedImageIds: event.target.checked
+                          ? draft.excludedImageIds.filter((id) => !ids.has(id))
+                          : [...new Set([...draft.excludedImageIds, ...ids])].sort(),
+                      });
+                    }}
+                  />
+                </summary>
+                <div className="repeated-image-expanded">
+                  {asset && (
+                    <img
+                      className="repeated-image-preview"
+                      src={`/api/documents/${doc.id}/assets/${asset.id}${imageOutputQuery(
+                        draft.imageOutputOverrides[group[0].id] ?? draft.imageOutput,
+                        draft.imageRotations[group[0].id] ?? 0,
+                      )}`}
+                      alt={asset.alt || 'Repeated image'}
+                    />
+                  )}
+                  <RepeatedImageControls w={w} group={group} />
+                </div>
+              </details>
             );
           })}
         </details>

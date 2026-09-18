@@ -13,7 +13,19 @@ test('repeated flourishes preserve source placement, bulk controls, overrides, a
   await applied(page);
   const original = await ready(page, request);
   await page.getByText('Repeated images', { exact: true }).click();
-  await page.getByRole('button', { name: 'Use as flourishes', exact: true }).click();
+  const repeatedGroup = page.locator('.repeated-image').first();
+  await repeatedGroup.locator('summary').click();
+  await expect(repeatedGroup.locator('.repeated-image-preview')).toBeVisible();
+  await expect(repeatedGroup.getByText('20 matching images', { exact: true })).toBeVisible();
+  await expect(page.getByText('Repeated images', { exact: true })).toHaveCount(1);
+  const rowCenters = await repeatedGroup.locator('summary').evaluate((summary) => {
+    const label = summary.querySelector('span')!.getBoundingClientRect();
+    const checkbox = summary.querySelector('input')!.getBoundingClientRect();
+    return { label: (label.top + label.bottom) / 2, checkbox: (checkbox.top + checkbox.bottom) / 2 };
+  });
+  expect(Math.abs(rowCenters.label - rowCenters.checkbox)).toBeLessThan(2);
+  await expect(page.getByText(/Use as illustrations|Adjust all 20 images/)).toHaveCount(0);
+  await page.getByLabel('Repeated images treatment', { exact: true }).selectOption('flourish');
   await expect(preview(page)).toHaveAttribute('data-render-id', original.id);
   await applied(page);
   const compact = await ready(page, request);
@@ -21,7 +33,7 @@ test('repeated flourishes preserve source placement, bulk controls, overrides, a
   expect(compact.result.coverage.complete).toBe(true);
   expect(compact.result.coverage.overflows).toBe(0);
   expect(compact.result.imageRegions).toHaveLength(20);
-  await page.getByRole('button', { name: 'Use as illustrations', exact: true }).click();
+  await page.getByLabel('Repeated images treatment', { exact: true }).selectOption('image');
   await expect(preview(page)).toHaveAttribute('data-render-id', compact.id);
   await applied(page);
   const illustrations = await ready(page, request);
@@ -29,7 +41,7 @@ test('repeated flourishes preserve source placement, bulk controls, overrides, a
   expect(Object.values(illustrations.settings.imageTreatments).every((t: any) => t.kind === 'image')).toBe(
     true,
   );
-  await page.getByRole('button', { name: 'Use as flourishes', exact: true }).click();
+  await page.getByLabel('Repeated images treatment', { exact: true }).selectOption('flourish');
   await applied(page);
   expect((await ready(page, request)).id).toBe(compact.id);
   const doc = await (await request.get(`/api/documents/${compact.documentId}`)).json();
@@ -53,7 +65,7 @@ test('repeated flourishes preserve source placement, bulk controls, overrides, a
   const changed = await ready(page, request);
   expect(changed.result.imageRegions[0].width).toBeCloseTo(((18 * 27) / 14) * 0.75, 1);
   expect(changed.result.imageRegions[1].width).toBeCloseTo(18, 1);
-  await page.getByText('20 matching images', { exact: true }).click();
+  await page.locator('.matching-images').getByText('20 matching images', { exact: true }).click();
   await page.getByRole('button', { name: 'Apply treatment to all 20', exact: true }).click();
   const groupCheckbox = page.getByRole('checkbox', { name: /^Include all 20 occurrences of repeated image/ });
   await expect(groupCheckbox).toBeChecked();
@@ -73,6 +85,7 @@ test('repeated flourishes preserve source placement, bulk controls, overrides, a
   await expect(page.getByLabel('Flourish width', { exact: true })).toHaveValue('6');
   await page.getByLabel('Include image 1', { exact: true }).uncheck();
   await page.getByText('Repeated images', { exact: true }).click();
+  await repeatedGroup.locator('summary').click();
   await expect(groupCheckbox).toBeChecked({ indeterminate: true });
   await applied(page);
   const excluded = await ready(page, request);
@@ -90,7 +103,6 @@ test('repeated flourishes preserve source placement, bulk controls, overrides, a
   for (const region of rotated.result.imageRegions) {
     expect(region.width / region.height).toBeCloseTo(14 / 27, 1);
   }
-  await page.getByText('Adjust all 20 images', { exact: true }).click();
   await page.getByLabel('Repeated images width', { exact: true }).fill('5');
   await page.getByLabel('Repeated images gap', { exact: true }).fill('0.5');
   await page.getByLabel('Repeated images orientation', { exact: true }).selectOption('0');

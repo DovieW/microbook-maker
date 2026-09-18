@@ -49,7 +49,29 @@ async function layoutBook(payload: {
   let cacheHits = 0;
   let cacheMisses = 0;
   const preparedContent = prepareRichContent(book, s);
-  const selected = preparedContent.blocks;
+  const selected = [...preparedContent.blocks];
+  if (s.rich.openingImageOrder === 'image-first') {
+    let insertion = 0;
+    while (
+      insertion < selected.length &&
+      (selected[insertion].kind === 'image' || selected[insertion].captionFor === selected[insertion - 1]?.id)
+    )
+      insertion++;
+    const firstHeading = selected.findIndex((block, index) => index >= insertion && block.kind === 'heading');
+    const openingEnd = firstHeading < 0 ? selected.length : firstHeading;
+    const candidate = selected.findIndex(
+      (block, index) =>
+        index >= insertion &&
+        index < openingEnd &&
+        block.kind === 'image' &&
+        s.imageTreatments[block.id]?.kind !== 'flourish' &&
+        (s.imageCellSpans[block.id] ?? (s.twoCellImages ? 2 : 1)) === 2,
+    );
+    if (candidate > insertion) {
+      const count = selected[candidate + 1]?.captionFor === selected[candidate].id ? 2 : 1;
+      selected.splice(insertion, 0, ...selected.splice(candidate, count));
+    }
+  }
   const featureDiagnostics = preparedContent.diagnostics;
   const featureStyle = document.createElement('style');
   featureStyle.textContent = `
@@ -557,7 +579,8 @@ async function layoutBook(payload: {
     for (const label of pendingLabels) register(label, '');
     pendingLabels = [];
   }
-  for (const [blockIndex, block] of selected.entries()) {
+  for (let blockIndex = 0; blockIndex < selected.length; blockIndex++) {
+    const block = selected[blockIndex];
     completedBlocks = blockIndex;
     reportProgress();
     if (placedCaptions.has(block.id)) continue;
@@ -573,6 +596,34 @@ async function layoutBook(payload: {
     if (spreadFull) {
       flow = nextCell();
       spreadFull = false;
+    }
+    if (
+      block.kind === 'image' &&
+      s.rich.openingImageOrder === 'text-first' &&
+      !pendingLabels.length &&
+      s.imageTreatments[block.id]?.kind !== 'flourish' &&
+      (s.imageCellSpans[block.id] ?? (s.twoCellImages ? 2 : 1)) === 2
+    ) {
+      const occupied = Array.from(flow.children).some((child) => !child.classList.contains('cell-position'));
+      const targetSlot = slots[(current + (occupied ? 1 : 0)) % 16];
+      const cannotStartSpread = s.readingOrder === 'quadrants' ? targetSlot % 2 === 1 : targetSlot % 4 === 3;
+      const captionCount = selected[blockIndex + 1]?.captionFor === block.id ? 1 : 0;
+      const nextText = selected.findIndex(
+        (candidate, index) =>
+          index > blockIndex + captionCount &&
+          !candidate.pageLabel &&
+          !candidate.captionFor &&
+          candidate.kind !== 'image' &&
+          candidate.kind !== 'separator',
+      );
+      if (cannotStartSpread && nextText > blockIndex) {
+        const nextTextId = selected[nextText].id;
+        const bundle = selected.splice(blockIndex, 1 + captionCount);
+        const destination = selected.findIndex((candidate) => candidate.id === nextTextId);
+        selected.splice(destination + 1, 0, ...bundle);
+        blockIndex--;
+        continue;
+      }
     }
     if (block.kind === 'separator') {
       const line = document.createElement(block.pageLabel ? 'div' : 'hr');

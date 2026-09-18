@@ -15,8 +15,16 @@ const doc = {
     { id: `q${i}`, kind: 'paragraph', sectionId: 's', inlines: [{ text: 'After' }] },
   ]).flat(),
 } as unknown as BookDocument;
-it('suggests exact repeated assets between paragraphs without changing treatment', () => {
+it('suggests exact repeated assets between prose blocks without changing treatment', () => {
   expect(repeatedImageGroups(doc)[0].map((b) => b.id)).toEqual(['i0', 'i1', 'i2']);
+  expect(
+    repeatedImageGroups({
+      ...doc,
+      blocks: doc.blocks.map((block) =>
+        block.kind === 'paragraph' ? { ...block, kind: 'quote' as const } : block,
+      ),
+    })[0].map((b) => b.id),
+  ).toEqual(['i0', 'i1', 'i2']);
   expect(matchingImageBlocks(doc, doc.blocks[1])).toHaveLength(3);
   expect(repeatedImageGroups({ ...doc, blocks: doc.blocks.slice(0, 6) })).toEqual([]);
   expect(

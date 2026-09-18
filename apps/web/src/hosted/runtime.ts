@@ -216,7 +216,7 @@ async function handle(request: Request): Promise<Response> {
     parts = url.pathname.split('/').filter(Boolean),
     method = request.method;
   if (url.pathname === '/api/health')
-    return json({ ok: true, version: '2.0.0', rendererReady: true, fingerprint, hosted: true });
+    return json({ ok: true, version: '2.1.0', rendererReady: true, fingerprint, hosted: true });
   if (url.pathname === '/api/metadata/lookup') return fetch('/_cloud/metadata' + url.search);
   if (parts[1] === 'image-test-print') {
     const list = await fetch('/hosted-print-samples/samples.json').then((r) => r.json());

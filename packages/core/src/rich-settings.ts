@@ -21,6 +21,7 @@ export const richFeaturesSchema = z.object({
   passageIndentEm: z.number().min(0).max(3).default(0.5),
   headingFonts: z.enum(['microbook', 'publisher']).default('microbook'),
   vectors: z.enum(['preserve', 'raster']).default('preserve'),
+  openingImageOrder: z.enum(['text-first', 'image-first', 'source']).default('text-first'),
   dropCaps: z.boolean().default(false),
   dropCapLines: z.union([z.literal(2), z.literal(3)]).default(2),
 });
