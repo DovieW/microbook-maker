@@ -1,32 +1,23 @@
-# MicroBook 2.0.0-rc.1
+# MicroBook 2.0
 
-A new workspace for turning books into compact, printable PDFs. This is a release candidate; a stable v2 tag has not been published.
+MicroBook 2.0 adds a full editing and PDF preview workspace around the original compact book layout.
 
 ## What’s new
 
-- Unified Layout, Contents and Images sidebar with phone-friendly controls and a compact header.
-- Continuous PDF viewing, selectable text, full-book search, chapter/image jumps, and direct printing.
-- Basic and Rich layouts, with separate part/chapter styling, improved heading detection and optional custom rules.
-- Configurable EPUB contents, bookmarks, printable link URLs, notes and semantic formatting.
-- Larger image previews, side-by-side output comparisons, gentle laser optimization, per-image rotation, one/two-cell placement and compact flourishes.
-- Group controls for repeated artwork, including inclusion, treatment, size, spacing, orientation and output.
-- History, retained current layouts, named kept versions, explicit Apply/Revert and recovery without losing the previous PDF.
-- Built-in CC0 test-print artwork for new installations, plus a complete public-domain Alice sample PDF.
+- **Basic and Rich layouts.** Keep the original approach or preserve more of an EPUB’s headings, illustrations, notes, and structure. Adjust typography, fold gaps, and reading order by row or quadrant.
+- **One Content sidebar.** Reorder sections and images together, filter the list, and jump from an item to its place in the PDF.
+- **Custom text and images.** Add a note or picture, replace a cover, choose its starting position, and control whether a custom title appears in the book. Edits stay in draft until Apply.
+- **Image controls.** Preview print treatments, rotate artwork, use one or two cells, and adjust repeated decorative images together. EPUB covers outside the reading spine are now imported.
+- **A searchable PDF preview.** Browse printed sides, follow chapter and image jumps, and print or download the PDF.
+- **Saved layouts.** Import and export settings, remember preferences in the browser, and keep named versions in History.
+- **Hosted browser history.** The Cloudflare beta stores books and PDFs in the browser without a 24-hour expiry. Its PDF downloads have also been corrected.
 
-## Compatibility and upgrading
+The new [Flatland sample](samples/flatland-microbook.pdf) replaces the illustrated Alice example. Its [settings and credits](samples/README.md) are included.
 
-Existing uploaded books, saved PDFs and kept versions remain available. Existing book settings remain intact; gentle laser optimization is the default for new Rich imports. Basic’s print geometry and original rendering path remain preserved.
+## Upgrading
 
-Back up both persistent volumes, test copies, and retain the previous image digest. See [upgrade instructions](DEPLOYMENT.md). No automatic deletion or merging of existing Library records is part of this release.
+Back up both persistent volumes and keep the previous container image before upgrading. Reuse the same compose project, volumes, and mount paths so the existing library remains available. Do not run `docker compose down -v`.
 
-The supported container platform is **linux/amd64**. The current application is for personal/self-hosted use and has a shared Library without visitor isolation. Public anonymous upload hosting is not included in this candidate.
+Self-hosting uses a shared library without user accounts. The supported container platform is **linux/amd64**. The hosted Cloudflare service remains a beta; its browser history is separate from a self-hosted library.
 
-## Before stable v2
-
-- Automated checks passed: packaged quick/full suites, all 35 browser tests, public corpus, original Basic comparisons, copied-Library preservation and native Chrome Save as PDF.
-- Confirm a physical duplex/folding and Brother image-quality print.
-- Publish the verified candidate container and sample assets, then promote after the trial.
-
-[Sample PDF](samples/alice-microbook.pdf) · [README](README.md) · [Public hosting proposal](docs/PUBLIC_HOSTING.md)
-
-Older implementation logs are archived in [development notes](docs/history/DEVELOPMENT_NOTES.md); their interface descriptions and counts are historical.
+See [deployment and rollback instructions](DEPLOYMENT.md). Existing PDFs should be downloaded as stored; re-rendering a book uses the updated renderer and may change its layout.

@@ -8,9 +8,9 @@ MicroBook Maker listens on **7777**. Express serves the interface and API; a chi
 docker compose -f docker-compose.release.yml up -d
 ```
 
-This file pins `2.0.0-rc.1` and binds to localhost. Until that image is published, use the source-build instructions below. For a network installation, configure an authenticated proxy or trusted-network port mapping. The container currently supports linux/amd64.
+This file pins `2.0.0` and binds to localhost. Until that image is published, use the source-build instructions below. For a network installation, configure an authenticated proxy or trusted-network port mapping. The container currently supports linux/amd64.
 
-Set `MICROBOOK_IMAGE=dovieuu/microbook-maker@sha256:...` to pin an immutable digest. Use the same compose project name and volume names when switching files. The release candidate is not a stable upgrade recommendation until the checks below are complete.
+Set `MICROBOOK_IMAGE=dovieuu/microbook-maker@sha256:...` to pin an immutable digest. Use the same compose project name and volume names when switching files. Use a release only after its verification and publication are complete.
 
 ## New installation
 

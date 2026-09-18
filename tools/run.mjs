@@ -391,6 +391,7 @@ try {
   if (command === 'check') {
     run('npm', ['run', 'typecheck']);
     run('npm', ['test']);
+    run('python3', ['-B', '-m', 'unittest', 'discover', '-s', 'tests', '-p', 'test_*.py']);
     run('npm', ['run', 'build']);
   }
   await start();

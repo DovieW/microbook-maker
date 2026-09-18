@@ -30,6 +30,22 @@ def matches_ellipsized(actual, expected):
     return True
 
 
+def opening_headers(text, title, byline, stats):
+    """Match the separate, single-line header fields; counts must remain exact."""
+    lines = [normalized(line).replace('•', '') for line in text.splitlines() if normalized(line)]
+    fields = [normalized(value).replace('•', '') for value in [title, byline, stats] if value]
+    matches = set()
+    for start in range(len(lines) - len(fields) + 1):
+        candidate = lines[start:start + len(fields)]
+        if candidate[-1] != fields[-1]:
+            continue
+        if all(actual == expected or (
+                actual.endswith('…') and len(actual) > 1 and expected.startswith(actual[:-1]))
+                for actual, expected in zip(candidate[:-1], fields[:-1])):
+            matches.add(''.join(candidate))
+    return matches
+
+
 def tag(node):
     return node.tag.split('}')[-1] if isinstance(node.tag, str) else ''
 
@@ -67,6 +83,7 @@ def audit_source(source, document):
 
 def audit_pdf(pdf, document, settings, metadata, cells, rendered_word_count=None):
     text = subprocess.check_output(['pdftotext', '-raw', str(pdf), '-']).decode('utf-8')
+    raw_text = text
     selected = settings.get('selectedSections')
     blocks = [b for b in document['blocks'] if not selected or b['sectionId'] in selected]
     order = list(dict.fromkeys(settings.get('sectionOrder', []) + [s['id'] for s in document['sections']]))
@@ -184,7 +201,7 @@ def audit_pdf(pdf, document, settings, metadata, cells, rendered_word_count=None
         return f'{hours}h' + (f' {remainder}m' if remainder else '') if hours else f'{remainder}m'
     byline = ' · '.join(str(value) for value in
                         [metadata.get('author'), metadata.get('year'), metadata.get('series')] if value)
-    header = (metadata['title'] + byline + f'{math.ceil(pages/2)} sheets · {header_words:,} words · about {duration(header_minutes)}')
+    stats = f'{math.ceil(pages/2)} sheets · {header_words:,} words · about {duration(header_minutes)}'
     # The cell map is the renderer's physical text contract. It includes generated
     # contents, detected image headings, section reordering, and source-page labels.
     # Source-to-document fidelity is checked separately by audit_source.
@@ -192,16 +209,18 @@ def audit_pdf(pdf, document, settings, metadata, cells, rendered_word_count=None
     # CSS list markers are presentation. Poppler can add bidi controls around RTL text.
     expected = normalized(expected).replace('•', '')
     actual = normalized(text).replace('•', '')
-    normalized_header = normalized(header).replace('•', '')
+    headers = opening_headers(raw_text, metadata['title'], byline, stats)
+    header_count = sum(actual.count(header) for header in headers)
     if sheet_headers == 'off':
-        if normalized_header and normalized_header in actual:
+        if header_count:
             raise AssertionError('PDF contains a title/info panel while sheet headers are off')
     else:
-        if actual.count(normalized_header) != 1:
+        if header_count != 1:
             raise AssertionError('PDF must contain exactly one opening title/info panel with correct physical counts')
         # Artwork and its captions may precede the first ordinary text cell. Independently
         # validate the panel once, then check all source text in order regardless of its placement.
-        actual = actual.replace(normalized_header, '', 1)
+        header = next(header for header in headers if header in actual)
+        actual = actual.replace(header, '', 1)
     if settings.get('paragraphStyle') == 'markers':
         expected = expected.replace('¶', '')
         actual = actual.replace('¶', '')

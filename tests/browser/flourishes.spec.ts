@@ -58,12 +58,12 @@ test('repeated flourishes preserve source placement, bulk controls, overrides, a
   const groupCheckbox = page.getByRole('checkbox', { name: /^Include all 20 occurrences of repeated image/ });
   await expect(groupCheckbox).toBeChecked();
   await groupCheckbox.uncheck();
-  await expect(page.locator('.image-choice-main input:checked')).toHaveCount(0);
+  await expect(page.getByRole('checkbox', { name: /^Include image \d+$/, checked: true })).toHaveCount(0);
   await expect(preview(page)).toHaveAttribute('data-render-id', changed.id);
   await applied(page);
   expect((await ready(page, request)).result.imageRegions).toHaveLength(0);
   await groupCheckbox.check();
-  await expect(page.locator('.image-choice-main input:checked')).toHaveCount(20);
+  await expect(page.getByRole('checkbox', { name: /^Include image \d+$/, checked: true })).toHaveCount(20);
   await applied(page);
   const restored = await ready(page, request);
   expect(restored.result.imageRegions).toHaveLength(20);
