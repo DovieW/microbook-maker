@@ -115,7 +115,7 @@ it('does not print locations for linked chapter headings', async () => {
   }
 });
 
-it('replaces guide contents and resolves hidden pagebreak link targets', async () => {
+it('moves generated contents to the front and resolves hidden pagebreak link targets', async () => {
   // @ts-expect-error shared original fixture
   const { richEntries } = await import('../tools/rich-fixture.mjs');
   // @ts-expect-error shared original fixture
@@ -128,13 +128,17 @@ it('replaces guide contents and resolves hidden pagebreak link targets', async (
         'OEBPS/book.opf': richEntries['OEBPS/book.opf']
           .replace(
             '</manifest>',
-            '<item id="guide-toc" href="text/contents.xhtml" media-type="application/xhtml+xml"/></manifest>',
+            '<item id="mini-toc" href="text/mini-contents.xhtml" media-type="application/xhtml+xml"/><item id="guide-toc" href="text/contents.xhtml" media-type="application/xhtml+xml"/></manifest>',
           )
-          .replace('<spine>', '<spine><itemref idref="guide-toc"/>')
+          .replace('<spine>', '<spine><itemref idref="mini-toc"/>')
+          .replace('</spine>', '<itemref idref="guide-toc"/></spine>')
           .replace(
             '</package>',
             '<guide><reference type="toc" href="text/contents.xhtml"/></guide></package>',
           ),
+        'OEBPS/text/mini-contents.xhtml': xhtml(
+          '<h1>Contents</h1><p>MINI-ONLY <a href="one.xhtml#chapter1">First chapter</a></p><p><a href="two.xhtml#chapter2">Second chapter</a></p>',
+        ),
         'OEBPS/text/contents.xhtml': xhtml(
           '<h1>Contents</h1><p>GUIDE-ONLY <a href="one.xhtml#chapter1">First chapter</a></p>',
         ),
@@ -160,12 +164,13 @@ it('replaces guide contents and resolves hidden pagebreak link targets', async (
     });
     expect(doc.blocks.some((b) => blockText(b).includes('GUIDE-ONLY'))).toBe(true);
     expect(result.blocks.some((b) => blockText(b).includes('GUIDE-ONLY'))).toBe(false);
-    expect(result.blocks.find((b) => b.id === 'generated-toc-title')?.sectionId).toBe(contentsSection);
+    expect(result.blocks.some((b) => blockText(b).includes('MINI-ONLY'))).toBe(false);
     const contentsIndex = result.blocks.findIndex((b) => b.id === 'generated-toc-title');
-    expect(contentsIndex).toBeGreaterThan(
-      result.blocks.findLastIndex((b) => b.sectionId !== contentsSection),
-    );
+    expect(result.blocks[contentsIndex]?.sectionId).toBe(contentsSection);
     const target = result.anchors.get('OEBPS/text/one.xhtml#chapter1');
+    expect(result.blocks.slice(0, contentsIndex).every((block) => block.id !== target)).toBe(true);
+    expect(result.blocks.slice(contentsIndex + 1).find((block) => !block.generated)?.id).toBe(target);
+    expect(result.blocks.filter((block) => block.destination)).toHaveLength(2);
     expect(result.blocks.find((b) => b.id === target)?.kind).toBe('heading');
     expect(result.navigation.some((n) => n.blockId === target)).toBe(true);
   } finally {

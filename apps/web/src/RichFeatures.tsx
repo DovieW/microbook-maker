@@ -67,6 +67,7 @@ export function RichFeatures({
           ['first', 'First sheet only'],
           ['off', 'Off'],
         ])}
+        {check('printDate', 'Print date')}
         {check('chapterHeaders', 'Chapter names in mini headers')}
         {select('pageReferences', 'Original page references', [
           ['off', 'Off'],

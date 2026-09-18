@@ -24,7 +24,7 @@ export function SectionPreview({
   renderId: string;
   title: string;
   cell: CellMap;
-  region?: { x: number; y: number };
+  region?: { x: number; y: number; height: number };
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [loading, setLoading] = useState(true);
@@ -41,8 +41,9 @@ export function SectionPreview({
         const page = await document.getPage(cell.page + 1);
         if (cancelled || !canvas.current) return;
         const width = 280;
-        const cropY = Math.max(cell.y, (region?.y ?? cell.y) - 8);
-        const cropHeight = Math.min(cell.y + cell.height - cropY, cell.width * 0.65);
+        const cropY = Math.max(cell.y, region?.y ?? cell.y);
+        const cropBottom = Math.min(cell.y + cell.height, region ? region.y + region.height : Infinity);
+        const cropHeight = Math.max(1, Math.min(cropBottom - cropY, cell.width * 0.65));
         const pixelRatio = Math.min(devicePixelRatio || 1, 2);
         const scale = (width / cell.width) * pixelRatio;
         const viewport = page.getViewport({ scale });
@@ -71,7 +72,7 @@ export function SectionPreview({
       cancelled = true;
       render?.cancel();
     };
-  }, [renderId, cell.page, cell.x, cell.y, cell.width, cell.height, region?.y]);
+  }, [renderId, cell.page, cell.x, cell.y, cell.width, cell.height, region?.y, region?.height]);
 
   return (
     <div className="section-mini-preview" aria-label={`Preview of ${title}`}>

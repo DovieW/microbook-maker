@@ -120,6 +120,7 @@ export async function importDocument(
     const media = new Map<string, string>();
     let packageCover: { path: string; type: string } | undefined;
     const toc = new Map<string, string>();
+    const ncxNavigation: NonNullable<BookDocument['navigation']> = [];
     const tocTargets = new Set<string>();
     doc.navigation = [];
     doc.pageList = [];
@@ -244,16 +245,22 @@ export async function importDocument(
           const nav = xml(files.get(item.path)!.toString('utf8'), item.path);
           for (const point of elements(nav, 'navpoint')) {
             const content = elements(point, 'content')[0];
-            if (content)
-              toc.set(
-                sourceKey(item.path, attr(content, 'src')),
-                elements(point, 'text')[0]?.textContent?.trim() || 'Chapter',
-              );
+            if (content) {
+              const targetKey = sourceKey(item.path, attr(content, 'src'));
+              const title = elements(point, 'text')[0]?.textContent?.trim() || 'Chapter';
+              let depth = 0;
+              for (let parent = point.parentNode; parent; parent = parent.parentNode)
+                if (name(parent) === 'navpoint') depth++;
+              toc.set(targetKey, title);
+              ncxNavigation.push({ targetKey, title, depth });
+            }
           }
         }
       }
       if (!doc.navigation.length)
-        doc.navigation = [...toc].map(([targetKey, title]) => ({ targetKey, title, depth: 0 }));
+        doc.navigation = ncxNavigation.length
+          ? ncxNavigation
+          : [...toc].map(([targetKey, title]) => ({ targetKey, title, depth: 0 }));
       for (const ref of elements(pkg, 'itemref')) {
         const item = manifest.get(attr(ref, 'idref'));
         if (!item || !files.has(item.path)) throw new Error('An EPUB reading-order document is missing');

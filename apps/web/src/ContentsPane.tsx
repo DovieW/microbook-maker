@@ -1,5 +1,11 @@
 import { useMemo, useState } from 'react';
-import { imageOrderToken, orderedContent, type CellMap, type ContentOrderItem } from '@microbook/core';
+import {
+  imageOrderToken,
+  orderedContent,
+  type BookDocument,
+  type CellMap,
+  type ContentOrderItem,
+} from '@microbook/core';
 import { ListFilter } from 'lucide-react';
 import { printedLocation, imageLocations } from './imageLocations';
 import { SectionPreview } from './SectionPreview';
@@ -15,6 +21,30 @@ const filterLabels: Record<ContentFilter, string> = {
   images: 'Images',
   custom: 'Added by you',
 };
+
+function pinGeneratedContents(
+  order: ContentOrderItem[],
+  doc: BookDocument,
+  contentsSections: Set<string>,
+  generated: boolean,
+) {
+  if (!generated) return order;
+  const contentsIndex = order.findIndex((item) => item.kind === 'section' && contentsSections.has(item.id));
+  if (contentsIndex < 0) return order;
+  const readingSection = doc.navigation
+    ?.map((entry) =>
+      doc.blocks.find(
+        (block) => block.source === entry.targetKey || block.anchorKeys?.includes(entry.targetKey),
+      ),
+    )
+    .find((block) => block && !contentsSections.has(block.sectionId))?.sectionId;
+  if (!readingSection) return order;
+  const pinned = [...order];
+  const [contents] = pinned.splice(contentsIndex, 1);
+  const readingIndex = pinned.findIndex((item) => item.kind === 'section' && item.id === readingSection);
+  pinned.splice(readingIndex < 0 ? 0 : readingIndex, 0, contents);
+  return pinned;
+}
 
 export function ContentsPane({ w }: { w: Workspace }) {
   const [query, setQuery] = useState('');
@@ -36,16 +66,22 @@ export function ContentsPane({ w }: { w: Workspace }) {
   if (!w.doc) return null;
   const doc = w.doc;
   const settings = w.kept?.settings || w.draft;
-  const order = orderedContent(doc, settings.sectionOrder);
+  const sourceOrder = orderedContent(doc, settings.sectionOrder);
   const sections = new Map(doc.sections.map((section) => [section.id, section]));
   const images = doc.blocks.filter((block) => block.kind === 'image');
   const editableImageIds = new Set(
     imageLocations(doc, w.preview?.result, settings).map((entry) => entry.block.id),
   );
-  const detached = new Set(order.filter((item) => item.kind === 'image').map((item) => item.id));
   const contentsSections = new Set(
     doc.blocks.filter((block) => block.tocContent).map((block) => block.sectionId),
   );
+  const order = pinGeneratedContents(
+    sourceOrder,
+    doc,
+    contentsSections,
+    settings.rich.contents === 'compact',
+  );
+  const detached = new Set(order.filter((item) => item.kind === 'image').map((item) => item.id));
   const selected = settings.selectedSections || doc.sections.map((section) => section.id);
   const isIncluded = (id: string) =>
     contentsSections.has(id) && settings.rich.contents !== 'publisher'
@@ -374,7 +410,7 @@ function SectionRow({
             title={title}
             position={position}
             max={max}
-            disabled={!!w.kept}
+            disabled={!!w.kept || generatedContents}
             setDrag={setDrag}
             targetPosition={targetPosition}
             move={move}

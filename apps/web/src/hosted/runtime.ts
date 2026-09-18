@@ -131,13 +131,18 @@ async function run(job: RenderJob) {
     if (!renderer) throw Error('The layout engine could not start. Reload the page.');
     const prepared = await Promise.race([
       aborted,
-      renderer.render({ ...doc, metadata: job.metadata }, job.settings, (phase: string, progress: any) => {
-        if (!controller.signal.aborted) {
-          job.phase = phase;
-          job.progress = progress;
-          void save(job);
-        }
-      }),
+      renderer.render(
+        { ...doc, metadata: job.metadata },
+        job.settings,
+        (phase: string, progress: any) => {
+          if (!controller.signal.aborted) {
+            job.phase = phase;
+            job.progress = progress;
+            void save(job);
+          }
+        },
+        job.createdAt,
+      ),
     ]);
     if (controller.signal.aborted) return;
     job.phase = 'Creating PDF on Cloudflare';

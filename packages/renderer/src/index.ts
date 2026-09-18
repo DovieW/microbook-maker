@@ -346,6 +346,7 @@ export async function render(
         settings: job.settings,
         fontStack: fontStacks[job.settings.fontFamily],
         assetBase: `${baseUrl}/api/documents/${doc.id}/assets`,
+        printedAt: job.createdAt,
       });
       timings.justification = layout.justificationMs || 0;
       timings.paginate = performance.now() - paginateAt - timings.justification;

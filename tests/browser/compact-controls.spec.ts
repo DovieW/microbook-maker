@@ -38,9 +38,10 @@ test('printed contents ellipsize by default and position headers fit their final
     foldGapMm = 2.5,
     foldGapEveryRow = true,
     readingOrder: 'rows' | 'quadrants' = 'rows',
+    printDate = true,
   ) =>
     page.evaluate(
-      async ({ doc, settings, wrap, sheetHeaders, foldGapMm, foldGapEveryRow, readingOrder }) => {
+      async ({ doc, settings, wrap, sheetHeaders, foldGapMm, foldGapEveryRow, readingOrder, printDate }) => {
         const result = await (window as any).Microbook.renderBook({
           document: doc,
           settings: {
@@ -48,10 +49,11 @@ test('printed contents ellipsize by default and position headers fit their final
             foldGapMm,
             foldGapEveryRow,
             readingOrder,
-            rich: { ...settings.rich, contentsWrap: wrap, sheetHeaders },
+            rich: { ...settings.rich, contentsWrap: wrap, sheetHeaders, printDate },
           },
           fontStack: 'Arial',
           assetBase: `/api/documents/${doc.id}/assets`,
+          printedAt: '2026-09-18T12:00:00.000Z',
         });
         const title = document.querySelector<HTMLElement>('.compact-toc-title')!;
         const style = getComputedStyle(title);
@@ -64,13 +66,36 @@ test('printed contents ellipsize by default and position headers fit their final
           });
         const cells = Array.from(document.querySelectorAll<HTMLElement>('.cell'));
         const runningHeaders = Array.from(document.querySelectorAll<HTMLElement>('.sheet-header')).map(
-          (header) => ({
-            cell: cells.indexOf(header.closest<HTMLElement>('.cell')!),
-            text: header.textContent || '',
-            sharesMiniHeader: !!header.parentElement?.querySelector(':scope > .cell-position'),
-          }),
+          (header) => {
+            const count = header.querySelector<HTMLElement>('.sheet-header-count')!;
+            const separator = header.querySelector<HTMLElement>('.sheet-header-separator')!;
+            const headerTitle = header.querySelector<HTMLElement>('.sheet-header-title')!;
+            const countRect = count.getBoundingClientRect();
+            const separatorRect = separator.getBoundingClientRect();
+            const titleRect = headerTitle.getBoundingClientRect();
+            return {
+              cell: cells.indexOf(header.closest<HTMLElement>('.cell')!),
+              text: header.textContent || '',
+              sharesMiniHeader: !!header.parentElement?.querySelector(':scope > .cell-position'),
+              elementsInOrder: countRect.left < separatorRect.left && separatorRect.left < titleRect.left,
+              separator: separator.textContent,
+              countSize: parseFloat(getComputedStyle(count).fontSize),
+              titleSize: parseFloat(getComputedStyle(headerTitle).fontSize),
+            };
+          },
         );
         const openingHeader = document.querySelector<HTMLElement>('.book-header');
+        const openingTitle = document.querySelector<HTMLElement>('.book-header .book-title');
+        let runningTitle = document.querySelector<HTMLElement>('.sheet-header-title');
+        let temporaryRunningTitle = false;
+        if (!runningTitle) {
+          runningTitle = document.createElement('strong');
+          runningTitle.className = 'sheet-header-title';
+          document.body.append(runningTitle);
+          temporaryRunningTitle = true;
+        }
+        const runningTitleSize = parseFloat(getComputedStyle(runningTitle).fontSize);
+        if (temporaryRunningTitle) runningTitle.remove();
         const paddings = [0, 1, 4, 8, 12].map((index) => {
           const cell = cells[index];
           const cellStyle = getComputedStyle(cell);
@@ -92,6 +117,9 @@ test('printed contents ellipsize by default and position headers fit their final
           openingHeaders: document.querySelectorAll('.book-header').length,
           openingHeaderBorder: openingHeader && getComputedStyle(openingHeader).borderTopStyle,
           openingHeaderRule: openingHeader && getComputedStyle(openingHeader).borderBottomStyle,
+          openingStats: document.querySelector<HTMLElement>('.book-stats')?.textContent || '',
+          openingTitleSize: openingTitle && parseFloat(getComputedStyle(openingTitle).fontSize),
+          runningTitleSize,
           runningHeaders,
           flowSlots: result.cells.slice(0, 16).map((cell: any) => cell.slot),
           firstPagePositionSlots: result.cells
@@ -108,7 +136,7 @@ test('printed contents ellipsize by default and position headers fit their final
           whiteSpace: style.whiteSpace,
         };
       },
-      { doc, settings, wrap, sheetHeaders, foldGapMm, foldGapEveryRow, readingOrder },
+      { doc, settings, wrap, sheetHeaders, foldGapMm, foldGapEveryRow, readingOrder, printDate },
     );
   const compact = await inspect(false);
   expect(compact.coverage.complete).toBe(true);
@@ -119,6 +147,10 @@ test('printed contents ellipsize by default and position headers fit their final
   expect(compact.openingHeaders).toBe(1);
   expect(compact.openingHeaderBorder).toBe('none');
   expect(compact.openingHeaderRule).toBe('solid');
+  expect(compact.openingTitleSize).toBeCloseTo(6 * 1.7 * 1.3, 2);
+  expect(compact.runningTitleSize).toBeCloseTo(6 * 1.15 * 1.3, 2);
+  expect(compact.openingStats).toContain('about');
+  expect(compact.openingStats).toContain(' · Printed Sep 18, 2026');
   const defaultHalfGap = (2.5 * 96) / 25.4 / 2;
   expect(compact.paddings[0].bottom).toBeCloseTo(defaultHalfGap, 2);
   expect(compact.paddings[1].right).toBeCloseTo(defaultHalfGap, 2);
@@ -137,14 +169,18 @@ test('printed contents ellipsize by default and position headers fit their final
     expect(header.text).toMatch(/\d+ \/ \d+/);
     expect(header.text).toMatch(/\d+% complete/);
     expect(header.text).toContain('left');
+    expect(header.elementsInOrder).toBe(true);
+    expect(header.separator).toBe('·');
+    expect(header.countSize).toBeCloseTo(header.titleSize, 2);
   }
   const wrapped = await inspect(true);
   expect(wrapped.coverage.complete).toBe(true);
   expect(wrapped.whiteSpace).toBe('normal');
   expect(wrapped.titleHeight).toBeGreaterThan(compact.titleHeight * 2);
-  const firstOnly = await inspect(false, 'first');
+  const firstOnly = await inspect(false, 'first', 2.5, true, 'rows', false);
   expect(firstOnly.openingHeaders).toBe(1);
   expect(firstOnly.runningHeaders).toHaveLength(0);
+  expect(firstOnly.openingStats).not.toContain('Printed');
   const off = await inspect(false, 'off');
   expect(off.openingHeaders).toBe(0);
   expect(off.runningHeaders).toHaveLength(0);
@@ -213,6 +249,9 @@ test('compact sidebar aligns accordions, keeps font on one line and exposes opti
   await expect(page.getByRole('button', { name: 'Apply', exact: true })).toBeEnabled();
   await page.getByText('Navigation & references', { exact: true }).click();
   await expect(page.getByRole('combobox', { name: 'Sheet headers', exact: true })).toHaveText('Every sheet');
+  await expect(page.getByLabel('Print date', { exact: true })).toBeChecked();
+  await page.getByLabel('Print date', { exact: true }).uncheck();
+  await expect(page.getByRole('button', { name: 'Apply', exact: true })).toBeEnabled();
 });
 
 test('Basic supports quadrant cell flow with configurable fold gaps', async ({ page }) => {

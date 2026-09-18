@@ -20,7 +20,10 @@ const guideContentsFixture = () =>
     ),
   });
 
-test('generated contents can be included or excluded from the Contents tab', async ({ page, request }) => {
+test('generated contents stay at the front and can be excluded from the Contents tab', async ({
+  page,
+  request,
+}) => {
   await page.goto('/');
   await page.getByLabel('Import book', { exact: true }).setInputFiles({
     name: 'guide-contents.epub',
@@ -39,22 +42,40 @@ test('generated contents can be included or excluded from the Contents tab', asy
   await expect(row).toHaveClass(/selected/);
   await expect(row.locator('.section-mini-preview canvas')).toBeVisible();
   await expect(row.locator('.section-preview-loading')).toHaveCount(0);
+  const contentsSection = document.blocks.find((block: any) => block.tocContent).sectionId;
+  const contentsRegion = initial.result.sectionRegions.find(
+    (region: any) => region.sectionId === contentsSection,
+  );
+  const previewCell = initial.result.cells.find(
+    (cell: any) =>
+      cell.page === contentsRegion.page &&
+      contentsRegion.x >= cell.x &&
+      contentsRegion.x < cell.x + cell.width &&
+      contentsRegion.y >= cell.y &&
+      contentsRegion.y < cell.y + cell.height,
+  );
+  const canvasRatio = await row
+    .locator('.section-mini-preview canvas')
+    .evaluate((canvas: HTMLCanvasElement) => canvas.height / canvas.width);
+  expect(canvasRatio).toBeCloseTo(
+    Math.min(contentsRegion.height, previewCell.width * 0.65) / previewCell.width,
+    2,
+  );
   await expect(preview(page).locator('.section-hit.selected')).toHaveCount(1);
   const position = page.getByLabel('Position of Contents', { exact: true });
-  await position.fill(String(document.sections.length));
-  await position.press('Enter');
-  await page.getByRole('button', { name: 'Apply', exact: true }).click();
-  const reordered = await ready(page, request);
-  const contentsCell = reordered.result.cells.find((cell: any) =>
+  await expect(position).toBeDisabled();
+  const firstTarget = document.blocks.find((block: any) =>
+    block.anchorKeys?.includes(document.navigation[0].targetKey),
+  );
+  const sidebarOrder = await page
+    .locator('.contents-list [data-content-token]')
+    .evaluateAll((items) => items.map((item) => (item as HTMLElement).dataset.contentToken));
+  expect(sidebarOrder.indexOf(contentsSection)).toBeLessThan(sidebarOrder.indexOf(firstTarget.sectionId));
+  const contentsCell = initial.result.cells.find((cell: any) =>
     cell.blockIds.includes('generated-toc-title'),
   );
-  const otherBlockIds = new Set(
-    document.blocks.filter((block: any) => !block.tocContent).map((block: any) => block.id),
-  );
-  const lastOtherCell = reordered.result.cells.findLast((cell: any) =>
-    cell.blockIds.some((id: string) => otherBlockIds.has(id)),
-  );
-  expect(contentsCell.index).toBeGreaterThanOrEqual(lastOtherCell.index);
+  const firstReadingCell = initial.result.cells.find((cell: any) => cell.blockIds.includes(firstTarget.id));
+  expect(contentsCell.index).toBeLessThanOrEqual(firstReadingCell.index);
   await include.uncheck();
   await expect(include).not.toBeChecked();
   await expect(page.getByRole('button', { name: 'Apply', exact: true })).toBeEnabled();

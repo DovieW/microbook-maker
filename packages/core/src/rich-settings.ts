@@ -7,6 +7,7 @@ export const richFeaturesSchema = z.object({
   bookmarkDepth: z.enum(['chapters', 'all']).default('chapters'),
   chapterHeaders: z.boolean().default(false),
   sheetHeaders: z.enum(['every', 'first', 'off']).default('every'),
+  printDate: z.boolean().default(true),
   pageReferences: z.enum(['off', 'headers', 'boundaries']).default('off'),
   urls: z.enum(['hidden', 'inline', 'chapter', 'book']).default('hidden'),
   internalReferences: z.boolean().default(false),

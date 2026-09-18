@@ -33,6 +33,7 @@ export async function render(
   documentData: BookDocument,
   settings: RenderSettings,
   progress: (phase: string, details?: any) => void,
+  printedAt = new Date().toISOString(),
 ) {
   const started = performance.now();
   (window as any).__microbookProgress = progress;
@@ -69,6 +70,7 @@ export async function render(
       settings,
       fontStack: fontStacks[settings.fontFamily],
       assetBase: `/api/documents/${documentData.id}/assets`,
+      printedAt,
     });
   } else {
     const raw =

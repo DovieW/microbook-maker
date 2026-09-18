@@ -1,7 +1,6 @@
 import {
   bookBlockText,
   normalizedText,
-  orderedSections,
   selectedDocumentBlocks,
   type Block,
   type BookDocument,
@@ -10,6 +9,25 @@ import {
 } from './index.ts';
 
 export type RichNavigation = { title: string; blockId: string; depth: number };
+const contentsTitle = (text: string) => /^(?:table of )?contents$/iu.test(normalizedText(text));
+/** EPUBs may carry both a short front contents and a full inline contents elsewhere. */
+function publisherContentsSections(source: Block[]) {
+  const sections = new Set(source.filter((block) => block.tocContent).map((block) => block.sectionId));
+  const grouped = new Map<string, Block[]>();
+  for (const block of source) {
+    const blocks = grouped.get(block.sectionId) || [];
+    blocks.push(block);
+    grouped.set(block.sectionId, blocks);
+  }
+  for (const [sectionId, blocks] of grouped) {
+    const hasTitle = blocks.some((block) => block.kind === 'heading' && contentsTitle(bookBlockText(block)));
+    const linkedEntries = blocks.filter((block) =>
+      [...block.inlines, ...(block.rows?.flat(2) || [])].some((inline) => inline.targetKey),
+    );
+    if (hasTitle && linkedEntries.length >= 2) sections.add(sectionId);
+  }
+  return sections;
+}
 export function prepareRichContent(doc: BookDocument, settings: RenderSettings) {
   const options = settings.rich;
   const source = selectedDocumentBlocks(doc, settings).map((b): Block =>
@@ -19,6 +37,7 @@ export function prepareRichContent(doc: BookDocument, settings: RenderSettings) 
   if (!settings.includeImages)
     for (let i = source.length - 1; i >= 0; i--) if (source[i].kind === 'image') source.splice(i, 1);
   const sourceById = new Map(source.map((b, i) => [b.id, { block: b, index: i }]));
+  const contentsSections = publisherContentsSections(source);
   const anchors = new Map<string, string>();
   for (const b of source)
     for (const key of [...(b.anchorKeys || []), b.source]) if (!anchors.has(key)) anchors.set(key, b.id);
@@ -41,8 +60,13 @@ export function prepareRichContent(doc: BookDocument, settings: RenderSettings) 
   const nav: RichNavigation[] = [];
   for (const entry of doc.navigation || []) {
     const blockId = anchors.get(entry.targetKey);
-    if (blockId && !nav.some((n) => n.blockId === blockId))
-      nav.push({ title: entry.title, blockId, depth: entry.depth });
+    const block = blockId ? sourceById.get(blockId)?.block : undefined;
+    if (blockId && block && !nav.some((n) => n.blockId === blockId))
+      nav.push({
+        title: entry.title,
+        blockId,
+        depth: block.headingKind === 'chapter' ? Math.max(1, entry.depth) : entry.depth,
+      });
   }
   for (const b of source)
     if (b.kind === 'heading' && b.headingKind && !nav.some((n) => n.blockId === b.id))
@@ -52,9 +76,9 @@ export function prepareRichContent(doc: BookDocument, settings: RenderSettings) 
   );
   if (options.contents !== 'publisher') {
     for (let i = nav.length - 1; i >= 0; i--)
-      if (sourceById.get(nav[i].blockId)?.block.tocContent) nav.splice(i, 1);
+      if (contentsSections.has(sourceById.get(nav[i].blockId)?.block.sectionId || '')) nav.splice(i, 1);
     for (const [key, id] of anchors)
-      if (sourceById.get(id)?.block.tocContent) {
+      if (contentsSections.has(sourceById.get(id)?.block.sectionId || '')) {
         if (
           options.contents === 'compact' &&
           (options.contentsDepth === 'all'
@@ -98,7 +122,9 @@ export function prepareRichContent(doc: BookDocument, settings: RenderSettings) 
     chapterByBlock.set(b.id, chapter || b.originSectionId || b.sectionId);
   }
 
-  let blocks = source.filter((b) => options.contents === 'publisher' || !b.tocContent);
+  let blocks = source.filter(
+    (block) => options.contents === 'publisher' || !contentsSections.has(block.sectionId),
+  );
   if (options.notes !== 'legacy') {
     blocks = blocks.filter((b) => !b.note && b.sectionId !== 'notes');
     const after = new Map<string, Block[]>(),
@@ -258,8 +284,14 @@ export function prepareRichContent(doc: BookDocument, settings: RenderSettings) 
     );
   }
   if (options.contents === 'compact' && navigation(options.contentsDepth).length) {
-    const contentsSection = doc.blocks.find((block) => block.tocContent)?.sectionId;
-    const section = contentsSection || blocks.find((b) => b.kind !== 'image')?.sectionId || 'contents';
+    const navigationBlocks = new Set(navigation(options.contentsDepth).map((entry) => entry.blockId));
+    const firstReading = blocks.findIndex((block) => navigationBlocks.has(block.id));
+    const fallback = blocks.findIndex((block) => block.kind !== 'image');
+    const at = firstReading >= 0 ? firstReading : fallback >= 0 ? fallback : blocks.length;
+    const contentsSection =
+      doc.blocks.find((block) => block.tocContent)?.sectionId ||
+      doc.sections.find((item) => contentsSections.has(item.id))?.id;
+    const section = contentsSection || blocks[at]?.sectionId || blocks.at(-1)?.sectionId || 'contents';
     const tocBlocks = [
       { ...generated('toc-title', 'Contents', section), kind: 'heading' as const, level: 2 },
       generated(
@@ -273,13 +305,7 @@ export function prepareRichContent(doc: BookDocument, settings: RenderSettings) 
         tocDepth: n.depth,
       })),
     ];
-    const ordered = orderedSections(doc, settings.sectionOrder);
-    const contentsIndex = ordered.findIndex((item) => item.id === contentsSection);
-    const followingSections = new Set(ordered.slice(contentsIndex + 1).map((item) => item.id));
-    const at = contentsSection
-      ? blocks.findIndex((block) => followingSections.has(block.sectionId))
-      : blocks.findIndex((block) => block.kind !== 'image');
-    blocks.splice(at < 0 ? blocks.length : at, 0, ...tocBlocks);
+    blocks.splice(at, 0, ...tocBlocks);
   }
   // Page-list-only EPUBs do not always provide explicit pagebreak elements.
   // Generated markers preserve all existing source block IDs and use the same compositor.

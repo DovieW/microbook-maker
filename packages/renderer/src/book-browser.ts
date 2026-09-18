@@ -17,6 +17,7 @@ async function layoutBook(payload: {
   settings: RenderSettings;
   assetBase: string;
   fontStack: string;
+  printedAt?: string;
   positionLabels?: Record<number, string>;
 }) {
   const { document: book, settings: s, assetBase, fontStack } = payload;
@@ -113,10 +114,13 @@ async function layoutBook(payload: {
     const count = document.createElement('span');
     count.className = 'sheet-header-count';
     count.textContent = '0 / 0';
+    const separator = document.createElement('span');
+    separator.className = 'sheet-header-separator';
+    separator.textContent = '·';
     const details = document.createElement('div');
     details.className = 'sheet-header-details';
     details.textContent = book.metadata.author || 'MicroBook';
-    line.append(title, count);
+    line.append(count, separator, title);
     element.append(line, details);
     return { element, count, details };
   };
@@ -219,11 +223,20 @@ async function layoutBook(payload: {
     ' words · about ',
     formatMinutes(minutes),
   );
+  if (s.rich.printDate) {
+    const printed = new Date(payload.printedAt || Date.now()).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      timeZone: 'UTC',
+    });
+    stats.append(' · Printed ', printed);
+  }
   header.append(title);
   if (byline.textContent) header.append(byline);
   header.append(stats);
   const headerStyle = document.createElement('style');
-  headerStyle.textContent = `.book-header{font-size:1em;font-weight:400;line-height:1.15;border:0;border-bottom:.8px solid #000;padding:1px 1px 4px;margin:0 0 3px;display:flow-root;text-align:left;text-align-last:left}.book-title{font-size:1.7em;line-height:1.05;font-weight:700;letter-spacing:-.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.book-byline{font-size:.9em;margin-top:.2em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.book-stats{font-size:.72em;line-height:1.25;margin-top:.45em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}.sheet-header{border-bottom:.7px solid #000;padding:1px 1px 3px;margin:0 0 3px;text-align:left;text-align-last:left;line-height:1.15}.sheet-header-line{display:flex;gap:.5em;align-items:baseline}.sheet-header-title{font-size:1.15em;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sheet-header-count{margin-left:auto;flex:none;font-size:.9em;font-variant-numeric:tabular-nums}.sheet-header-details{margin-top:.2em;font-size:.72em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-variant-numeric:tabular-nums}.source-page{text-align:left}.image-group{display:flow-root}`;
+  headerStyle.textContent = `.book-header{font-size:1em;font-weight:400;line-height:1.15;border:0;border-bottom:.8px solid #000;padding:1px 1px 4px;margin:0 0 3px;display:flow-root;text-align:left;text-align-last:left}.book-title{font-size:2.21em;line-height:1.05;font-weight:700;letter-spacing:-.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.book-byline{font-size:.9em;margin-top:.2em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.book-stats{font-size:.72em;line-height:1.25;margin-top:.45em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}.sheet-header{border-bottom:.7px solid #000;padding:1px 1px 3px;margin:0 0 3px;text-align:left;text-align-last:left;line-height:1.15}.sheet-header-line{display:flex;gap:.35em;align-items:baseline}.sheet-header-title,.sheet-header-count,.sheet-header-separator{font-size:1.495em}.sheet-header-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sheet-header-count,.sheet-header-separator{flex:none}.sheet-header-count{font-variant-numeric:tabular-nums}.sheet-header-details{margin-top:.2em;font-size:.72em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-variant-numeric:tabular-nums}.source-page{text-align:left}.image-group{display:flow-root}`;
   document.head.append(headerStyle);
   const headingStyle = document.createElement('style');
   headingStyle.textContent = `
@@ -1000,16 +1013,25 @@ async function layoutBook(payload: {
     const sectionId = sectionByBlock.get(node.dataset.block || '');
     if (!sectionId || locatedSections.has(sectionId)) continue;
     const page = node.closest<HTMLElement>('.page');
-    if (!page) continue;
+    const cellNode = node.closest<HTMLElement>('.cell');
+    if (!page || !cellNode) continue;
     const rect = node.getBoundingClientRect();
     const bounds = page.getBoundingClientRect();
+    const cellBounds = cellNode.getBoundingClientRect();
+    const cellBlocks = Array.from(cellNode.querySelectorAll<HTMLElement>('[data-block]'));
+    const first = cellBlocks.indexOf(node);
+    let bottom = rect.bottom;
+    for (const block of cellBlocks.slice(first + 1)) {
+      if (sectionByBlock.get(block.dataset.block || '') !== sectionId) break;
+      bottom = Math.max(bottom, block.getBoundingClientRect().bottom);
+    }
     sectionRegions.push({
       sectionId,
       page: pageNodes.indexOf(page),
       x: (rect.left - bounds.left) * 0.75,
       y: (rect.top - bounds.top) * 0.75,
       width: rect.width * 0.75,
-      height: rect.height * 0.75,
+      height: (Math.min(bottom, cellBounds.bottom) - rect.top) * 0.75,
     });
     locatedSections.add(sectionId);
   }

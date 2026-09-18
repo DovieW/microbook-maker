@@ -207,8 +207,13 @@ describe('EPUB import', () => {
         '<item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/></manifest>',
       );
     entries['OEBPS/toc.ncx'] =
-      '<ncx><navMap><navPoint><navLabel><text>NCX River</text></navLabel><content src="text/one.xhtml"/></navPoint></navMap></ncx>';
-    expect((await importEpub(entries)).sections[0].title).toBe('NCX River');
+      '<ncx><navMap><navPoint><navLabel><text>NCX River</text></navLabel><content src="text/one.xhtml"/><navPoint><navLabel><text>NCX Home</text></navLabel><content src="text/two.xhtml"/></navPoint></navPoint></navMap></ncx>';
+    const doc = await importEpub(entries);
+    expect(doc.sections[0].title).toBe('NCX River');
+    expect(doc.navigation).toEqual([
+      { title: 'NCX River', targetKey: 'OEBPS/text/one.xhtml', depth: 0 },
+      { title: 'NCX Home', targetKey: 'OEBPS/text/two.xhtml', depth: 1 },
+    ]);
   });
   it('reports missing images and rejects missing spine content', async () => {
     const images = { ...syntheticEntries };
@@ -295,6 +300,7 @@ it('uses explicit CSS pixels and isolates Classic settings', () => {
   expect(defaultSettings().foldGapEveryRow).toBe(true);
   expect(defaultSettings().readingOrder).toBe('rows');
   expect(defaultSettings('book').rich.sheetHeaders).toBe('every');
+  expect(defaultSettings('book').rich.printDate).toBe(true);
   expect(defaultSettings().partHeadingStyle).toBe('upright');
   expect(effectiveSettings({ mode: 'classic', headingScale: 2 }).headingScale).toBe(1.15);
   expect(effectiveSettings({ mode: 'classic', readingOrder: 'quadrants' }).readingOrder).toBe('quadrants');
