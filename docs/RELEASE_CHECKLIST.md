@@ -1,6 +1,6 @@
 # MicroBook 2.0 release review
 
-Status: local preparation only. No 2.0 tag, release, image publication, or deployment is authorized yet.
+Status: approved by the owner for stable 2.0 publication and deployment to the NAS and Cloudflare.
 
 ## Review materials
 
@@ -18,7 +18,7 @@ Status: local preparation only. No 2.0 tag, release, image publication, or deplo
 - [x] Test an existing library on copied storage: original PDFs, source files, kept versions, and imports must survive unchanged.
 - [x] Check the hosted build locally: import, Apply, download, browser history, and reload.
 - [x] Confirm a physical duplex print, folding direction, and small-type/image legibility (owner confirmed).
-- [ ] Obtain explicit approval to publish the stable release and deploy the approved commit.
+- [x] Obtain explicit approval to publish the stable release and deploy the approved commit.
 
 ## Verification record
 
