@@ -83,17 +83,17 @@ test('Contents separates search, jumps and inclusion; mobile drawer closes on na
   await page.getByText('Paragraphs', { exact: true }).click();
   await expect(page.getByRole('combobox', { name: 'Paragraphs', exact: true })).toHaveText('Continuous');
   await page.getByLabel('Indent', { exact: true }).fill('0.5');
-  await tab(page, 'Contents');
+  await tab(page, 'Content');
   await page.getByRole('button', { name: 'Deselect all', exact: true }).click();
   await expect(page.getByRole('checkbox', { name: 'Include Home', exact: true })).not.toBeChecked();
   await page.getByRole('button', { name: 'Select all', exact: true }).click();
   await expect(page.getByRole('checkbox', { name: 'Include Home', exact: true })).toBeChecked();
   expect(await page.locator('.sidebar-body').evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
-  await page.getByLabel('Find section').fill('Home');
+  await page.getByLabel('Find content').fill('Home');
   await expect(page.locator('.contents-row')).toHaveCount(1);
   await page.getByRole('checkbox', { name: 'Include Home', exact: true }).uncheck();
   await expect(preview(page)).toHaveAttribute('data-render-id', original.id);
-  await page.getByLabel('Find section').fill('');
+  await page.getByLabel('Find content').fill('');
   await expect(page.getByRole('checkbox', { name: 'Include Home', exact: true })).not.toBeChecked();
   await applied(page);
   await ready(page);
@@ -104,7 +104,7 @@ test('Contents separates search, jumps and inclusion; mobile drawer closes on na
   ).toContainText('Not in preview');
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await tab(page, 'Contents');
+  await tab(page, 'Content');
   await page.locator('.contents-jump:enabled').first().click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Open tools', exact: true })).toBeFocused();
@@ -112,13 +112,12 @@ test('Contents separates search, jumps and inclusion; mobile drawer closes on na
   await page.screenshot({ path: `${reports}/workspace-narrow.png` });
   await upload(page, 'structured.epub');
   await ready(page);
-  await tab(page, 'Contents');
+  await tab(page, 'Content');
   await expect(page.getByRole('checkbox', { name: 'Include Home', exact: true })).toBeChecked();
   await tab(page, 'Layout');
   await page.getByRole('button', { name: 'Basic', exact: true }).click();
   await ready(page);
-  await expect(page.getByRole('tab', { name: 'Contents', exact: true })).toHaveCount(0);
-  await expect(page.getByRole('tab', { name: 'Images', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('tab', { name: 'Content', exact: true })).toHaveCount(0);
 });
 
 test('cancellation, retry progress and removal remain separate actions', async ({ page }) => {

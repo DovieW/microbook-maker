@@ -616,18 +616,67 @@ export function selectedDocumentBlocks(doc: BookDocument, settings?: RenderSetti
           .map((b) => b.id)
       : [],
   );
-  const rank = new Map(
-    orderedSections(doc, settings?.sectionOrder).map((section, index) => [section.id, index]),
+  const selected = blocks.filter(
+    (b) =>
+      (!settings?.selectedSections || settings.selectedSections.includes(b.sectionId)) &&
+      !excluded.has(b.id) &&
+      !(b.captionFor && excluded.has(b.captionFor)),
   );
-  return blocks
-    .slice()
-    .sort((a, b) => (rank.get(a.sectionId) ?? Infinity) - (rank.get(b.sectionId) ?? Infinity))
-    .filter(
-      (b) =>
-        (!settings?.selectedSections || settings.selectedSections.includes(b.sectionId)) &&
-        !excluded.has(b.id) &&
-        !(b.captionFor && excluded.has(b.captionFor)),
-    );
+  const imageIds = new Set(selected.filter((block) => block.kind === 'image').map((block) => block.id));
+  const detached = new Set(
+    (settings?.sectionOrder || [])
+      .filter((id) => id.startsWith(IMAGE_ORDER_PREFIX))
+      .map((id) => id.slice(IMAGE_ORDER_PREFIX.length))
+      .filter((id) => imageIds.has(id)),
+  );
+  const detachedCaptions = new Set(
+    selected.filter((block) => block.captionFor && detached.has(block.captionFor)).map((block) => block.id),
+  );
+  const bySection = new Map<string, Block[]>();
+  for (const block of selected) {
+    if (detached.has(block.id) || detachedCaptions.has(block.id)) continue;
+    const group = bySection.get(block.sectionId) || [];
+    group.push(block);
+    bySection.set(block.sectionId, group);
+  }
+  const detachedBlocks = new Map(
+    [...detached].map((id) => [id, selected.filter((block) => block.id === id || block.captionFor === id)]),
+  );
+  return orderedContent(doc, settings?.sectionOrder).flatMap((item) =>
+    item.kind === 'section' ? bySection.get(item.id) || [] : detachedBlocks.get(item.id) || [],
+  );
+}
+export const IMAGE_ORDER_PREFIX = 'image:';
+export type ContentOrderItem =
+  { kind: 'section'; id: string } | { kind: 'image'; id: string; sectionId: string };
+export const imageOrderToken = (id: string) => `${IMAGE_ORDER_PREFIX}${id}`;
+/** Sections stay grouped until an image is explicitly placed between them. */
+export function orderedContent(
+  doc: Pick<BookDocument, 'sections' | 'blocks'>,
+  order: string[] = [],
+): ContentOrderItem[] {
+  const sectionIds = new Set(doc.sections.map((section) => section.id));
+  const images = new Map(
+    doc.blocks
+      .filter((block) => block.kind === 'image')
+      .map((block) => [
+        imageOrderToken(block.id),
+        { kind: 'image' as const, id: block.id, sectionId: block.sectionId },
+      ]),
+  );
+  const known = new Set<string>();
+  const items: ContentOrderItem[] = [];
+  for (const token of [...order, ...doc.sections.map((section) => section.id)]) {
+    if (known.has(token)) continue;
+    if (sectionIds.has(token)) {
+      known.add(token);
+      items.push({ kind: 'section', id: token });
+    } else if (images.has(token)) {
+      known.add(token);
+      items.push(images.get(token)!);
+    }
+  }
+  return items;
 }
 /** Stable IDs allow saved drafts to survive imports with added or removed sections. */
 export function orderedSections(doc: Pick<BookDocument, 'sections'>, order: string[] = []) {

@@ -30,7 +30,7 @@ test('generated contents can be included or excluded from the Contents tab', asy
   const initial = await ready(page, request);
   const documentResponse = await request.get(`/api/documents/${initial.documentId}`);
   const document = await documentResponse.json();
-  await page.getByRole('tab', { name: 'Contents', exact: true }).click();
+  await page.getByRole('tab', { name: 'Content', exact: true }).click();
   const include = page.getByRole('checkbox', { name: 'Include Contents', exact: true });
   await expect(include).toBeChecked();
   const row = page.locator('.contents-row').filter({ has: include });

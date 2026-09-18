@@ -10,7 +10,9 @@ test('Contents numeric, pointer and keyboard order stays a draft until Apply and
   const doc = await (await request.get(`/api/documents/${original.documentId}`)).json();
   const first = doc.sections[0],
     last = doc.sections.at(-1);
-  await tab(page, 'Contents');
+  await tab(page, 'Content');
+  await page.locator('.content-filter-menu > summary').click();
+  await page.getByRole('menuitemradio', { name: 'Sections', exact: true }).click();
   const input = page.getByRole('spinbutton', { name: `Position of ${last.title}`, exact: true });
   await input.fill('1');
   await input.press('Enter');
@@ -30,7 +32,9 @@ test('Contents numeric, pointer and keyboard order stays a draft until Apply and
   expect(doc.blocks.find((b: any) => b.id === sourceIds[0]).sectionId).toBe(last.id);
   await page.reload();
   await ready(page);
-  await tab(page, 'Contents');
+  await tab(page, 'Content');
+  await page.locator('.content-filter-menu > summary').click();
+  await page.getByRole('menuitemradio', { name: 'Sections', exact: true }).click();
   await expect(page.locator('.contents-row').first()).toHaveAttribute('data-section-id', last.id);
   const handle = page.locator('.contents-row').first().locator('.contents-drag');
   await handle.focus();
@@ -64,7 +68,9 @@ test('phone users can reorder by touch and position without closing Contents', a
     await page.goto('/');
     await upload(page, 'publisher-alternatives.epub');
     const original = await ready(page, request);
-    await tab(page, 'Contents');
+    await tab(page, 'Content');
+    await page.locator('.content-filter-menu > summary').click();
+    await page.getByRole('menuitemradio', { name: 'Sections', exact: true }).click();
     const ids = await page
       .locator('.contents-row')
       .evaluateAll((rows) => rows.map((row) => (row as HTMLElement).dataset.sectionId));
@@ -93,4 +99,26 @@ test('phone users can reorder by touch and position without closing Contents', a
   } finally {
     await context.close();
   }
+});
+
+test('an EPUB image can be placed between sections and restored to its source position', async ({
+  page,
+  request,
+}) => {
+  await page.goto('/');
+  await upload(page, 'structured.epub');
+  const original = await ready(page, request);
+  const doc = await (await request.get(`/api/documents/${original.documentId}`)).json();
+  const image = doc.blocks.find((block: any) => block.kind === 'image');
+  await tab(page, 'Content');
+  const position = page.getByRole('spinbutton', { name: 'Position of Image 1', exact: true });
+  await position.fill(String(doc.sections.length + 1));
+  await position.press('Enter');
+  await expect(page.getByRole('button', { name: 'Restore original position', exact: true })).toBeVisible();
+  await applied(page);
+  const moved = await ready(page, request);
+  expect(moved.settings.sectionOrder).toContain(`image:${image.id}`);
+  await page.getByRole('button', { name: 'Restore original position', exact: true }).click();
+  await applied(page);
+  expect((await ready(page, request)).settings.sectionOrder).not.toContain(`image:${image.id}`);
 });

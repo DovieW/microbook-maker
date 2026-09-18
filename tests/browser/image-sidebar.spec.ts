@@ -14,7 +14,7 @@ test('image locations, exact overlays and context jumps survive zoom, Apply, exc
   const initial = await ready(page, request);
   const doc = await (await request.get(`/api/documents/${initial.documentId}`)).json();
   const images = doc.blocks.filter((b: any) => b.kind === 'image' && !b.imageHeading);
-  await tab(page, 'Images');
+  await tab(page, 'Content');
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.getByRole('button', { name: /^Show image 18:/ }).click();
   const target = initial.result.cells.find((c: any) => c.blockIds.includes(images[17].id));
@@ -57,14 +57,14 @@ test('image locations, exact overlays and context jumps survive zoom, Apply, exc
   await edit.focus();
   await expect(edit).toHaveCSS('opacity', '1');
   await edit.click();
-  await expect(page.getByRole('tab', { name: 'Images', exact: true })).toHaveAttribute(
+  await expect(page.getByRole('tab', { name: 'Content', exact: true })).toHaveAttribute(
     'aria-selected',
     'true',
   );
   await page.screenshot({ path: `${reports}/images-sidebar-desktop.png` });
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await tab(page, 'Images');
+  await tab(page, 'Content');
   const sideBefore = await page.getByLabel('Printed side', { exact: true }).inputValue();
   await page.getByRole('button', { name: 'Image 1 details', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(1);
@@ -92,14 +92,14 @@ test('image locations, exact overlays and context jumps survive zoom, Apply, exc
   await page.getByRole('button', { name: /^Show image 1:/ }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByLabel('Printed side', { exact: true })).toHaveValue('1');
-  await tab(page, 'Images');
+  await tab(page, 'Content');
   await expect(page.locator('.image-choice.selected')).toHaveAttribute('data-image-id', images[0].id);
   await expect(page.getByRole('button', { name: 'Previous image', exact: true })).toHaveCount(0);
-  await expect(page.locator('.tools-drawer .image-list')).toHaveCSS('max-height', 'none');
+  await expect(page.locator('.tools-drawer .image-list').first()).toHaveCSS('max-height', 'none');
   await page.screenshot({ path: `${reports}/images-sidebar-mobile.png` });
   await page.reload();
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await tab(page, 'Images');
+  await tab(page, 'Content');
   await expect(page.locator('.image-choice.selected')).toHaveAttribute('data-image-id', images[0].id);
 });
 
@@ -136,7 +136,7 @@ test('legacy Cell preferences and unidentified image regions migrate without ren
   await page.reload();
   await expect(preview(page)).toHaveAttribute('data-render-id', id);
   await expect(page.getByRole('button', { name: 'Fit to width', exact: true })).toHaveText('125%');
-  await tab(page, 'Images');
+  await tab(page, 'Content');
   await page.getByRole('button', { name: /^Show image 18:/ }).click();
   await expect(page.getByLabel('Printed side', { exact: true })).not.toHaveValue('1');
   await expect(preview(page).locator('.image-hit')).toHaveCount(0);
@@ -153,7 +153,7 @@ test('mobile failure retains displayed image locations and offers Retry in the s
   await page.goto('/');
   await upload(page, 'two-cell-images.epub');
   const id = await ready(page);
-  await tab(page, 'Images');
+  await tab(page, 'Content');
   await page.getByLabel('Include image 1', { exact: true }).uncheck();
   await page.route('**/api/documents/*/renders', (r) =>
     r.fulfill({ status: 500, json: { error: 'Test render failure' } }),

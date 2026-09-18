@@ -2662,7 +2662,7 @@ summary > span {
   appearance: none;
 }
 .contents-row.reorder-target {
-  box-shadow: inset 0 2px var(--accent);
+  box-shadow: none;
   background: var(--surface);
 }
 @media (pointer: coarse) {
@@ -2922,11 +2922,187 @@ summary > span {
   outline-offset: 2px;
   background: #83d8c20d;
 }
-.contents-row.selected {
+.contents-row.selected,
+.content-image-row.selected {
   margin: 0;
   padding: 8px 6px;
   background: #83d8c20d;
   border-radius: 6px;
+}
+
+.content-filter-menu {
+  position: relative;
+  flex: none;
+}
+.content-filter-menu > summary {
+  display: grid;
+  place-items: center;
+  width: 31px;
+  min-width: 31px;
+  height: 31px;
+  min-height: 31px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  list-style: none;
+}
+.content-filter-menu > summary::-webkit-details-marker,
+.content-filter-menu > summary::before {
+  display: none;
+  content: none;
+}
+.content-filter-menu[open] > summary,
+.content-filter-menu > summary:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.content-filter-menu > div {
+  position: absolute;
+  z-index: 12;
+  top: calc(100% + 5px);
+  right: 0;
+  display: grid;
+  width: 148px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #172332;
+  box-shadow: 0 10px 24px #02070d88;
+}
+.content-filter-menu > div button {
+  justify-content: flex-start;
+  min-height: 32px;
+  padding: 5px 8px;
+  text-align: left;
+}
+.content-filter-menu > div button[aria-checked='true'] {
+  color: var(--accent);
+  background: #83d8c212;
+}
+.content-kind-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #0c1622;
+}
+.content-kind-switch button {
+  min-height: 36px;
+}
+.content-kind-switch button[aria-pressed='true'] {
+  color: #08231d;
+  background: var(--accent);
+}
+.content-section-group {
+  border-bottom: 1px solid var(--line);
+}
+.content-section-group > .contents-row {
+  border-bottom: 0;
+}
+.content-image-row {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 8px 0;
+  border-top: 1px solid color-mix(in srgb, var(--line) 65%, transparent);
+}
+.content-image-row.detached {
+  border-bottom: 1px solid var(--line);
+}
+.content-image-row.reorder-target {
+  box-shadow: none;
+  background: var(--surface);
+}
+.content-image-position {
+  grid-column: 1;
+}
+.content-image-row > .embedded-images {
+  grid-column: 2;
+  min-width: 0;
+}
+.content-image-restore {
+  grid-column: 2;
+  justify-self: start;
+  padding: 3px 0;
+  color: var(--muted);
+  font-size: 10px;
+}
+.embedded-images .image-list {
+  display: block;
+  padding: 0;
+}
+.embedded-images .image-choice {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+.redesign .embedded-images .image-choice {
+  padding: 0;
+}
+.redesign .embedded-images .image-choice.selected {
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.redesign .embedded-images .image-choice img {
+  width: 48px;
+  height: 60px;
+}
+.redesign .embedded-images .image-choice-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 48px 44px;
+  align-items: center;
+  gap: 8px;
+}
+.redesign .embedded-images .image-description {
+  grid-column: 1;
+  grid-row: 1;
+  gap: 4px;
+  border-radius: 6px;
+  transition: background 0.12s;
+}
+.redesign .embedded-images .image-description:hover {
+  background: #1c2940;
+}
+.redesign .embedded-images .image-title {
+  font-size: 12px;
+  font-weight: 400;
+  line-height: normal;
+}
+.redesign .embedded-images .image-title:hover {
+  color: inherit;
+}
+.redesign .embedded-images .image-thumbnail {
+  grid-column: 2;
+  grid-row: 1;
+}
+.redesign .embedded-images .image-choice-main > input {
+  grid-column: 3;
+  grid-row: 1;
+}
+.redesign .embedded-images .image-location {
+  min-height: 0;
+  color: var(--muted);
+  font-size: 10px;
+}
+.redesign .embedded-images .image-location:hover {
+  background: transparent;
+}
+.redesign .unified-content-pane > .images-pane > .image-defaults {
+  margin: 0;
+  border-bottom: 1px solid var(--line);
 }
 .section-mini-preview {
   position: relative;

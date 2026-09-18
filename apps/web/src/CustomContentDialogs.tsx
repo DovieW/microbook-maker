@@ -1,29 +1,52 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Bold, Heading2, Italic, Link, List, Plus, X } from 'lucide-react';
+import { orderedContent } from '@microbook/core';
 import { Dropdown, IconButton } from './ui';
 import type { Workspace } from './LayoutControls';
 
-export function AddTextDialog({ w }: { w: Workspace }) {
+type ContentKind = 'text' | 'image';
+type HeadingStyle = 'none' | 'compact' | 'chapter' | 'part';
+
+export function AddContentDialog({ w }: { w: Workspace }) {
   const [open, setOpen] = useState(false);
+  const [kind, setKind] = useState<ContentKind>('text');
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [position, setPosition] = useState('1');
-  const [headingStyle, setHeadingStyle] = useState<'none' | 'compact' | 'chapter' | 'part'>('none');
+  const [headingStyle, setHeadingStyle] = useState<HeadingStyle>('none');
+  const [file, setFile] = useState<File>();
+  const [alt, setAlt] = useState('');
   const [saving, setSaving] = useState(false);
   const editor = useRef<HTMLTextAreaElement>(null);
+  const preview = useMemo(() => (file ? URL.createObjectURL(file) : undefined), [file]);
+  useEffect(
+    () => () => {
+      if (preview) URL.revokeObjectURL(preview);
+    },
+    [preview],
+  );
+  const reset = () => {
+    setKind('text');
+    setTitle('');
+    setBody('');
+    setPosition('1');
+    setHeadingStyle('none');
+    setFile(undefined);
+    setAlt('');
+    setSaving(false);
+  };
   const format = (before: string, after = before, linePrefix = false) => {
     const input = editor.current;
     if (!input) return;
     const start = input.selectionStart;
     const end = input.selectionEnd;
     const selected = body.slice(start, end);
-    let next: string;
-    let selectionStart: number;
-    let selectionEnd: number;
+    let next: string, selectionStart: number, selectionEnd: number;
     if (linePrefix) {
       const lineStart = body.lastIndexOf('\n', Math.max(0, start - 1)) + 1;
-      const lineEnd = body.indexOf('\n', end) < 0 ? body.length : body.indexOf('\n', end);
+      const foundEnd = body.indexOf('\n', end);
+      const lineEnd = foundEnd < 0 ? body.length : foundEnd;
       const lines = body
         .slice(lineStart, lineEnd)
         .split('\n')
@@ -43,13 +66,7 @@ export function AddTextDialog({ w }: { w: Workspace }) {
       input.setSelectionRange(selectionStart, selectionEnd);
     });
   };
-  const reset = () => {
-    setTitle('');
-    setBody('');
-    setPosition('1');
-    setHeadingStyle('none');
-    setSaving(false);
-  };
+  const count = w.doc ? orderedContent(w.doc, w.draft.sectionOrder).length : 0;
   return (
     <Dialog.Root
       open={open}
@@ -61,7 +78,7 @@ export function AddTextDialog({ w }: { w: Workspace }) {
       <Dialog.Trigger asChild>
         <IconButton
           className="content-add-button primary"
-          label="Add text"
+          label="Add to book"
           disabled={!!w.kept || w.busy || w.active}
         >
           <Plus size={16} />
@@ -69,94 +86,136 @@ export function AddTextDialog({ w }: { w: Workspace }) {
       </Dialog.Trigger>
       <Dialog.Portal>
         <Dialog.Overlay className="content-dialog-overlay" />
-        <Dialog.Content className="content-dialog" aria-describedby="custom-text-description">
+        <Dialog.Content className="content-dialog" aria-describedby="add-content-description">
           <header>
             <div>
-              <Dialog.Title>Add text content</Dialog.Title>
-              <Dialog.Description id="custom-text-description">
-                Add a section that can be included and reordered with the rest of the book.
+              <Dialog.Title>Add to book</Dialog.Title>
+              <Dialog.Description id="add-content-description">
+                Add text or an image, then position it with the rest of the book.
               </Dialog.Description>
             </div>
             <Dialog.Close aria-label="Close">
               <X size={18} />
             </Dialog.Close>
           </header>
+          <div className="content-kind-switch" role="group" aria-label="Content type">
+            <button type="button" aria-pressed={kind === 'text'} onClick={() => setKind('text')}>
+              Text
+            </button>
+            <button type="button" aria-pressed={kind === 'image'} onClick={() => setKind('image')}>
+              Image
+            </button>
+          </div>
           <form
             onSubmit={async (event) => {
               event.preventDefault();
+              if (kind === 'image' && !file) return;
               setSaving(true);
               try {
-                await w.addText(
-                  title,
-                  body,
-                  validPosition(position, w.doc?.sections.length || 0),
-                  headingStyle,
-                );
+                const target = validPosition(position, count);
+                if (kind === 'text') await w.addText(title, body, target, headingStyle);
+                else await w.addImage(file!, title, alt, target);
                 setOpen(false);
               } finally {
                 setSaving(false);
               }
             }}
           >
+            {kind === 'image' && (
+              <>
+                <label className="image-file-field">
+                  <span>Image file</span>
+                  <input
+                    autoFocus
+                    required
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+                    onChange={(event) => {
+                      const selected = event.target.files?.[0];
+                      setFile(selected);
+                      if (selected && !title)
+                        setTitle(selected.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' '));
+                    }}
+                  />
+                </label>
+                {preview && (
+                  <img className="custom-image-preview" src={preview} alt="Selected image preview" />
+                )}
+              </>
+            )}
             <label>
-              <span>Section title</span>
+              <span>{kind === 'text' ? 'Section title' : 'Image title'}</span>
               <input
-                autoFocus
+                autoFocus={kind === 'text'}
                 required
                 maxLength={200}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
               />
             </label>
-            <PositionField value={position} max={(w.doc?.sections.length || 0) + 1} onChange={setPosition} />
-            <label className="dialog-select-field">
-              <span>Title in book</span>
-              <Dropdown
-                label="Title in book"
-                value={headingStyle}
-                onChange={(value) => setHeadingStyle(value as 'none' | 'compact' | 'chapter' | 'part')}
-                options={[
-                  ['none', 'Do not show'],
-                  ['compact', 'Compact heading'],
-                  ['chapter', 'Chapter heading'],
-                  ['part', 'Part heading'],
-                ]}
-              />
-            </label>
-            <div className="text-editor-label">
-              <span>Text</span>
-              <span className="muted">Simple formatting</span>
-            </div>
-            <div className="text-format-toolbar" role="toolbar" aria-label="Text formatting">
-              <FormatButton label="Bold" onClick={() => format('**')}>
-                <Bold size={15} />
-              </FormatButton>
-              <FormatButton label="Italic" onClick={() => format('*')}>
-                <Italic size={15} />
-              </FormatButton>
-              <FormatButton label="Heading" onClick={() => format('## ', '', true)}>
-                <Heading2 size={15} />
-              </FormatButton>
-              <FormatButton label="Bulleted list" onClick={() => format('- ', '', true)}>
-                <List size={15} />
-              </FormatButton>
-              <FormatButton label="Link" onClick={() => format('[', '](https://)')}>
-                <Link size={15} />
-              </FormatButton>
-            </div>
-            <textarea
-              ref={editor}
-              aria-label="Text"
-              required
-              maxLength={100000}
-              rows={12}
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              placeholder="Write an introduction, note, colophon, reading guide…"
-            />
+            <PositionField value={position} max={count + 1} onChange={setPosition} />
+            {kind === 'text' ? (
+              <>
+                <label className="dialog-select-field">
+                  <span>Title in book</span>
+                  <Dropdown
+                    label="Title in book"
+                    value={headingStyle}
+                    onChange={(value) => setHeadingStyle(value as HeadingStyle)}
+                    options={[
+                      ['none', 'Do not show'],
+                      ['compact', 'Compact heading'],
+                      ['chapter', 'Chapter heading'],
+                      ['part', 'Part heading'],
+                    ]}
+                  />
+                </label>
+                <div className="text-editor-label">
+                  <span>Text</span>
+                  <span className="muted">Simple formatting</span>
+                </div>
+                <div className="text-format-toolbar" role="toolbar" aria-label="Text formatting">
+                  <FormatButton label="Bold" onClick={() => format('**')}>
+                    <Bold size={15} />
+                  </FormatButton>
+                  <FormatButton label="Italic" onClick={() => format('*')}>
+                    <Italic size={15} />
+                  </FormatButton>
+                  <FormatButton label="Heading" onClick={() => format('## ', '', true)}>
+                    <Heading2 size={15} />
+                  </FormatButton>
+                  <FormatButton label="Bulleted list" onClick={() => format('- ', '', true)}>
+                    <List size={15} />
+                  </FormatButton>
+                  <FormatButton label="Link" onClick={() => format('[', '](https://)')}>
+                    <Link size={15} />
+                  </FormatButton>
+                </div>
+                <textarea
+                  ref={editor}
+                  aria-label="Text"
+                  required
+                  maxLength={100000}
+                  rows={12}
+                  value={body}
+                  onChange={(e) => setBody(e.target.value)}
+                  placeholder="Write an introduction, note, colophon, reading guide…"
+                />
+              </>
+            ) : (
+              <label>
+                <span>
+                  Image description <small>Optional</small>
+                </span>
+                <input maxLength={500} value={alt} onChange={(e) => setAlt(e.target.value)} />
+              </label>
+            )}
             <footer>
               <Dialog.Close disabled={saving}>Cancel</Dialog.Close>
-              <button className="primary" disabled={saving || !title.trim() || !body.trim()}>
+              <button
+                className="primary"
+                disabled={saving || !title.trim() || (kind === 'text' ? !body.trim() : !file)}
+              >
                 {saving ? 'Adding…' : 'Add to book'}
               </button>
             </footer>
@@ -221,16 +280,13 @@ export function ImageContentDialog({
   defaultAlt = '',
 }: {
   w: Workspace;
-  blockId?: string;
+  blockId: string;
   defaultAlt?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [file, setFile] = useState<File>();
-  const [title, setTitle] = useState('');
   const [alt, setAlt] = useState(defaultAlt);
-  const [position, setPosition] = useState('1');
   const [saving, setSaving] = useState(false);
-  const replacement = !!blockId;
   const preview = useMemo(() => (file ? URL.createObjectURL(file) : undefined), [file]);
   useEffect(
     () => () => {
@@ -238,49 +294,34 @@ export function ImageContentDialog({
     },
     [preview],
   );
-  const reset = () => {
-    setFile(undefined);
-    setTitle('');
-    setAlt(defaultAlt);
-    setPosition('1');
-    setSaving(false);
-  };
   return (
     <Dialog.Root
       open={open}
       onOpenChange={(value) => {
         setOpen(value);
-        if (!value) reset();
+        if (!value) {
+          setFile(undefined);
+          setAlt(defaultAlt);
+          setSaving(false);
+        }
       }}
     >
       <Dialog.Trigger asChild>
-        {replacement ? (
-          <button className="image-edit-button" disabled={!!w.kept || w.busy || w.active}>
-            Replace image
-          </button>
-        ) : (
-          <IconButton
-            className="content-add-button primary"
-            label="Add image"
-            disabled={!!w.kept || w.busy || w.active}
-          >
-            <Plus size={16} />
-          </IconButton>
-        )}
+        <button className="image-edit-button" disabled={!!w.kept || w.busy || w.active}>
+          Replace image
+        </button>
       </Dialog.Trigger>
       <Dialog.Portal>
         <Dialog.Overlay className="content-dialog-overlay" />
         <Dialog.Content
           className="content-dialog image-content-dialog"
-          aria-describedby="custom-image-description"
+          aria-describedby="replace-image-description"
         >
           <header>
             <div>
-              <Dialog.Title>{replacement ? 'Replace image' : 'Add image'}</Dialog.Title>
-              <Dialog.Description id="custom-image-description">
-                {replacement
-                  ? 'The original stays available so you can restore it later.'
-                  : 'The image becomes a section that you can position from Contents.'}
+              <Dialog.Title>Replace image</Dialog.Title>
+              <Dialog.Description id="replace-image-description">
+                The original stays available so you can restore it later.
               </Dialog.Description>
             </div>
             <Dialog.Close aria-label="Close">
@@ -293,8 +334,7 @@ export function ImageContentDialog({
               if (!file) return;
               setSaving(true);
               try {
-                if (blockId) await w.replaceDocumentImage(blockId, file, alt);
-                else await w.addImage(file, title, alt, validPosition(position, w.doc?.sections.length || 0));
+                await w.replaceDocumentImage(blockId, file, alt);
                 setOpen(false);
               } finally {
                 setSaving(false);
@@ -308,28 +348,10 @@ export function ImageContentDialog({
                 required
                 type="file"
                 accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
-                onChange={(event) => {
-                  const selected = event.target.files?.[0];
-                  setFile(selected);
-                  if (selected && !replacement && !title)
-                    setTitle(selected.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' '));
-                }}
+                onChange={(event) => setFile(event.target.files?.[0])}
               />
             </label>
             {preview && <img className="custom-image-preview" src={preview} alt="Selected image preview" />}
-            {!replacement && (
-              <>
-                <label>
-                  <span>Section title</span>
-                  <input required maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)} />
-                </label>
-                <PositionField
-                  value={position}
-                  max={(w.doc?.sections.length || 0) + 1}
-                  onChange={setPosition}
-                />
-              </>
-            )}
             <label>
               <span>
                 Image description <small>Optional</small>
@@ -338,8 +360,8 @@ export function ImageContentDialog({
             </label>
             <footer>
               <Dialog.Close disabled={saving}>Cancel</Dialog.Close>
-              <button className="primary" disabled={saving || !file || (!replacement && !title.trim())}>
-                {saving ? 'Saving…' : replacement ? 'Replace image' : 'Add to book'}
+              <button className="primary" disabled={saving || !file}>
+                {saving ? 'Saving…' : 'Replace image'}
               </button>
             </footer>
           </form>

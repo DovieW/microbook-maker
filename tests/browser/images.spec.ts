@@ -10,7 +10,7 @@ test('image inclusion applies, persists, restores cached bytes and stays with it
   const original = await ready(page, request);
   const doc = await (await request.get(`/api/documents/${original.documentId}`)).json();
   const images = doc.blocks.filter((b: any) => b.kind === 'image' && !b.imageHeading);
-  await tab(page, 'Images');
+  await tab(page, 'Content');
   await expect(page.locator('.image-choice')).toHaveCount(images.length);
   await expect
     .poll(() =>
@@ -24,7 +24,7 @@ test('image inclusion applies, persists, restores cached bytes and stays with it
   await expect(preview(page)).toHaveAttribute('data-render-id', original.id);
   await page.reload();
   await expect(page.getByRole('button', { name: 'Apply & Print', exact: true })).toBeEnabled();
-  await tab(page, 'Images');
+  await tab(page, 'Content');
   await expect(page.getByLabel('Include image 1', { exact: true })).not.toBeChecked();
   await applied(page);
   const next = await ready(page, request);
@@ -37,7 +37,7 @@ test('image inclusion applies, persists, restores cached bytes and stays with it
   await page.getByLabel('Include image 1', { exact: true }).uncheck();
   await upload(page, 'publisher-alternatives.epub');
   await ready(page);
-  await tab(page, 'Images');
+  await tab(page, 'Content');
   await expect(page.getByLabel('Include image 1', { exact: true })).toBeChecked();
   await expect(page.locator('.image-choice')).toHaveCount(4);
 });
@@ -53,7 +53,7 @@ test('selected image controls override and reset the global one/two-cell layout'
   const images = doc.blocks.filter((b: any) => b.kind === 'image' && !b.imageHeading);
   const span = (j: any, id: string) =>
     j.result.cells.find((c: any) => c.blockIds.includes(id) && c.continuationOf === undefined)?.span || 1;
-  await tab(page, 'Images');
+  await tab(page, 'Content');
   await page.getByRole('button', { name: 'Image 1 details', exact: true }).click();
   await page.getByLabel('Two cells for image 1', { exact: true }).check();
   await expect(page.getByLabel('Two cells for image 2', { exact: true })).toHaveCount(0);
@@ -63,7 +63,7 @@ test('selected image controls override and reset the global one/two-cell layout'
   expect(span(mixed, images[1].id)).toBe(1);
   await page.reload();
   await ready(page);
-  await tab(page, 'Images');
+  await tab(page, 'Content');
   await expect(page.getByLabel('Two cells for image 1', { exact: true })).toBeChecked();
   await page.locator('.image-defaults summary').click();
   await page.getByLabel('Two-cell images', { exact: true }).check();
@@ -88,7 +88,7 @@ test('selected image controls override and reset the global one/two-cell layout'
     expect(continuation.page).toBe(owner.page);
     expect(continuation.slot).toBe(owner.slot + 1);
   }
-  await tab(page, 'Images');
+  await tab(page, 'Content');
   await page.getByLabel('Include image 2', { exact: true }).uncheck();
   await expect(page.getByLabel('Two cells for image 2', { exact: true })).toBeDisabled();
   await page.getByLabel('Include image 2', { exact: true }).check();
@@ -111,7 +111,7 @@ test('image output previews draft pixels without navigation and applies per-imag
   await upload(page, 'two-cell-images.epub');
   const original = await ready(page, request);
   expect(original.settings.imageOutput).toEqual({ mode: 'laser', strength: 'gentle' });
-  await tab(page, 'Images');
+  await tab(page, 'Content');
   await page.getByRole('button', { name: 'Image 1 details', exact: true }).click();
   await page.getByLabel('Output for this image', { exact: true }).selectOption('grayscale');
   await expect(preview(page)).toHaveAttribute('data-render-id', original.id);
@@ -149,7 +149,7 @@ test('image output previews draft pixels without navigation and applies per-imag
   ]);
   await page.reload();
   await ready(page);
-  await tab(page, 'Images');
+  await tab(page, 'Content');
   await expect(page.getByLabel('Output for this image', { exact: true })).toHaveValue('grayscale');
   await page.getByLabel('Output for this image', { exact: true }).selectOption('inherit');
   await applied(page);
@@ -169,7 +169,7 @@ test('image output explains laser contrast and only offers SVG rendering when ap
   await page.goto('/');
   await upload(page, 'two-cell-images.epub');
   await ready(page);
-  await tab(page, 'Images');
+  await tab(page, 'Content');
   await page.locator('.image-defaults summary').first().click();
   const defaults = page.locator('.image-defaults');
   await expect(page.getByLabel('Default laser contrast', { exact: true })).toHaveValue('gentle');
@@ -195,7 +195,7 @@ test('rotation previews independently and applies to the PDF with swapped dimens
   await page.goto('/');
   await upload(page, 'two-cell-images.epub');
   const original = await ready(page, request);
-  await tab(page, 'Images');
+  await tab(page, 'Content');
   await page.getByRole('button', { name: 'Image 1 details', exact: true }).click();
   await page.getByRole('button', { name: 'Rotate image right', exact: true }).click();
   await expect(page.locator('.image-large-preview').first()).toHaveAttribute('src', /rotation=90/);
@@ -217,7 +217,7 @@ test('rotation previews independently and applies to the PDF with swapped dimens
   expect(after.width / after.height).toBeCloseTo(before.height / before.width, 1);
   await page.reload();
   await ready(page);
-  await tab(page, 'Images');
+  await tab(page, 'Content');
   await expect(page.locator('.image-large-preview').first()).toHaveAttribute('src', /rotation=90/);
   await page.getByRole('button', { name: 'Reset orientation', exact: true }).click();
   await applied(page);

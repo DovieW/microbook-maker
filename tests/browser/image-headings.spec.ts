@@ -32,7 +32,7 @@ test('automatic artwork detection and manual heading corrections apply, reset an
   expect(initial.result.imageRegions.map((r: any) => r.blockId)).toEqual([images[1].id]);
   const layout = await (await request.get(`/api/renders/${initial.id}/map`)).json();
   expect(layout).toBeTruthy();
-  await page.getByRole('tab', { name: 'Images', exact: true }).click();
+  await page.getByRole('tab', { name: 'Content', exact: true }).click();
   await expect(page.locator('.image-choice')).toHaveCount(1);
   await page.locator('.heading-artwork > summary').click();
   const detected = page.locator('.heading-artwork-row').first();
@@ -70,7 +70,7 @@ test('automatic artwork detection and manual heading corrections apply, reset an
   expect(converted.result.cells.some((c: any) => c.blockIds.includes(images[1].id))).toBe(true);
   await page.reload();
   await ready();
-  await page.getByRole('tab', { name: 'Images', exact: true }).click();
+  await page.getByRole('tab', { name: 'Content', exact: true }).click();
   await page.getByRole('button', { name: 'Image 1 details', exact: true }).click();
   await expect(page.getByLabel('Heading text').first()).toHaveValue('Part II A new beginning');
   await page.getByRole('button', { name: 'Reset to image', exact: true }).click();

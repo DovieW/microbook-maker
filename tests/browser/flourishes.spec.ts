@@ -7,7 +7,7 @@ test('repeated flourishes preserve source placement, bulk controls, overrides, a
   await page.goto('/');
   await upload(page, 'flourishes.epub');
   await ready(page);
-  await tab(page, 'Images');
+  await tab(page, 'Content');
   await page.getByText('Defaults', { exact: true }).click();
   await page.getByRole('checkbox', { name: 'Two-cell images', exact: true }).check();
   await applied(page);
@@ -69,7 +69,7 @@ test('repeated flourishes preserve source placement, bulk controls, overrides, a
   expect(restored.result.imageRegions).toHaveLength(20);
   await page.reload();
   await ready(page);
-  await tab(page, 'Images');
+  await tab(page, 'Content');
   await expect(page.getByLabel('Flourish width', { exact: true })).toHaveValue('6');
   await page.getByLabel('Include image 1', { exact: true }).uncheck();
   await page.getByText('Repeated images', { exact: true }).click();

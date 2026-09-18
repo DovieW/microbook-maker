@@ -15,9 +15,9 @@ test('custom text and image content render, reorder, replace, and restore', asyn
   const initial = await ready(page, request);
   const documentId = initial.documentId;
   try {
-    await tab(page, 'Contents');
-    await page.getByRole('button', { name: 'Add text', exact: true }).click();
-    const text = page.getByRole('dialog', { name: 'Add text content', exact: true });
+    await tab(page, 'Content');
+    await page.getByRole('button', { name: 'Add to book', exact: true }).click();
+    const text = page.getByRole('dialog', { name: 'Add to book', exact: true });
     await expect(text.getByLabel('Initial position', { exact: true })).toHaveValue('1');
     await expect(text.getByRole('combobox', { name: 'Title in book', exact: true })).toHaveText(
       'Do not show',
@@ -41,12 +41,13 @@ test('custom text and image content render, reorder, replace, and restore', asyn
     await expect(page.getByLabel('Include A note from the editor', { exact: true })).toBeChecked();
     await expect(page.getByLabel('Position of A note from the editor', { exact: true })).toHaveValue('1');
 
-    await tab(page, 'Images');
-    await page.getByRole('button', { name: 'Add image', exact: true }).click();
-    const add = page.getByRole('dialog', { name: 'Add image', exact: true });
+    await tab(page, 'Content');
+    await page.getByRole('button', { name: 'Add to book', exact: true }).click();
+    const add = page.getByRole('dialog', { name: 'Add to book', exact: true });
+    await add.getByRole('button', { name: 'Image', exact: true }).click();
     await expect(add.getByLabel('Initial position', { exact: true })).toHaveValue('1');
     await add.getByLabel('Image file').setInputFiles(svg('#224466'));
-    await add.getByLabel('Section title').fill('Custom cover');
+    await add.getByLabel('Image title').fill('Custom cover');
     await add.getByLabel('Initial position', { exact: true }).fill('2');
     await add.getByLabel(/Image description/).fill('Blue custom artwork');
     await add.getByRole('button', { name: 'Add to book', exact: true }).click();
@@ -68,7 +69,7 @@ test('custom text and image content render, reorder, replace, and restore', asyn
     await replace.getByLabel('Image file').setInputFiles(svg('#882244'));
     await replace.getByRole('button', { name: 'Replace image', exact: true }).click();
     await ready(page);
-    await tab(page, 'Images');
+    await tab(page, 'Content');
     await sourceDetails.click();
     await expect(page.getByRole('button', { name: 'Restore original', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Restore original', exact: true }).click();

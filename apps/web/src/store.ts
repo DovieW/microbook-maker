@@ -7,7 +7,7 @@ import {
   type Mode,
   type Metadata,
 } from '@microbook/core';
-export type SidebarTab = 'layout' | 'contents' | 'images' | 'books';
+export type SidebarTab = 'layout' | 'contents' | 'books';
 export type ReadingPosition = { page: number; left: number; top: number };
 type DocumentPreferences = {
   reading?: Partial<Record<Mode, ReadingPosition>>;
@@ -189,8 +189,12 @@ export const usePreferences = create<Preferences>()(
             280,
             Math.min(440, (Number(stored.sidebarWidth) === 320 ? 280 : Number(stored.sidebarWidth)) || 280),
           ),
-          sidebarTab: ['layout', 'contents', 'images', 'books'].includes(stored.sidebarTab)
-            ? stored.sidebarTab
+          sidebarTab: ['layout', 'contents', 'books'].includes(
+            stored.sidebarTab === 'images' ? 'contents' : stored.sidebarTab,
+          )
+            ? stored.sidebarTab === 'images'
+              ? 'contents'
+              : stored.sidebarTab
             : 'layout',
           explicitMode: ['classic', 'book'].includes(stored.explicitMode) ? stored.explicitMode : undefined,
           lastDocumentId: typeof stored.lastDocumentId === 'string' ? stored.lastDocumentId : undefined,

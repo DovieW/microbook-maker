@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   activeJob,
   newRichFeatures,
-  orderedSections,
+  imageOrderToken,
+  orderedContent,
   sourceLocation,
   cellAtLocation,
   type SourceLocation,
@@ -29,10 +30,10 @@ export function useWorkspace() {
   const documentRef = useRef(doc);
   documentRef.current = doc;
   const [mobileOpen, setMobileOpen] = useState(false);
-  const imagesOpen = prefs.sidebarTab === 'images';
+  const imagesOpen = prefs.sidebarTab === 'contents';
   const setImagesOpen = (open: boolean) => {
     if (open) {
-      prefs.patch({ sidebarTab: 'images', sidebarOpen: true });
+      prefs.patch({ sidebarTab: 'contents', sidebarOpen: true });
       if (matchMedia('(max-width:959px)').matches) setMobileOpen(true);
     }
   };
@@ -540,7 +541,7 @@ export function useWorkspace() {
       keptId: undefined,
       ...(addedImageId ? { selectedImageId: addedImageId } : {}),
     });
-    if (addedImageId) prefs.patch({ sidebarTab: 'images' });
+    if (addedImageId) prefs.patch({ sidebarTab: 'contents' });
     if (addedSectionId && !addedImageId) prefs.patch({ sidebarTab: 'contents' });
     await apply(updated, next, metadata || updated.metadata);
   }
@@ -555,8 +556,8 @@ export function useWorkspace() {
         ? [...new Set([...draft.selectedSections, addedSectionId])]
         : null
       : draft.selectedSections;
-    const sectionOrder = orderedSections(updated, draft.sectionOrder)
-      .map((section) => section.id)
+    const sectionOrder = orderedContent(updated, draft.sectionOrder)
+      .map((item) => (item.kind === 'section' ? item.id : imageOrderToken(item.id)))
       .filter((id) => id !== addedSectionId);
     if (addedSectionId) {
       const target = Math.max(1, Math.min(Math.trunc(position) || 1, sectionOrder.length + 1));
@@ -570,7 +571,7 @@ export function useWorkspace() {
       keptId: undefined,
       ...(addedImageId ? { selectedImageId: addedImageId } : {}),
     });
-    prefs.patch({ sidebarTab: addedImageId ? 'images' : 'contents' });
+    prefs.patch({ sidebarTab: 'contents' });
   }
   async function addText(
     title: string,
@@ -773,7 +774,6 @@ export function useWorkspace() {
   };
   const setTab = (tab: SidebarTab) => {
     prefs.patch({ sidebarTab: tab, sidebarOpen: true });
-    if (tab === 'images') openImages();
   };
   useEffect(() => {
     if (!usePreferences.getState().lastDocumentId) {

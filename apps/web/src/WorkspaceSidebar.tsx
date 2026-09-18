@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import { LayoutControls, type Workspace } from './LayoutControls';
-import { ImagesPane } from './ImagesPane';
 import { ContentsPane } from './ContentsPane';
 import { BooksPane } from './BooksPane';
 import { RenderActivity } from './RenderActivity';
@@ -10,10 +9,7 @@ import type { SidebarTab } from './store';
 export function WorkspaceSidebar({ w, narrow }: { w: Workspace; narrow: boolean }) {
   const tabs: [SidebarTab, string][] = [
     ...(w.doc ? [['layout', 'Layout'] as [SidebarTab, string]] : []),
-    ...(w.doc && w.mode === 'book' && w.doc.sections.length > 0
-      ? [['contents', 'Contents'] as [SidebarTab, string]]
-      : []),
-    ...(w.doc && w.mode === 'book' ? [['images', 'Images'] as [SidebarTab, string]] : []),
+    ...(w.doc && w.mode === 'book' ? [['contents', 'Content'] as [SidebarTab, string]] : []),
   ];
   const tab =
     w.prefs.sidebarTab === 'books'
@@ -79,7 +75,7 @@ export function WorkspaceSidebar({ w, narrow }: { w: Workspace; narrow: boolean 
         key={`${w.doc?.id}-${tab}`}
       >
         {tab === 'layout' && <LayoutControls w={w} />} {tab === 'contents' && <ContentsPane w={w} />}{' '}
-        {tab === 'images' && <ImagesPane w={w} />} {tab === 'books' && <BooksPane w={w} />}
+        {tab === 'books' && <BooksPane w={w} />}
       </div>
       {(w.doc || w.error || w.busy || w.active) && (
         <div className="sidebar-action">
