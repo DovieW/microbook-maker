@@ -1,0 +1,228 @@
+:root {
+  --motion-fast: 120ms;
+  --motion-duration: 180ms;
+  --motion-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+button {
+  transition:
+    background-color var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) var(--motion-ease),
+    opacity var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease);
+}
+
+/* Keep spatial controls steady; compact actions get a small tactile response. */
+.icon-button:not(:disabled):active,
+button.primary:not(:disabled):active,
+.header-actions button:not(:disabled):active,
+.content-filter-row > button:not(:disabled):active,
+[role='dialog'] footer button:not(:disabled):active,
+.drawer-header button:not(:disabled):active {
+  transform: scale(0.975);
+}
+
+.redesign input[type='checkbox']::before,
+.redesign .sidebar-body input[type='checkbox']::before {
+  transition:
+    background-color var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease);
+}
+
+.redesign input[type='checkbox']::after,
+.redesign .sidebar-body input[type='checkbox']::after {
+  content: '';
+  position: absolute;
+  left: 19px;
+  top: 16px;
+  width: 5px;
+  height: 9px;
+  border: solid #102b26;
+  border-width: 0 2px 2px 0;
+  opacity: 0;
+  transform: rotate(45deg) scale(0.72);
+  transform-origin: center;
+  transition:
+    opacity var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease);
+}
+
+.redesign input[type='checkbox']:checked::after,
+.redesign .sidebar-body input[type='checkbox']:checked::after {
+  opacity: 1;
+  transform: rotate(45deg) scale(1);
+}
+
+.redesign input[type='checkbox']:indeterminate::after,
+.redesign .sidebar-body input[type='checkbox']:indeterminate::after {
+  inset: 21px 18px;
+  width: auto;
+  height: auto;
+  border: 0;
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+.animated-disclosure {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows var(--motion-duration) var(--motion-ease),
+    opacity var(--motion-fast) var(--motion-ease);
+}
+.animated-disclosure.is-open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+.animated-disclosure-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.overlay,
+.tips-overlay,
+.content-dialog-overlay,
+.image-preview-overlay {
+  animation-duration: var(--motion-duration);
+  animation-timing-function: var(--motion-ease);
+}
+.overlay[data-state='open'],
+.tips-overlay[data-state='open'],
+.content-dialog-overlay[data-state='open'],
+.image-preview-overlay[data-state='open'] {
+  animation-name: motion-overlay-in;
+}
+.overlay[data-state='closed'],
+.tips-overlay[data-state='closed'],
+.content-dialog-overlay[data-state='closed'],
+.image-preview-overlay[data-state='closed'] {
+  animation-name: motion-overlay-out;
+}
+
+.content-dialog[data-state='open'] {
+  animation: motion-centered-dialog-in var(--motion-duration) var(--motion-ease);
+}
+.content-dialog[data-state='closed'] {
+  animation: motion-centered-dialog-out var(--motion-duration) var(--motion-ease);
+}
+.tips-dialog[data-state='open'] {
+  animation: motion-tips-dialog-in var(--motion-duration) var(--motion-ease);
+}
+.tips-dialog[data-state='closed'] {
+  animation: motion-tips-dialog-out var(--motion-duration) var(--motion-ease);
+}
+.image-preview-dialog[data-state='open'] {
+  animation: motion-dialog-in var(--motion-duration) var(--motion-ease);
+}
+.image-preview-dialog[data-state='closed'] {
+  animation: motion-dialog-out var(--motion-duration) var(--motion-ease);
+}
+.tools-drawer[data-state='open'] {
+  animation: motion-dialog-in var(--motion-duration) var(--motion-ease);
+}
+.tools-drawer[data-state='closed'] {
+  animation: motion-dialog-out var(--motion-duration) var(--motion-ease);
+}
+
+@keyframes motion-overlay-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes motion-overlay-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes motion-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@keyframes motion-dialog-out {
+  to {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@keyframes motion-centered-dialog-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 6px));
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}
+@keyframes motion-centered-dialog-out {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 6px));
+  }
+}
+@keyframes motion-tips-dialog-in {
+  from {
+    opacity: 0;
+    transform: translate(50%, 6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(50%);
+  }
+}
+@keyframes motion-tips-dialog-out {
+  from {
+    opacity: 1;
+    transform: translateX(50%);
+  }
+  to {
+    opacity: 0;
+    transform: translate(50%, 6px);
+  }
+}
+
+/* Mobile dialogs use edge insets rather than desktop centering transforms. */
+@media (max-width: 650px) {
+  .content-dialog[data-state='open'] {
+    animation-name: motion-dialog-in;
+  }
+  .content-dialog[data-state='closed'] {
+    animation-name: motion-dialog-out;
+  }
+  .tips-dialog[data-state='open'] {
+    animation-name: motion-overlay-in;
+  }
+  .tips-dialog[data-state='closed'] {
+    animation-name: motion-overlay-out;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animated-disclosure,
+  button,
+  .redesign input[type='checkbox']::before,
+  .redesign input[type='checkbox']::after,
+  [data-state='open'],
+  [data-state='closed'] {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+@media print {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

@@ -39,7 +39,16 @@ export function useWorkspace() {
   };
   const [kept, setKept] = useState<RenderJob>();
   const [keptCell, setKeptCell] = useState(0);
-  const [jump, setJump] = useState<{ id: string; page: number; x: number; y: number; serial: number }>();
+  const [jump, setJump] = useState<{
+    id: string;
+    page: number;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    serial: number;
+    cue: boolean;
+  }>();
   const output = useOutput();
   const outputRef = useRef(output);
   outputRef.current = output;
@@ -50,6 +59,7 @@ export function useWorkspace() {
   const [activity, setActivity] = useState('');
   const [error, setError] = useState('');
   const [applyError, setApplyError] = useState(false);
+  const [applySuccessSerial, setApplySuccessSerial] = useState(0);
   const [library, setLibrary] = useState<LibraryDocument[]>([]);
   const [libraryLoading, setLibraryLoading] = useState(false);
   const [libraryError, setLibraryError] = useState('');
@@ -59,6 +69,9 @@ export function useWorkspace() {
   const [selectedSectionCell, setSelectedSectionCell] = useState<number>();
   const [actualZoom, setActualZoom] = useState(1);
   const generation = useRef(0);
+  const jumpSerial = useRef(0);
+  const successSequence = useRef(0);
+  const successTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const exportNext = useRef<{ id: string; action: OutputAction } | undefined>(undefined);
   const location = useRef<SourceLocation>({ cell: 0 });
   const currentJob = useRef<string | undefined>(undefined);
@@ -132,7 +145,10 @@ export function useWorkspace() {
     }
     setImagesOpen(true);
   };
-  function goTo(index: number, region?: { page: number; x: number; y: number }) {
+  function goTo(
+    index: number,
+    region?: { page: number; x: number; y: number; width?: number; height?: number },
+  ) {
     const target = preview?.result?.cells[index];
     if (!target || !preview) return;
     if (kept) setKeptCell(index);
@@ -155,7 +171,10 @@ export function useWorkspace() {
       page: (region?.page ?? target.page) + 1,
       x: region?.x ?? target.x,
       y: region?.y ?? target.y,
-      serial: Date.now(),
+      width: region?.width ?? target.width,
+      height: region?.height ?? target.height,
+      serial: ++jumpSerial.current,
+      cue: true,
     });
     setMobileOpen(false);
   }
@@ -218,8 +237,17 @@ export function useWorkspace() {
         page: targetCell.page + 1,
         x: selected?.region?.x ?? targetCell.x,
         y: selected?.region?.y ?? targetCell.y,
-        serial: Date.now(),
+        width: selected?.region?.width ?? targetCell.width,
+        height: selected?.region?.height ?? targetCell.height,
+        serial: ++jumpSerial.current,
+        cue: false,
       });
+    if (successSequence.current === sequence) {
+      successSequence.current = 0;
+      setApplySuccessSerial((serial) => serial + 1);
+      clearTimeout(successTimer.current);
+      successTimer.current = setTimeout(() => setApplySuccessSerial(0), 900);
+    }
     setJob(undefined);
     currentJob.current = undefined;
     setError('');
@@ -254,9 +282,18 @@ export function useWorkspace() {
     }
   }, []);
   const apply = useCallback(
-    async (document: BookDocument, settings: RenderSettings, meta: Metadata, shouldExport?: OutputAction) => {
+    async (
+      document: BookDocument,
+      settings: RenderSettings,
+      meta: Metadata,
+      shouldExport?: OutputAction,
+      showSuccess = false,
+    ) => {
       outputRef.current.cancel();
       const sequence = ++generation.current;
+      successSequence.current = showSuccess ? sequence : 0;
+      clearTimeout(successTimer.current);
+      setApplySuccessSerial(0);
       setError('');
       setApplyError(false);
       setBusy(true);
@@ -293,6 +330,7 @@ export function useWorkspace() {
         if (next.status === 'completed') await accept(next, sequence);
       } catch (error) {
         if (generation.current === sequence) {
+          if (successSequence.current === sequence) successSequence.current = 0;
           setError(message(error));
           setApplyError(true);
         }
@@ -306,6 +344,8 @@ export function useWorkspace() {
     [accept, previews, preview, cell, mode, imagesOpen],
   );
   async function openDocument(id: string, savedId?: string, preferredMode?: Mode) {
+    clearTimeout(successTimer.current);
+    setApplySuccessSerial(0);
     output.cancel();
     setKept(undefined);
     setMobileOpen(false);
@@ -393,6 +433,7 @@ export function useWorkspace() {
     const id = usePreferences.getState().lastDocumentId;
     if (id) void openDocument(id, usePreferences.getState().documents[id]?.keptId);
   }, []);
+  useEffect(() => () => clearTimeout(successTimer.current), []);
   useEffect(() => {
     if (!job || !activeJob(job)) return;
     const sequence = generation.current;
@@ -436,6 +477,8 @@ export function useWorkspace() {
   }, [previews, kept, output.fallback]);
   async function importFile(file?: File) {
     if (!file) return;
+    clearTimeout(successTimer.current);
+    setApplySuccessSerial(0);
     output.cancel();
     setKept(undefined);
     exportNext.current = undefined;
@@ -801,6 +844,7 @@ export function useWorkspace() {
     error,
     setError,
     applyError,
+    applySuccessSerial,
     imageEntries,
     jump,
     goTo,

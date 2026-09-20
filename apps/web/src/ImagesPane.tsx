@@ -12,6 +12,7 @@ import { imageLocations, printedLocation } from './imageLocations';
 import { ImageHeadingControls } from './ImageHeadingControls';
 import { ContentRowHeader } from './ContentRow';
 import { ImageContentDialog } from './CustomContentDialogs';
+import { AnimatedDisclosure } from './motion';
 import type { Workspace } from './LayoutControls';
 export function ImagesPane({
   w,
@@ -333,7 +334,7 @@ export function ImagesPane({
                     {include}
                   </div>
                 )}
-                {active && (
+                <AnimatedDisclosure open={active} className="image-expanded-motion">
                   <div className="image-expanded">
                     {asset && (
                       <button
@@ -432,7 +433,7 @@ export function ImagesPane({
                       )}
                     </fieldset>
                   </div>
-                )}
+                </AnimatedDisclosure>
               </div>
             );
           })}
@@ -446,8 +447,8 @@ export function ImagesPane({
               <button className="heading-artwork-select" onClick={() => w.selectImage(block.id)}>
                 {heading?.text}
               </button>
-              {w.docPrefs?.selectedImageId === block.id && (
-                <>
+              <AnimatedDisclosure open={w.docPrefs?.selectedImageId === block.id}>
+                <div>
                   <button
                     className="image-location"
                     disabled={!cell && !context}
@@ -483,8 +484,8 @@ export function ImagesPane({
                     {!heading && <ImageOutputControls w={w} blockId={block.id} />}
                     <ImageHeadingControls doc={doc} block={block} draft={draft} onEdit={w.edit} />
                   </fieldset>
-                </>
-              )}
+                </div>
+              </AnimatedDisclosure>
             </div>
           ))}
         </details>

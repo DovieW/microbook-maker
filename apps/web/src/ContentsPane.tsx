@@ -12,6 +12,8 @@ import { SectionPreview } from './SectionPreview';
 import { AddContentDialog } from './CustomContentDialogs';
 import { ImagesPane } from './ImagesPane';
 import { ContentPosition, ContentRowHeader } from './ContentRow';
+import { AnimatedDisclosure } from './motion';
+import { useContentReorderMotion } from './useContentReorderMotion';
 import type { Workspace } from './LayoutControls';
 
 type ContentFilter = 'all' | 'sections' | 'images' | 'custom';
@@ -51,6 +53,8 @@ export function ContentsPane({ w }: { w: Workspace }) {
   const [filter, setFilter] = useState<ContentFilter>('all');
   const [drag, setDrag] = useState<{ token: string; target: string } | null>(null);
   const [announcement, announce] = useState('');
+  const reorderKey = JSON.stringify((w.kept?.settings || w.draft).sectionOrder || []);
+  const { listRef, captureBeforeReorder } = useContentReorderMotion(reorderKey);
   const locations = useMemo(() => {
     const map = new Map<string, CellMap>();
     const sections = new Map(w.doc?.blocks.map((block) => [block.id, block.sectionId]));
@@ -113,11 +117,14 @@ export function ContentsPane({ w }: { w: Workspace }) {
       return;
     const tokens = topLevelTokens.filter((entry) => entry !== token);
     tokens.splice(position - 1, 0, token);
+    captureBeforeReorder(JSON.stringify(tokens));
     w.edit({ sectionOrder: tokens });
     announce(`Moved ${label} to position ${position}`);
   };
   const restoreImage = (id: string) => {
-    w.edit({ sectionOrder: topLevelTokens.filter((token) => token !== imageOrderToken(id)) });
+    const tokens = topLevelTokens.filter((token) => token !== imageOrderToken(id));
+    captureBeforeReorder(JSON.stringify(tokens));
+    w.edit({ sectionOrder: tokens });
     announce('Restored image to its original section');
   };
   const toggleAll = () => {
@@ -179,7 +186,10 @@ export function ContentsPane({ w }: { w: Workspace }) {
           <span>Drag content or enter a position</span>
           <button
             disabled={!!w.kept || !w.draft.sectionOrder?.length}
-            onClick={() => w.edit({ sectionOrder: [] })}
+            onClick={() => {
+              captureBeforeReorder(JSON.stringify([]));
+              w.edit({ sectionOrder: [] });
+            }}
           >
             Restore order
           </button>
@@ -189,7 +199,7 @@ export function ContentsPane({ w }: { w: Workspace }) {
       <span className="sr-only" role="status">
         {announcement}
       </span>
-      <div className="contents-list">
+      <div className="contents-list" ref={listRef}>
         {order.map((item) => {
           if (item.kind === 'image') {
             if (!showImages || !visibleImage(item.id)) return null;
@@ -440,14 +450,16 @@ function SectionRow({
           }}
         />
       </ContentRowHeader>
-      {active && location && w.preview && (
-        <SectionPreview
-          renderId={w.preview.id}
-          title={title}
-          cell={location}
-          region={w.preview.result?.sectionRegions?.find((region) => region.sectionId === item.id)}
-        />
-      )}
+      <AnimatedDisclosure open={active && !!location && !!w.preview}>
+        {location && w.preview && (
+          <SectionPreview
+            renderId={w.preview.id}
+            title={title}
+            cell={location}
+            region={w.preview.result?.sectionRegions?.find((region) => region.sectionId === item.id)}
+          />
+        )}
+      </AnimatedDisclosure>
     </div>
   );
 }

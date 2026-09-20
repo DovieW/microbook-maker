@@ -1,0 +1,80 @@
+.preview-entered .pdf-viewport {
+  animation: preview-ready 160ms ease-out;
+}
+
+@keyframes preview-ready {
+  from {
+    opacity: 0.94;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.preview-jump-cue {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 3px;
+  outline: 2px solid color-mix(in srgb, var(--accent) 82%, white);
+  outline-offset: -2px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  animation: preview-jump-cue 650ms ease-out forwards;
+}
+
+@keyframes preview-jump-cue {
+  0% {
+    opacity: 0;
+  }
+  18% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.apply-feedback {
+  display: inline-grid;
+  place-items: center;
+  min-height: 1.15em;
+  transition:
+    opacity 140ms ease-out,
+    transform 140ms ease-out;
+}
+
+.apply-feedback.is-complete {
+  animation: apply-complete 160ms ease-out;
+}
+
+@keyframes apply-complete {
+  from {
+    opacity: 0.35;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .preview-entered .pdf-viewport,
+  .apply-feedback.is-complete {
+    animation: none;
+  }
+
+  .preview-jump-cue {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+@media print {
+  .preview-jump-cue {
+    display: none;
+  }
+  .preview-entered .pdf-viewport,
+  .apply-feedback.is-complete {
+    animation: none;
+  }
+}

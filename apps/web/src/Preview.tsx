@@ -6,6 +6,7 @@ import { PDFViewer, PDFLinkService, EventBus, PDFFindController } from 'pdfjs-di
 import 'pdfjs-dist/web/pdf_viewer.css';
 import type { RenderJob } from '@microbook/core';
 import type { ReadingPosition } from './store';
+import './motion-preview.css';
 GlobalWorkerOptions.workerSrc = worker;
 export type FindState = { current: number; total: number; pending?: boolean };
 type Props = {
@@ -22,7 +23,16 @@ type Props = {
   selectedSectionCell?: number;
   onImage: (id: string) => void;
   imageLabels?: Record<string, number>;
-  jump?: { id: string; page: number; x: number; y: number; serial: number };
+  jump?: {
+    id: string;
+    page: number;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    serial: number;
+    cue: boolean;
+  };
   query: string;
   findOpen: boolean;
   findCommand?: { serial: number; previous: boolean };
@@ -42,11 +52,17 @@ export function Preview(props: Props) {
   }>();
   const [loading, setLoading] = useState(true);
   const [ready, setReady] = useState('');
+  const [entered, setEntered] = useState(false);
   const restored = useRef(false);
+  const enteredRef = useRef(false);
   const [error, setError] = useState('');
   const activeRef = useRef(visible);
   activeRef.current = visible;
   const lastJump = useRef(0);
+  const cueTimer = useRef<number | undefined>(undefined);
+  const cueFrame = useRef<number | undefined>(undefined);
+  const revealFrame = useRef<number | undefined>(undefined);
+  const revealReady = useRef<() => void>(() => {});
   const lastPosition = useRef<ReadingPosition | undefined>(undefined);
   useEffect(() => {
     if (!holder.current || !pages.current) return;
@@ -57,6 +73,8 @@ export function Preview(props: Props) {
     setError('');
     lastJump.current = 0;
     restored.current = false;
+    enteredRef.current = false;
+    setEntered(false);
     setReady('');
     const events = new EventBus();
     const linkService = new PDFLinkService({ eventBus: events });
@@ -160,9 +178,25 @@ export function Preview(props: Props) {
         overlays();
       }
     });
+    const revealVisiblePage = () => {
+      if (!restored.current || enteredRef.current || !holder.current) return;
+      const viewport = holder.current.getBoundingClientRect();
+      for (let index = 0; index < viewer.pagesCount; index++) {
+        const page = viewer.getPageView(index);
+        if (page?.renderingState !== 3) continue;
+        const rect = page.div.getBoundingClientRect();
+        if (rect.bottom > viewport.top && rect.top < viewport.bottom) {
+          enteredRef.current = true;
+          setEntered(true);
+          return;
+        }
+      }
+    };
+    revealReady.current = revealVisiblePage;
     events.on('pagerendered', () => {
       if (!stopped && activeRef.current) {
         setLoading(false);
+        revealVisiblePage();
         overlays();
       }
     });
@@ -215,6 +249,10 @@ export function Preview(props: Props) {
       });
     return () => {
       stopped = true;
+      window.clearTimeout(cueTimer.current);
+      window.cancelAnimationFrame(cueFrame.current || 0);
+      window.cancelAnimationFrame(revealFrame.current || 0);
+      revealReady.current = () => {};
       clearTimeout(timer);
       clearTimeout(scrollTimer);
       viewer.setDocument(null as unknown as PDFDocumentProxy);
@@ -248,6 +286,8 @@ export function Preview(props: Props) {
     }
     viewer.update();
     props.onZoom(viewer.currentScale);
+    window.cancelAnimationFrame(revealFrame.current || 0);
+    revealFrame.current = window.requestAnimationFrame(() => revealReady.current());
     const resize = new ResizeObserver(() => {
       if (props.zoomMode === 'fit') {
         const p = lastPosition.current;
@@ -278,6 +318,32 @@ export function Preview(props: Props) {
       destArray: [null, { name: 'XYZ' }, props.jump.x, 792 - props.jump.y, null],
       allowNegativeOffset: true,
     });
+    holder.current?.querySelector('.preview-jump-cue')?.remove();
+    window.clearTimeout(cueTimer.current);
+    window.cancelAnimationFrame(cueFrame.current || 0);
+    if (props.jump.cue) {
+      let attempts = 0;
+      const showCue = () => {
+        const page = adapter.viewer.getPageView(props.jump!.page - 1);
+        const layer = (page?.div as HTMLElement | undefined)?.querySelector<HTMLElement>('.image-overlays');
+        if (!layer) {
+          if (++attempts < 30) cueFrame.current = window.requestAnimationFrame(showCue);
+          return;
+        }
+        const cue = document.createElement('div');
+        cue.className = 'preview-jump-cue';
+        cue.dataset.jumpSerial = String(props.jump!.serial);
+        Object.assign(cue.style, {
+          left: `${(props.jump!.x / 612) * 100}%`,
+          top: `${(props.jump!.y / 792) * 100}%`,
+          width: `${(props.jump!.width / 612) * 100}%`,
+          height: `${(props.jump!.height / 792) * 100}%`,
+        });
+        layer.append(cue);
+        cueTimer.current = window.setTimeout(() => cue.remove(), 700);
+      };
+      showCue();
+    }
   }, [adapter, visible, props.jump, ready]);
   useEffect(() => {
     holder.current
@@ -321,7 +387,7 @@ export function Preview(props: Props) {
   }, [props.findCommand]);
   return (
     <div
-      className="viewer-holder"
+      className={`viewer-holder${entered ? ' preview-entered' : ''}`}
       hidden={!visible}
       aria-label="Print preview"
       aria-busy={loading ? 'true' : 'false'}

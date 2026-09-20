@@ -1,11 +1,13 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, type CSSProperties } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import { LayoutControls, type Workspace } from './LayoutControls';
 import { ContentsPane } from './ContentsPane';
 import { BooksPane } from './BooksPane';
 import { RenderActivity } from './RenderActivity';
+import { ApplyButton } from './ApplyButton';
 import type { SidebarTab } from './store';
+import './motion-navigation.css';
 export function WorkspaceSidebar({ w, narrow }: { w: Workspace; narrow: boolean }) {
   const tabs: [SidebarTab, string][] = [
     ...(w.doc ? [['layout', 'Layout'] as [SidebarTab, string]] : []),
@@ -20,6 +22,11 @@ export function WorkspaceSidebar({ w, narrow }: { w: Workspace; narrow: boolean 
           ? 'layout'
           : 'books';
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const previousTab = useRef(tab);
+  const tabChanged = previousTab.current !== tab;
+  useLayoutEffect(() => {
+    previousTab.current = tab;
+  }, [tab]);
   useEffect(() => {
     if (tab === 'books') void w.showLibrary();
   }, [tab, w.doc?.id, w.doc?.lastRenderId]);
@@ -37,7 +44,20 @@ export function WorkspaceSidebar({ w, narrow }: { w: Workspace; narrow: boolean 
           </button>
         </div>
       ) : (
-        <div className="sidebar-tabs" role="tablist" aria-label="Workspace tools">
+        <div
+          className="sidebar-tabs motion-tabs"
+          role="tablist"
+          aria-label="Workspace tools"
+          style={
+            {
+              '--motion-tab-index': Math.max(
+                0,
+                tabs.findIndex(([id]) => id === tab),
+              ),
+              '--motion-tab-count': tabs.length,
+            } as CSSProperties
+          }
+        >
           {tabs.map(([id, label], index) => (
             <button
               key={id}
@@ -68,7 +88,7 @@ export function WorkspaceSidebar({ w, narrow }: { w: Workspace; narrow: boolean 
         </div>
       )}
       <div
-        className="sidebar-body"
+        className={`sidebar-body${tabChanged ? ' motion-tab-panel-enter' : ''}`}
         role="tabpanel"
         id={`pane-${tab}`}
         aria-label={tab === 'books' ? 'History' : tabs.find((t) => t[0] === tab)?.[1]}
@@ -106,32 +126,38 @@ export function WorkspaceSidebar({ w, narrow }: { w: Workspace; narrow: boolean 
                       <button disabled={!w.preview} onClick={w.revert}>
                         Revert changes
                       </button>
-                      <button
+                      <ApplyButton
                         className="primary"
                         disabled={!w.doc || !w.metadata}
-                        onClick={() => w.doc && w.metadata && void w.apply(w.doc, w.draft, w.metadata)}
+                        successSerial={w.applySuccessSerial}
+                        onClick={() =>
+                          w.doc && w.metadata && void w.apply(w.doc, w.draft, w.metadata, undefined, true)
+                        }
                       >
                         {w.error ||
                         w.job?.error ||
                         ['failed', 'cancelled', 'interrupted'].includes(w.job?.status || '')
                           ? 'Retry'
                           : 'Apply'}
-                      </button>
+                      </ApplyButton>
                     </div>
                   ) : w.updateAvailable ? (
                     <div className="apply-actions">
                       <span>Update layout available</span>
-                      <button
+                      <ApplyButton
                         className="primary"
-                        onClick={() => w.doc && w.metadata && void w.apply(w.doc, w.draft, w.metadata)}
+                        successSerial={w.applySuccessSerial}
+                        onClick={() =>
+                          w.doc && w.metadata && void w.apply(w.doc, w.draft, w.metadata, undefined, true)
+                        }
                       >
                         Update layout
-                      </button>
+                      </ApplyButton>
                     </div>
                   ) : (
-                    <button className="primary idle-apply" disabled>
+                    <ApplyButton className="primary idle-apply" disabled successSerial={w.applySuccessSerial}>
                       Apply
-                    </button>
+                    </ApplyButton>
                   )}
                 </>
               )}
