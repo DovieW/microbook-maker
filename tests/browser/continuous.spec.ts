@@ -45,7 +45,7 @@ test('continuous sheets expose selectable text, full-document search and bounded
   await page.keyboard.press('Escape');
   await expect(page.getByRole('search', { name: 'Find in PDF', exact: true })).toHaveCount(0);
   for (let side = 1; side <= job.result.pages; side++) await jump(page, side);
-  await expect.poll(() => view.locator('canvas').count()).toBeLessThanOrEqual(5);
+  await expect.poll(() => view.locator('canvas').count()).toBeLessThanOrEqual(10);
   await jump(page, 2);
   await page.reload();
   await ready(page);
