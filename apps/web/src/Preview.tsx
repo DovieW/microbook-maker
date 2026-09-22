@@ -6,8 +6,17 @@ import { PDFViewer, PDFLinkService, EventBus, PDFFindController } from 'pdfjs-di
 import 'pdfjs-dist/web/pdf_viewer.css';
 import type { RenderJob } from '@microbook/core';
 import type { ReadingPosition } from './store';
+import type { PreviewLoading } from './store';
 import './motion-preview.css';
 GlobalWorkerOptions.workerSrc = worker;
+const PREVIEW_PAGE_BATCH = 10;
+const PREVIEW_PAGE_TRIGGER = 7;
+
+function previewPagesThrough(pageNumber: number) {
+  const page = Math.max(1, pageNumber);
+  return page < PREVIEW_PAGE_TRIGGER ? PREVIEW_PAGE_BATCH : page + PREVIEW_PAGE_TRIGGER - 1;
+}
+
 export type FindState = { current: number; total: number; pending?: boolean };
 type Props = {
   job: RenderJob;
@@ -15,6 +24,7 @@ type Props = {
   initial?: ReadingPosition;
   zoom: number;
   zoomMode: 'fit' | 'custom';
+  loadingMode: PreviewLoading;
   visible?: boolean;
   onZoom: (n: number) => void;
   onReading: (id: string, p: ReadingPosition) => void;
@@ -63,12 +73,17 @@ export function Preview(props: Props) {
   const cueFrame = useRef<number | undefined>(undefined);
   const revealFrame = useRef<number | undefined>(undefined);
   const revealReady = useRef<() => void>(() => {});
+  const preloadPages = useRef<(through: number, restart?: boolean) => void>(() => {});
   const lastPosition = useRef<ReadingPosition | undefined>(undefined);
   useEffect(() => {
     if (!holder.current || !pages.current) return;
     let stopped = false;
     let timer: ReturnType<typeof setTimeout>;
     let scrollTimer: ReturnType<typeof setTimeout>;
+    let preloadRunning = false;
+    let preloadThrough = 0;
+    let nextPreloadIndex = 0;
+    let adapterPdf: PDFDocumentProxy;
     setLoading(true);
     setError('');
     lastJump.current = 0;
@@ -92,6 +107,42 @@ export function Preview(props: Props) {
       enableAutoLinking: false,
     });
     linkService.setViewer(viewer);
+    const retainPages = props.loadingMode === 'all';
+    const retainedDestroy = new Map<any, () => void>();
+    const requestPreload = (through: number, restart = false) => {
+      if (restart) nextPreloadIndex = 0;
+      preloadThrough = Math.min(viewer.pagesCount, Math.max(preloadThrough, through));
+      if (preloadRunning || !preloadThrough) return;
+      preloadRunning = true;
+      void (async () => {
+        try {
+          while (!stopped) {
+            if (nextPreloadIndex >= preloadThrough) break;
+            const start = nextPreloadIndex;
+            const end = preloadThrough;
+            nextPreloadIndex = end;
+            await Promise.all(
+              Array.from({ length: end - start }, (_, offset) => start + offset).map(async (index) => {
+                const pageView = viewer.getPageView(index);
+                if (!pageView.pdfPage) pageView.setPdfPage(await adapterPdf.getPage(index + 1));
+                if (stopped || pageView.renderingState !== 0) return;
+                const renderingQueue = pageView.renderingQueue;
+                pageView.renderingQueue = undefined;
+                try {
+                  await pageView.draw();
+                } finally {
+                  pageView.renderingQueue = renderingQueue;
+                }
+              }),
+            );
+          }
+        } finally {
+          preloadRunning = false;
+          if (!stopped && nextPreloadIndex < preloadThrough) requestPreload(preloadThrough);
+        }
+      })();
+    };
+    preloadPages.current = requestPreload;
     const addSectionHit = (
       layer: HTMLElement,
       region: { x: number; y: number; width: number; height: number },
@@ -174,6 +225,12 @@ export function Preview(props: Props) {
     };
     events.on('pagesinit', () => {
       if (!stopped) {
+        if (retainPages)
+          for (let i = 0; i < viewer.pagesCount; i++) {
+            const pageView = viewer.getPageView(i);
+            retainedDestroy.set(pageView, pageView.destroy.bind(pageView));
+            pageView.destroy = () => {};
+          }
         setReady(job.id);
         overlays();
       }
@@ -216,6 +273,7 @@ export function Preview(props: Props) {
       'updateviewarea',
       ({ location }: { location: { pageNumber: number; left: number; top: number } }) => {
         if (stopped || !activeRef.current) return;
+        if (live.current.loadingMode === 'smooth') requestPreload(previewPagesThrough(location.pageNumber));
         lastPosition.current = { page: location.pageNumber, left: location.left, top: location.top };
         clearTimeout(scrollTimer);
         scrollTimer = setTimeout(() => {
@@ -223,12 +281,6 @@ export function Preview(props: Props) {
         }, 120);
         clearTimeout(timer);
         timer = setTimeout(() => {
-          const viewport = holder.current!.getBoundingClientRect();
-          for (let i = 0; i < viewer.pagesCount; i++) {
-            const pv = viewer.getPageView(i),
-              r = pv.div.getBoundingClientRect();
-            if (r.bottom < viewport.top - r.height || r.top > viewport.bottom + r.height) pv.reset();
-          }
           overlays();
         }, 250);
       },
@@ -237,6 +289,7 @@ export function Preview(props: Props) {
     void task.promise
       .then((pdf) => {
         if (stopped) return;
+        adapterPdf = pdf;
         linkService.setDocument(pdf);
         viewer.setDocument(pdf);
         setAdapter({ viewer, events, find, pdf });
@@ -253,13 +306,15 @@ export function Preview(props: Props) {
       window.cancelAnimationFrame(cueFrame.current || 0);
       window.cancelAnimationFrame(revealFrame.current || 0);
       revealReady.current = () => {};
+      preloadPages.current = () => {};
       clearTimeout(timer);
       clearTimeout(scrollTimer);
+      for (const [pageView, destroy] of retainedDestroy) pageView.destroy = destroy;
       viewer.setDocument(null as unknown as PDFDocumentProxy);
       void task.destroy();
       setAdapter(undefined);
     };
-  }, [job.id]);
+  }, [job.id, props.loadingMode]);
   useEffect(() => {
     if (!adapter || ready !== job.id) return;
     const { viewer } = adapter;
@@ -285,6 +340,8 @@ export function Preview(props: Props) {
         });
     }
     viewer.update();
+    if (props.loadingMode === 'all') preloadPages.current(viewer.pagesCount, true);
+    else if (props.loadingMode === 'smooth') preloadPages.current(PREVIEW_PAGE_BATCH, true);
     props.onZoom(viewer.currentScale);
     window.cancelAnimationFrame(revealFrame.current || 0);
     revealFrame.current = window.requestAnimationFrame(() => revealReady.current());
@@ -302,7 +359,7 @@ export function Preview(props: Props) {
     });
     if (holder.current) resize.observe(holder.current);
     return () => resize.disconnect();
-  }, [adapter, visible, props.zoom, props.zoomMode, ready]);
+  }, [adapter, visible, props.zoom, props.zoomMode, props.loadingMode, ready]);
   useEffect(() => {
     if (
       !adapter ||

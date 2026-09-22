@@ -714,23 +714,13 @@ export function matchingImageBlocks(doc: BookDocument, block: Block) {
   if (block.kind !== 'image' || !block.assetId) return [];
   return doc.blocks.filter((b) => b.kind === 'image' && b.assetId === block.assetId);
 }
-const repeatedImageNeighbor = (block?: Block) =>
-  !!block && ['paragraph', 'quote', 'list-item'].includes(block.kind);
 export function repeatedImageGroups(doc: BookDocument) {
   const groups = new Map<string, Block[]>();
-  for (const [i, block] of doc.blocks.entries()) {
-    if (
-      block.kind !== 'image' ||
-      !block.assetId ||
-      !repeatedImageNeighbor(doc.blocks[i - 1]) ||
-      !repeatedImageNeighbor(doc.blocks[i + 1])
-    )
-      continue;
+  for (const block of doc.blocks) {
+    if (block.kind !== 'image' || !block.assetId) continue;
     const group = groups.get(block.assetId) || [];
     group.push(block);
     groups.set(block.assetId, group);
   }
-  return [...groups.values()].filter(
-    (blocks) => blocks.length >= 3 && matchingImageBlocks(doc, blocks[0]).length === blocks.length,
-  );
+  return [...groups.values()].filter((blocks) => blocks.length >= 3);
 }

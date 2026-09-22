@@ -64,6 +64,7 @@ export default function App() {
       initial={w.kept ? undefined : w.docPrefs?.reading?.[rendered.settings.mode]}
       zoom={w.prefs.zoom}
       zoomMode={w.prefs.zoomMode}
+      loadingMode={w.prefs.previewLoading}
       onZoom={w.setActualZoom}
       onReading={w.onReading}
       jump={w.jump}

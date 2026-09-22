@@ -1,14 +1,14 @@
-# MicroBook 2.1
+# MicroBook 2.2
 
-This release improves Rich EPUB navigation, sheet identification, and image flow.
+This release makes the workspace feel more responsive and pleasant while keeping motion subtle and purposeful.
 
 ## What’s new
 
-- **Better contents.** Full tables of contents stay at the front, include the EPUB’s deeper navigation entries, and use clearer, self-contained content previews.
-- **Clearer sheet headers.** The book and sheet headers are larger. Each sheet can show its number, book title, and print date in a compact header.
-- **Smarter opening images.** Two-cell images can favor text first, images first, or preserve the source order. Text first is the default and avoids leaving an empty opening cell by moving following text ahead of the image.
-- **Repeated artwork controls.** Repeated images are detected between paragraphs, quotations, and list items. Their preview and shared settings now use the same expandable content-row design as other images.
-- **Reproducible verification.** The public-domain EPUB fixtures used by the release checks are pinned in the repository.
+- **Clear Apply feedback.** Applying layout changes now has a short, readable progress transition and a restrained completion response.
+- **Smoother workspace navigation.** Sidebar tabs, sections, dialogs, and expanding content controls transition without abrupt jumps.
+- **Stable content reordering.** Moving text and images animates their actual before-and-after positions, making the new order easier to follow.
+- **Gentler preview updates.** Completed renders enter cleanly and preserve the reader’s sense of place while controls update.
+- **Motion accessibility.** The interface follows the operating system’s reduced-motion preference and keeps essential state changes understandable without animation.
 
 ## Upgrading
 

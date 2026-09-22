@@ -35,6 +35,16 @@ it('suggests exact repeated assets between prose blocks without changing treatme
   ).toEqual([]);
   expect(doc.blocks[1].imageHeading).toBeUndefined();
 });
+it('shows every exact match when one occurrence has different structural neighbors', () => {
+  const uneven = {
+    ...doc,
+    blocks: doc.blocks.map((block, index) =>
+      index === 6 ? { ...block, kind: 'table' as const } : block,
+    ),
+  };
+  expect(matchingImageBlocks(uneven, uneven.blocks[1])).toHaveLength(3);
+  expect(repeatedImageGroups(uneven)[0].map((block) => block.id)).toEqual(['i0', 'i1', 'i2']);
+});
 it('bounds flourish geometry and retains independent exclusion with no invented text', () => {
   const s = settingsSchema.parse({
     mode: 'book',

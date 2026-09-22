@@ -8,6 +8,7 @@ import {
   type Metadata,
 } from '@microbook/core';
 export type SidebarTab = 'layout' | 'contents' | 'books';
+export type PreviewLoading = 'standard' | 'smooth' | 'all';
 export type ReadingPosition = { page: number; left: number; top: number };
 type DocumentPreferences = {
   reading?: Partial<Record<Mode, ReadingPosition>>;
@@ -35,6 +36,7 @@ interface Preferences {
   settings: Record<Mode, RenderSettings>;
   zoom: number;
   zoomMode: 'fit' | 'custom';
+  previewLoading: PreviewLoading;
   lastDocumentId?: string;
   documents: Record<string, DocumentPreferences>;
   patch: (value: Partial<Preferences>) => void;
@@ -54,6 +56,7 @@ export const usePreferences = create<Preferences>()(
       },
       zoom: 1,
       zoomMode: 'fit',
+      previewLoading: 'smooth',
       documents: {},
       patch: (value) => set(value),
       document: (id, value) =>
@@ -132,6 +135,7 @@ export const usePreferences = create<Preferences>()(
         settings,
         zoom,
         zoomMode,
+        previewLoading,
         lastDocumentId,
         documents,
       }) => ({
@@ -143,6 +147,7 @@ export const usePreferences = create<Preferences>()(
         settings,
         zoom,
         zoomMode,
+        previewLoading,
         lastDocumentId,
         documents,
       }),
@@ -202,6 +207,9 @@ export const usePreferences = create<Preferences>()(
           documents,
           zoom: Math.max(0.25, Math.min(5, Number(stored.zoom) || 1)),
           zoomMode: stored.zoomMode === 'custom' ? 'custom' : 'fit',
+          previewLoading: ['standard', 'smooth', 'all'].includes(stored.previewLoading)
+            ? stored.previewLoading
+            : 'smooth',
         };
       },
     },

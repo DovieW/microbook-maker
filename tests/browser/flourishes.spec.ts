@@ -126,3 +126,25 @@ test('repeated flourishes preserve source placement, bulk controls, overrides, a
   expect(Object.values(mixed.settings.imageTreatments).filter((t: any) => t.widthEm === 6)).toHaveLength(1);
   expect(Object.values(mixed.settings.imageTreatments).every((t: any) => t.gapEm === 0.25)).toBe(true);
 });
+
+test('repeated image summary includes exact matches with mixed structural neighbors', async ({ page }) => {
+  await page.goto('/');
+  await upload(page, 'flourishes.epub');
+  await ready(page);
+  await tab(page, 'Content');
+  const document = await page.evaluate(async () => {
+    const list = await fetch('/api/documents').then((response) => response.json());
+    return fetch(`/api/documents/${list[0].id}`).then((response) => response.json());
+  });
+  const images = document.blocks.filter((block: any) => block.kind === 'image');
+  const last = document.blocks.findIndex((block: any) => block.id === images.at(-1).id);
+  document.blocks[last - 1] = { ...document.blocks[last - 1], kind: 'table' };
+  await page.route(`/api/documents/${document.id}`, (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(document) }),
+  );
+  await page.reload();
+  await ready(page);
+  await tab(page, 'Content');
+  await page.getByText('Repeated images', { exact: true }).click();
+  await expect(page.locator('.repeated-image').getByText('20 matching images', { exact: true })).toBeVisible();
+});

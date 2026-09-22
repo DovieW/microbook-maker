@@ -7,6 +7,7 @@ import { HeadingDetection } from './HeadingDetection';
 import { RichFeatures } from './RichFeatures';
 import { MetadataEditor } from './MetadataEditor';
 import type { useWorkspace } from './useWorkspace';
+import type { PreviewLoading } from './store';
 export type Workspace = ReturnType<typeof useWorkspace>;
 export function LayoutControls({ w }: { w: Workspace }) {
   const settingsInput = useRef<HTMLInputElement>(null);
@@ -196,6 +197,21 @@ export function LayoutControls({ w }: { w: Workspace }) {
         <details>
           <summary>Advanced</summary>
           <p className="image-output-help">MicroBook {version}</p>
+          <label className="field">
+            <span>Preview loading</span>
+            <Dropdown
+              label="Preview loading"
+              value={w.prefs.previewLoading}
+              options={[
+                ['standard', 'As you scroll'],
+                ['smooth', 'Preload ahead'],
+                ['all', 'Load everything'],
+              ]}
+              onChange={(previewLoading) =>
+                w.prefs.patch({ previewLoading: previewLoading as PreviewLoading })
+              }
+            />
+          </label>
           {rich && (
             <>
               <label className="check-field">
