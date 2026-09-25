@@ -110,7 +110,7 @@ export function LayoutControls({ w }: { w: Workspace }) {
         {rich && (
           <>
             {check('positionHeaders', 'Position headers')}
-            {number('lineHeight', 'Line height', '×', 1, 1.6, 0.05)}
+            {number('lineHeight', 'Line height', '×', 0.5, 1.6, 0.05)}
             <RichFeatures w={w} group="navigation" />
             <RichFeatures w={w} group="references" />
             <details>

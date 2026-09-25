@@ -49,7 +49,7 @@ export const settingsSchema = z
     foldGapMm: z.number().min(0.5).max(6).default(2.5),
     foldGapEveryRow: z.boolean().default(true),
     readingOrder: z.enum(['rows', 'quadrants']).default('rows'),
-    lineHeight: z.number().min(1).max(1.6).default(1),
+    lineHeight: z.number().min(0.5).max(1.6).default(1),
     paragraphStyle: z.enum(['lines', 'markers', 'continuous', 'spaced']).default('continuous'),
     paragraphIndentEm: z.number().min(0).max(3).default(0),
     paragraphGapEm: z.number().min(0).max(2).default(0),

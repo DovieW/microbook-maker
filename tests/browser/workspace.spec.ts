@@ -193,6 +193,20 @@ test('failed Apply and stale replies preserve the selected PDF; explicit metadat
   await expect(page.getByLabel('Line height', { exact: true })).toHaveValue('1');
 });
 
+test('Rich line height 0.5 applies and preserves complete content', async ({ page, request }) => {
+  await page.goto('/');
+  await upload(page, 'structured.epub');
+  const original = await ready(page, request);
+  await expect(page.getByLabel('Line height', { exact: true })).toHaveAttribute('min', '0.5');
+  await page.getByLabel('Line height', { exact: true }).fill('0.5');
+  await applied(page);
+  const compact = await ready(page, request);
+  expect(compact.id).not.toBe(original.id);
+  expect(compact.settings.lineHeight).toBe(0.5);
+  expect(compact.result.coverage.complete).toBe(true);
+  expect(compact.result.cells.length).toBeGreaterThan(0);
+});
+
 test('printed-side input reaches the partial final side and Apply retains source position', async ({
   page,
   request,
