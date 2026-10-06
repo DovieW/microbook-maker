@@ -9,6 +9,8 @@ import {
 import { ListFilter } from 'lucide-react';
 import { printedLocation, imageLocations } from './imageLocations';
 import { SectionPreview } from './SectionPreview';
+import { SectionSource } from './SectionSource';
+import { hasSectionContent, sectionStatus } from './sectionContent';
 import { AddContentDialog } from './CustomContentDialogs';
 import { ImagesPane } from './ImagesPane';
 import { ContentPosition, ContentRowHeader } from './ContentRow';
@@ -406,6 +408,16 @@ function SectionRow({
 }) {
   if (item.kind !== 'section') return null;
   const active = w.selectedSectionId === item.id;
+  const blocks = w.doc!.blocks.filter((block) => block.sectionId === item.id);
+  const hasContent = hasSectionContent(blocks);
+  const status = sectionStatus({
+    included,
+    hasContent,
+    generated: generatedContents && included,
+    previewReady: !!w.preview?.result,
+    pending: w.dirty,
+    location: location ? printedLocation(location.page) : undefined,
+  });
   return (
     <div
       className={`contents-row${active ? ' selected' : ''}${drag?.target === item.id ? ' reorder-target' : ''}`}
@@ -427,10 +439,9 @@ function SectionRow({
           />
         }
         title={title}
-        location={location ? printedLocation(location.page) : 'Not in preview'}
+        location={status}
         expanded={active}
-        disabled={!location}
-        onOpen={() => location && w.jumpSection(item.id, location.index)}
+        onOpen={() => w.jumpSection(item.id, included ? location?.index : undefined)}
       >
         <input
           type="checkbox"
@@ -450,8 +461,27 @@ function SectionRow({
           }}
         />
       </ContentRowHeader>
-      <AnimatedDisclosure open={active && !!location && !!w.preview}>
-        {location && w.preview && (
+      <AnimatedDisclosure open={active}>
+        {!included && (
+          <p className="section-status-note">Excluded from your selection. Include it again to restore it.</p>
+        )}
+        {included && !hasContent && !generatedContents && (
+          <p className="section-status-note">
+            This imported section contains no text, images, or section breaks.
+          </p>
+        )}
+        {included && hasContent && !location && !w.dirty && w.preview?.result && (
+          <p className="section-status-note">
+            This section has imported content, but no printed location in the applied preview. Inspect its
+            source content to check what it contains.
+          </p>
+        )}
+        {w.dirty && included && hasContent && !location && (
+          <p className="section-status-note">
+            The preview shows the last applied version. Click Apply to update it.
+          </p>
+        )}
+        {included && location && w.preview && (
           <SectionPreview
             renderId={w.preview.id}
             title={title}
@@ -459,6 +489,7 @@ function SectionRow({
             region={w.preview.result?.sectionRegions?.find((region) => region.sectionId === item.id)}
           />
         )}
+        <SectionSource key={item.id} doc={w.doc!} sectionId={item.id} title={title} blocks={blocks} />
       </AnimatedDisclosure>
     </div>
   );

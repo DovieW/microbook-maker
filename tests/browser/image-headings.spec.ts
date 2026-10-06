@@ -40,8 +40,8 @@ test('automatic artwork detection and manual heading corrections apply, reset an
   await expect(detected.getByLabel('Heading text')).toHaveValue('Chapter 48 The Hatchet Man in Buffalo');
   // Correct a false positive back into an image, then restore the automatic classification.
   // The control moves into the illustration list as soon as classification changes.
-  await detected.getByRole('combobox', { name: 'Image treatment' }).click();
-  await page.getByRole('option', { name: 'Illustration', exact: true }).click();
+  await detected.getByRole('combobox', { name: 'Image layout' }).click();
+  await page.getByRole('option', { name: 'Inline', exact: true }).click();
   await expect(page.locator('.image-choice')).toHaveCount(2);
   await page.getByRole('button', { name: 'Apply', exact: true }).last().click();
   const restored = await ready();
@@ -53,8 +53,7 @@ test('automatic artwork detection and manual heading corrections apply, reset an
   // Convert an uncertain illustration, edit its text and choose Part.
   const row = page.locator('.image-choice').first();
   await row.getByRole('button', { name: 'Image 1 details', exact: true }).click();
-  await row.getByRole('combobox', { name: 'Image treatment' }).click();
-  await page.getByRole('option', { name: 'Heading', exact: true }).click();
+  await row.getByRole('button', { name: 'Replace with text heading', exact: true }).click();
   await row.getByLabel('Heading text').fill('Part II A new beginning');
   await row.getByRole('combobox', { name: 'Heading type' }).click();
   await page.getByRole('option', { name: 'Part', exact: true }).click();
@@ -73,7 +72,7 @@ test('automatic artwork detection and manual heading corrections apply, reset an
   await page.getByRole('tab', { name: 'Content', exact: true }).click();
   await page.getByRole('button', { name: 'Image 1 details', exact: true }).click();
   await expect(page.getByLabel('Heading text').first()).toHaveValue('Part II A new beginning');
-  await page.getByRole('button', { name: 'Reset to image', exact: true }).click();
+  await page.getByRole('button', { name: 'Use image instead', exact: true }).click();
   await page.getByRole('button', { name: 'Apply', exact: true }).last().click();
   expect((await ready()).id).toBe(initial.id);
   await upload();

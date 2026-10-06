@@ -36,7 +36,8 @@ test('image locations, exact overlays and context jumps survive zoom, Apply, exc
   await check(initial);
   expect(renders).toBe(1);
   await page.locator('.image-defaults summary').click();
-  await page.getByLabel('Two-cell images', { exact: true }).check();
+  await page.getByRole('combobox', { name: 'Default image layout', exact: true }).click();
+  await page.getByRole('option', { name: 'Full two cells', exact: true }).click();
   await expect(page.getByLabel('Printed side', { exact: true })).toHaveValue(String(target.page + 1));
   await applied(page);
   const wide = await ready(page, request);

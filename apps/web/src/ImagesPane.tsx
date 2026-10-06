@@ -1,13 +1,24 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { repeatedImageGroups, imageOutputQuery, settingsSchema } from '@microbook/core';
+import {
+  repeatedImageGroups,
+  imageOutputQuery,
+  settingsSchema,
+  defaultImageLayout,
+  imageLayoutOptions,
+  defaultImageRotation,
+  imageRotationForBlock,
+  imageRotationOptions,
+  type ImageRotation,
+  type ImageLayout,
+} from '@microbook/core';
+import { imageRotationChanges } from './imageLayoutSettings';
 import { RepeatedImageControls } from './RepeatedImageControls';
 import { ImageOutputControls } from './ImageOutputControls';
 import { ImageRotationControls } from './ImageRotationControls';
 import { ImagePreview, type PreviewImage } from './ImagePreview';
 import { RichFeatures } from './RichFeatures';
 import { ImageTreatmentControls } from './ImageTreatmentControls';
-import { RotateCcw } from 'lucide-react';
-import { IconButton } from './ui';
+import { Dropdown } from './ui';
 import { imageLocations, printedLocation } from './imageLocations';
 import { ImageHeadingControls } from './ImageHeadingControls';
 import { ContentRowHeader } from './ContentRow';
@@ -82,7 +93,8 @@ export function ImagesPane({
         image={
           previewImage && {
             ...previewImage,
-            rotation: draft.imageRotations[previewImage.blockId] ?? 0,
+            rotation: imageRotationForBlock(draft, previewImage.blockId),
+            rotationOverride: draft.imageRotations[previewImage.blockId],
             output: draft.imageOutputOverrides[previewImage.blockId] ?? draft.imageOutput,
           }
         }
@@ -102,6 +114,13 @@ export function ImagesPane({
             : (rotation) => {
                 if (previewImage)
                   w.edit({ imageRotations: { ...draft.imageRotations, [previewImage.blockId]: rotation } });
+              }
+        }
+        onInheritRotation={
+          w.kept
+            ? undefined
+            : () => {
+                if (previewImage) w.edit(imageRotationChanges(draft, [previewImage.blockId], 'inherit'));
               }
         }
         onClose={() => setPreviewImage(undefined)}
@@ -130,21 +149,40 @@ export function ImagesPane({
             <ImageOutputControls w={w} />
             <RichFeatures w={w} group="images" />
             <label className="check-field">
-              <span>Illustrations</span>
+              <span>Include images</span>
               <input
                 type="checkbox"
                 checked={draft.includeImages}
                 onChange={(e) => w.edit({ includeImages: e.target.checked })}
               />
             </label>
-            <label className="check-field">
-              <span>Two-cell images</span>
-              <input
-                type="checkbox"
-                checked={draft.twoCellImages}
-                onChange={(e) => w.edit({ twoCellImages: e.target.checked })}
+            <label className="field">
+              <span>Image layout</span>
+              <Dropdown
+                label="Default image layout"
+                value={defaultImageLayout(draft)}
+                options={imageLayoutOptions}
+                onChange={(value) => w.edit({ imageLayout: value as ImageLayout })}
               />
             </label>
+            <label className="field">
+              <span>Orientation</span>
+              <Dropdown
+                label="Default image orientation"
+                value={String(defaultImageRotation(draft))}
+                options={imageRotationOptions}
+                onChange={(value) => w.edit({ imageRotation: Number(value) as ImageRotation })}
+              />
+            </label>
+            <label className="check-field">
+              <span>Fill unused image space with text</span>
+              <input
+                type="checkbox"
+                checked={draft.fillImageSpace ?? true}
+                onChange={(e) => w.edit({ fillImageSpace: e.target.checked })}
+              />
+            </label>
+            <p className="image-output-help">Following text can fill the space below full-cell images.</p>
             <label className="field">
               <span>Image scale</span>
               <input
@@ -169,7 +207,13 @@ export function ImagesPane({
             return (
               <details className="repeated-image" key={group[0].assetId}>
                 <summary>
-                  {asset && <img src={`/api/documents/${doc.id}/assets/${asset.id}`} alt="" loading="lazy" />}
+                  {asset && (
+                    <img
+                      src={`/api/documents/${doc.id}/assets/${asset.id}${imageOutputQuery({ mode: 'original', strength: 'gentle' }, imageRotationForBlock(draft, group[0].id))}`}
+                      alt=""
+                      loading="lazy"
+                    />
+                  )}
                   <span>
                     <strong>{group.length} matching images</strong>
                     <small>Shared artwork and settings</small>
@@ -202,7 +246,7 @@ export function ImagesPane({
                       className="repeated-image-preview"
                       src={`/api/documents/${doc.id}/assets/${asset.id}${imageOutputQuery(
                         draft.imageOutputOverrides[group[0].id] ?? draft.imageOutput,
-                        draft.imageRotations[group[0].id] ?? 0,
+                        imageRotationForBlock(draft, group[0].id),
                       )}`}
                       alt={asset.alt || 'Repeated image'}
                     />
@@ -222,6 +266,21 @@ export function ImagesPane({
               (!!heading || !draft.excludedImageIds.includes(block.id)) &&
               (!sectionId || !draft.selectedSections || draft.selectedSections.includes(sectionId));
             const active = block.id === w.docPrefs?.selectedImageId;
+            const sectionIncluded =
+              !draft.selectedSections || draft.selectedSections.includes(block.sectionId);
+            const locationLabel = !sectionIncluded
+              ? 'Excluded with section'
+              : !included
+                ? 'Excluded'
+                : !draft.includeImages && !heading
+                  ? 'Hidden by image settings'
+                  : !w.preview?.result
+                    ? 'Preview not generated'
+                    : cell
+                      ? printedLocation(cell.page)
+                      : w.dirty
+                        ? 'No location in applied preview'
+                        : 'No visible content with current settings';
             const thumbnail = (
               <button
                 className="image-thumbnail"
@@ -237,7 +296,13 @@ export function ImagesPane({
                   )
                 }
               >
-                {asset && <img src={`/api/documents/${doc.id}/assets/${asset.id}`} alt="" loading="lazy" />}
+                {asset && (
+                  <img
+                    src={`/api/documents/${doc.id}/assets/${asset.id}${imageOutputQuery({ mode: 'original', strength: 'gentle' }, imageRotationForBlock(draft, block.id))}`}
+                    alt=""
+                    loading="lazy"
+                  />
+                )}
               </button>
             );
             const include = (
@@ -290,7 +355,7 @@ export function ImagesPane({
                   <ContentRowHeader
                     position={rowPosition}
                     title={section || `Image ${i + 1}`}
-                    location={cell ? printedLocation(cell.page) : 'Not in preview'}
+                    location={locationLabel}
                     label={`Image ${i + 1} details`}
                     expanded={active}
                     onOpen={() => w.jumpImage(block.id)}
@@ -307,7 +372,7 @@ export function ImagesPane({
                         aria-label={`Image ${i + 1} details`}
                         aria-expanded={active}
                         onClick={() => w.selectImage(block.id)}
-                        title={section}
+                        title={w.prefs.spoilerFree ? undefined : section}
                       >
                         {section || `Image ${i + 1}`}
                       </button>
@@ -317,7 +382,7 @@ export function ImagesPane({
                           {heading ? ' · Heading' : ''}
                         </small>
                       )}
-                      {!cell && !embedded && <small>Not in preview</small>}
+                      {!cell && !embedded && <small>{locationLabel}</small>}
                       <button
                         className="image-location"
                         aria-label={
@@ -328,7 +393,7 @@ export function ImagesPane({
                         disabled={!cell && !context}
                         onClick={() => w.jumpImage(block.id)}
                       >
-                        {cell ? printedLocation(cell.page) : embedded ? 'Not in preview' : 'Go to context'}
+                        {cell ? locationLabel : 'Go to context'}
                       </button>
                     </div>
                     {include}
@@ -352,51 +417,18 @@ export function ImagesPane({
                       >
                         <img
                           className="image-large-preview"
-                          src={`/api/documents/${doc.id}/assets/${asset.id}${imageOutputQuery(draft.imageOutputOverrides[block.id] ?? draft.imageOutput, draft.imageRotations[block.id] ?? 0)}`}
+                          src={`/api/documents/${doc.id}/assets/${asset.id}${imageOutputQuery(draft.imageOutputOverrides[block.id] ?? draft.imageOutput, imageRotationForBlock(draft, block.id))}`}
                           alt={asset.alt || `Image ${i + 1}`}
                         />
                       </button>
                     )}
                     <fieldset className="image-detail" disabled={!!w.kept}>
-                      {!heading && draft.imageTreatments[block.id]?.kind !== 'flourish' && (
-                        <div className="image-layout-choice">
-                          <label>
-                            <span>Use two cells</span>
-                            <input
-                              type="checkbox"
-                              aria-label={`Two cells for image ${i + 1}`}
-                              checked={
-                                (draft.imageCellSpans[block.id] ?? (draft.twoCellImages ? 2 : 1)) === 2
-                              }
-                              disabled={!included}
-                              onChange={(e) =>
-                                w.edit({
-                                  imageCellSpans: {
-                                    ...draft.imageCellSpans,
-                                    [block.id]: e.target.checked ? 2 : 1,
-                                  },
-                                })
-                              }
-                            />
-                          </label>
-                          {draft.imageCellSpans[block.id] !== undefined && (
-                            <IconButton
-                              label={`Use book setting for image ${i + 1}`}
-                              onClick={() => {
-                                const imageCellSpans = { ...draft.imageCellSpans };
-                                delete imageCellSpans[block.id];
-                                w.edit({ imageCellSpans });
-                              }}
-                            >
-                              <RotateCcw size={13} />
-                            </IconButton>
-                          )}
-                        </div>
-                      )}
                       <ImageTreatmentControls w={w} block={block} heading={heading} />
                       {!heading && (
                         <ImageRotationControls
-                          rotation={draft.imageRotations[block.id] ?? 0}
+                          rotation={imageRotationForBlock(draft, block.id)}
+                          override={draft.imageRotations[block.id]}
+                          onInherit={() => w.edit(imageRotationChanges(draft, [block.id], 'inherit'))}
                           onChange={(rotation) =>
                             w.edit({ imageRotations: { ...draft.imageRotations, [block.id]: rotation } })
                           }
@@ -404,16 +436,15 @@ export function ImagesPane({
                             doc.blocks.filter((b) => b.kind === 'image' && b.assetId === block.assetId).length
                           }
                           onMatch={() =>
-                            w.edit({
-                              imageRotations: {
-                                ...draft.imageRotations,
-                                ...Object.fromEntries(
-                                  doc.blocks
-                                    .filter((b) => b.kind === 'image' && b.assetId === block.assetId)
-                                    .map((b) => [b.id, draft.imageRotations[block.id] ?? 0]),
-                                ),
-                              },
-                            })
+                            w.edit(
+                              imageRotationChanges(
+                                draft,
+                                doc.blocks
+                                  .filter((b) => b.kind === 'image' && b.assetId === block.assetId)
+                                  .map((b) => b.id),
+                                draft.imageRotations[block.id] ?? 'inherit',
+                              ),
+                            )
                           }
                         />
                       )}
@@ -460,7 +491,9 @@ export function ImagesPane({
                     <ImageTreatmentControls w={w} block={block} heading={heading} />
                     {!heading && (
                       <ImageRotationControls
-                        rotation={draft.imageRotations[block.id] ?? 0}
+                        rotation={imageRotationForBlock(draft, block.id)}
+                        override={draft.imageRotations[block.id]}
+                        onInherit={() => w.edit(imageRotationChanges(draft, [block.id], 'inherit'))}
                         onChange={(rotation) =>
                           w.edit({ imageRotations: { ...draft.imageRotations, [block.id]: rotation } })
                         }
@@ -468,16 +501,15 @@ export function ImagesPane({
                           doc.blocks.filter((b) => b.kind === 'image' && b.assetId === block.assetId).length
                         }
                         onMatch={() =>
-                          w.edit({
-                            imageRotations: {
-                              ...draft.imageRotations,
-                              ...Object.fromEntries(
-                                doc.blocks
-                                  .filter((b) => b.kind === 'image' && b.assetId === block.assetId)
-                                  .map((b) => [b.id, draft.imageRotations[block.id] ?? 0]),
-                              ),
-                            },
-                          })
+                          w.edit(
+                            imageRotationChanges(
+                              draft,
+                              doc.blocks
+                                .filter((b) => b.kind === 'image' && b.assetId === block.assetId)
+                                .map((b) => b.id),
+                              draft.imageRotations[block.id] ?? 'inherit',
+                            ),
+                          )
                         }
                       />
                     )}

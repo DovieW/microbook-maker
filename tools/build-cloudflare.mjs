@@ -95,10 +95,9 @@ if (app) {
   env.PUBLIC_MODE = { type: 'text', value: 'true' };
 }
 await fs.writeFile(
-  `${directory}/config.json`,
+  `${directory}/worker.config.json`,
   JSON.stringify(
     {
-      type: 'worker',
       name: app ? 'microbook' : 'microbook-renderer-preview',
       compatibilityDate: '2026-09-07',
       workersDev: true,
@@ -111,5 +110,9 @@ await fs.writeFile(
     null,
     2,
   ),
+);
+await fs.writeFile(
+  `${root}/config.json`,
+  JSON.stringify({ buildContext: { isPreview: false }, accountId: process.env.CLOUDFLARE_ACCOUNT_ID }, null, 2),
 );
 console.log(app ? 'Built the Cloudflare MicroBook app.' : 'Built the gated Cloudflare renderer preview.');

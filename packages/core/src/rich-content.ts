@@ -31,8 +31,28 @@ function publisherContentsSections(source: Block[]) {
 export function prepareRichContent(doc: BookDocument, settings: RenderSettings) {
   const options = settings.rich;
   const source = selectedDocumentBlocks(doc, settings).map((b): Block =>
-    b.imageHeading ? { ...b, kind: 'heading', align: 'left', inlines: [{ text: b.imageHeading }] } : b,
+    b.imageHeading ? { ...b, kind: 'heading', align: 'left', inlines: [{ text: b.imageHeading }] } : { ...b },
   );
+  // Many EPUBs use plain paragraphs rather than figcaption for chart credits.
+  // Infer only explicit source lines and short, numbered chart labels immediately
+  // following them. Keep the imported document and block identities unchanged.
+  for (let i = 0; i < source.length; i++) {
+    const image = source[i];
+    if (image.kind !== 'image') continue;
+    let credit = false;
+    for (let j = i + 1; j < source.length; j++) {
+      const block = source[j];
+      if (block.sectionId !== image.sectionId) break;
+      if (block.captionFor === image.id) continue;
+      if (block.kind !== 'paragraph' || block.captionFor || block.headingKind) break;
+      const text = normalizedText(bookBlockText(block));
+      const sourceLine = /^(?:principal\s+)?sources?\s*[:;]/iu.test(text) && text.length <= 500;
+      const chartLabel = credit && text.length <= 140 && /\[\d+\](?:\s+linear scale)?$/iu.test(text);
+      if (!sourceLine && !chartLabel) break;
+      block.captionFor = image.id;
+      credit ||= sourceLine;
+    }
+  }
   // Globally hidden illustrations cannot be PDF link destinations. Their captions remain text.
   if (!settings.includeImages)
     for (let i = source.length - 1; i >= 0; i--) if (source[i].kind === 'image') source.splice(i, 1);

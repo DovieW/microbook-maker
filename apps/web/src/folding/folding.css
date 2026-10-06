@@ -1,0 +1,803 @@
+.fold-overlay {
+  position: fixed;
+  inset: 0;
+  background: #060e17;
+  z-index: 200;
+}
+.fold-workspace {
+  position: fixed;
+  inset: 0;
+  z-index: 201;
+  background: #101c28;
+  color: #dae5ed;
+  display: flex;
+  flex-direction: column;
+  outline: 0;
+  font-size: 14px;
+}
+.fold-workspace * {
+  box-sizing: border-box;
+}
+.fold-workspace button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 36px;
+  border: 1px solid #2a3b49;
+  border-radius: 8px;
+  padding: 7px 12px;
+  background: #152331;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.fold-workspace button:hover:not(:disabled) {
+  background: #213544;
+}
+.fold-workspace button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.fold-workspace button:focus-visible,
+.fold-workspace input:focus-visible,
+.fold-workspace select:focus-visible,
+.fold-workspace textarea:focus-visible {
+  outline: 2px solid #89d9c0;
+  outline-offset: 3px;
+}
+.fold-workspace .icon-button {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  padding: 7px;
+}
+.fold-workspace button.primary {
+  background: #86d4bd;
+  color: #0b2c29;
+  border-color: #86d4bd;
+  font-weight: 600;
+}
+.fold-workspace button.primary:hover:not(:disabled) {
+  background: #a5e5d1;
+}
+.fold-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 16px 22px;
+  border-bottom: 1px solid #293b49;
+  flex: none;
+}
+.fold-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+.fold-header p {
+  margin: 4px 0 0;
+  color: #97a9b7;
+  font-size: 12px;
+}
+.fold-badge {
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #88c9b6;
+  border: 1px solid #335648;
+  border-radius: 20px;
+  padding: 3px 7px;
+  font-weight: 500;
+}
+.fold-edit-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+.fold-library {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 22px;
+  border-bottom: 1px solid #293b49;
+  flex: none;
+  flex-wrap: wrap;
+}
+.fold-library-spacer {
+  flex: 1;
+}
+.fold-workspace input:not([type='range']):not([type='file']),
+.fold-workspace select,
+.fold-workspace textarea {
+  background: #0b1722;
+  border: 1px solid #2a3b49;
+  border-radius: 7px;
+  color: #dbe6ed;
+  font: inherit;
+  padding: 9px 11px;
+  min-width: 0;
+  max-width: 100%;
+}
+.fold-title-field {
+  flex: 0 1 220px;
+  min-width: 120px;
+}
+.fold-title-field input {
+  width: 100%;
+  font-weight: 600 !important;
+}
+.fold-library select {
+  max-width: 175px;
+}
+.fold-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 330px;
+  flex: 1;
+  min-height: 0;
+}
+.fold-stage {
+  position: relative;
+  background: #0b141e;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.fold-stage canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+.fold-stage-top {
+  position: absolute;
+  top: 20px;
+  left: 22px;
+  right: 22px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  pointer-events: none;
+}
+.fold-paper-status {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-shadow: 0 1px 4px #000;
+}
+.fold-paper-status strong {
+  font-size: 22px;
+  font-weight: 500;
+}
+.fold-paper-status span {
+  font-size: 12px;
+  color: #9baebb;
+}
+.fold-camera-actions {
+  display: flex;
+  gap: 6px;
+  pointer-events: auto;
+}
+.fold-camera-actions button {
+  background: #101d2bdd;
+  min-height: 32px;
+  font-size: 12px;
+}
+.fold-camera-actions button[aria-pressed='true'] {
+  background: #86d4bd;
+  color: #102c29;
+  border-color: #86d4bd;
+}
+.fold-stage-bottom {
+  position: absolute;
+  bottom: 16px;
+  left: 22px;
+  right: 22px;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #8da1b0;
+  font-size: 12px;
+}
+.fold-stage-bottom span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.fold-stage-bottom i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #b6d4c4;
+}
+.fold-stage-bottom i:nth-of-type(2) {
+  background: #e1c19b;
+  margin-left: 9px;
+}
+.fold-stage-bottom p {
+  margin: 0;
+  text-align: right;
+}
+.fold-controls {
+  border-left: 1px solid #293b49;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.fold-section {
+  padding: 18px;
+  border-bottom: 1px solid #293b49;
+}
+.fold-section h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+}
+.fold-section-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+.fold-section-title > span {
+  font-size: 12px;
+  color: #95a7b5;
+}
+.fold-workspace fieldset {
+  padding: 0;
+  margin: 0;
+  border: 0;
+  min-width: 0;
+}
+.fold-section label {
+  display: block;
+  color: #a9bac7;
+  font-size: 12px;
+  margin-bottom: 14px;
+}
+.fold-section label > select,
+.fold-section textarea {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  font-size: 13px;
+}
+.fold-section textarea {
+  resize: vertical;
+  min-height: 64px;
+}
+.fold-hint {
+  color: #95a7b5;
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 8px 0 12px;
+}
+.fold-slider-label output {
+  float: right;
+  color: #dce9ef;
+}
+.fold-workspace input[type='range'] {
+  width: 100%;
+  height: 20px;
+  accent-color: #86d4bd;
+  margin: 8px 0;
+  cursor: pointer;
+}
+.fold-confirm {
+  display: flex;
+  gap: 8px;
+}
+.fold-confirm .primary {
+  flex: 1;
+}
+.fold-workspace .fold-add-view {
+  margin-top: 10px;
+  width: 100%;
+  background: transparent;
+  color: #b1c3cf;
+}
+.fold-playback {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.fold-play {
+  flex: 1;
+}
+.fold-timeline ol {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 14px;
+  max-height: 245px;
+  overflow: auto;
+}
+.fold-timeline li {
+  margin: 0;
+  padding: 0;
+}
+.fold-timeline li button {
+  display: flex;
+  width: 100%;
+  text-align: left;
+  justify-content: flex-start;
+  white-space: normal;
+  border: 0;
+  background: transparent;
+  padding: 10px 8px;
+}
+.fold-timeline li button.is-current {
+  background: #1e3a38;
+}
+.fold-timeline li button > span {
+  width: 25px;
+  height: 25px;
+  border: 1px solid #40535c;
+  border-radius: 50%;
+  font-size: 12px;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.fold-timeline li button > div {
+  min-width: 0;
+  font-size: 12px;
+}
+.fold-timeline small {
+  display: block;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #9ab0bb;
+  margin-top: 4px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  max-width: 212px;
+}
+.fold-exposed p {
+  color: #aabac6;
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.fold-exposed strong {
+  display: block;
+  color: #d0dde4;
+  font-weight: 500;
+}
+.fold-limitation {
+  color: #8599a7;
+  padding: 16px 18px;
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.fold-message,
+.fold-video-progress {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 22px;
+  background: #16352f;
+  color: #c3e9db;
+  font-size: 13px;
+  flex: none;
+}
+.fold-message.is-error {
+  background: #3b2827;
+  color: #f4c3b6;
+}
+.fold-message > button {
+  margin-left: auto;
+  min-height: 24px;
+  height: 24px;
+  border: 0;
+  background: transparent;
+}
+.fold-video-progress progress {
+  flex: 1;
+  accent-color: #89d9c0;
+}
+.fold-graphics-error {
+  position: absolute;
+  inset: 30% 12%;
+  padding: 22px;
+  border: 1px solid #945f54;
+  border-radius: 10px;
+  background: #251b1cee;
+  color: #ffd6ca;
+  line-height: 1.6;
+  height: fit-content;
+}
+@media (max-width: 850px) {
+  .fold-header {
+    padding: 12px;
+    gap: 12px;
+  }
+  .fold-header h2 {
+    font-size: 16px;
+    gap: 8px;
+  }
+  .fold-header p {
+    display: none;
+  }
+  .fold-library {
+    padding: 10px 12px;
+    gap: 6px;
+  }
+  .fold-library-spacer {
+    display: none;
+  }
+  .fold-title-field {
+    flex: 1 1 150px;
+  }
+  .fold-library select {
+    max-width: 145px;
+  }
+  .fold-body {
+    grid-template-columns: minmax(0, 1fr) 290px;
+  }
+  .fold-section {
+    padding: 14px;
+  }
+  .fold-stage-top {
+    left: 12px;
+    right: 12px;
+    top: 12px;
+  }
+  .fold-stage-bottom {
+    left: 12px;
+    right: 12px;
+  }
+  .fold-stage-bottom p {
+    display: none;
+  }
+}
+@media (max-width: 620px) {
+  .fold-body {
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+  }
+  .fold-stage {
+    flex: none;
+    height: 48vh;
+    min-height: 280px;
+  }
+  .fold-controls {
+    overflow: visible;
+    border-left: 0;
+    border-top: 1px solid #293b49;
+    scrollbar-gutter: auto;
+  }
+  .fold-header h2 {
+    font-size: 14px;
+  }
+  .fold-badge {
+    display: none;
+  }
+  .fold-edit-actions {
+    gap: 3px;
+  }
+  .fold-header {
+    gap: 8px;
+  }
+  .fold-workspace button {
+    font-size: 12px;
+  }
+  .fold-library {
+    gap: 5px;
+  }
+  .fold-library select {
+    max-width: 140px;
+  }
+  .fold-library button {
+    padding: 6px 9px;
+  }
+  .fold-section {
+    padding: 16px;
+  }
+  .fold-timeline small {
+    max-width: 75vw;
+  }
+  .fold-message,
+  .fold-video-progress {
+    padding: 10px 12px;
+  }
+  .fold-video-progress progress {
+    max-width: 60px;
+  }
+}
+/* Paper-first workspace. Technical controls and recordings are optional drawers. */
+.fold-header {
+  padding: 12px 18px;
+  gap: 14px;
+}
+.fold-heading {
+  min-width: 0;
+}
+.fold-heading > span {
+  display: block;
+  margin-top: 3px;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #90a6b6;
+  font-size: 12px;
+}
+.fold-main-actions,
+.fold-secondary-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.fold-main-actions {
+  margin-left: auto;
+}
+.fold-secondary-actions {
+  border-left: 1px solid #30404e;
+  padding-left: 12px;
+}
+.fold-secondary-actions small {
+  font-size: 11px;
+  color: #85d1b9;
+}
+.fold-body {
+  grid-template-columns: minmax(0, 1fr);
+}
+.fold-body.has-panel {
+  grid-template-columns: minmax(0, 1fr) 320px;
+}
+.fold-stage canvas {
+  cursor: grab;
+}
+.fold-panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid #293b49;
+}
+.fold-panel-heading h3 {
+  font-size: 14px;
+  margin: 0;
+}
+.fold-paper-actions {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  max-width: calc(100% - 24px);
+  padding: 8px 10px;
+  border: 1px solid #334957;
+  border-radius: 13px;
+  background: #13232eea;
+  box-shadow: 0 8px 28px #0004;
+}
+.fold-paper-actions > span {
+  font-size: 13px;
+  color: #a6bbc7;
+  white-space: nowrap;
+  padding: 0 4px;
+}
+.fold-paper-actions:has(.fold-action-prompt) {
+  border-color: transparent;
+  background: #10202bc9;
+  box-shadow: none;
+  pointer-events: none;
+}
+.fold-paper-actions select {
+  font-size: 12px;
+  max-width: 180px;
+}
+.fold-layer-options {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 5px;
+  flex-basis: 100%;
+}
+.fold-layer-options button {
+  font-size: 12px;
+}
+.fold-layer-options button[aria-pressed='true'] {
+  color: #102c29;
+  background: #86d4bd;
+  border-color: #86d4bd;
+}
+.fold-paper-actions:has(.fold-layer-options) {
+  flex-wrap: wrap;
+  width: max-content;
+  max-width: calc(100% - 32px);
+}
+.fold-menu-overlay {
+  position: fixed;
+  inset: 0;
+  background: #03091080;
+  z-index: 210;
+}
+.fold-method-menu {
+  position: fixed;
+  z-index: 211;
+  top: 72px;
+  right: 18px;
+  width: 310px;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100dvh - 96px);
+  overflow: auto;
+  padding: 18px;
+  border: 1px solid #354a58;
+  border-radius: 13px;
+  background: #142330;
+  color: #dae5ed;
+  box-shadow: 0 16px 60px #0008;
+}
+.fold-method-menu h2 {
+  font-size: 16px;
+  margin: 0;
+}
+.fold-method-menu label {
+  display: block;
+  font-size: 12px;
+  color: #a6bac7;
+  margin-bottom: 14px;
+}
+.fold-method-menu input,
+.fold-method-menu select {
+  display: block;
+  margin-top: 6px;
+  width: 100%;
+  background: #0c1822;
+  border: 1px solid #324856;
+  border-radius: 7px;
+  color: #dce9ef;
+  padding: 10px;
+  font: inherit;
+  font-size: 14px;
+}
+.fold-method-menu > button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  justify-content: flex-start;
+  min-height: 40px;
+  padding: 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #dce9ef;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+.fold-method-menu > button:hover:not(:disabled) {
+  background: #243b49;
+}
+.fold-method-menu button:disabled {
+  opacity: 0.4;
+}
+.fold-method-menu hr {
+  border: 0;
+  border-top: 1px solid #324856;
+  margin: 9px 0;
+}
+.fold-method-menu .icon-button {
+  background: transparent;
+  border: 0;
+  color: inherit;
+}
+.fold-method-menu :focus-visible {
+  outline: 2px solid #86d4bd;
+  outline-offset: 2px;
+}
+@media (max-width: 850px) {
+  .fold-heading > span {
+    max-width: 140px;
+  }
+  .fold-heading h2 {
+    font-size: 14px;
+  }
+  .fold-header {
+    gap: 8px;
+  }
+  .fold-main-actions > button span,
+  .fold-secondary-actions > button span {
+    display: none;
+  }
+  .fold-secondary-actions {
+    padding-left: 7px;
+    gap: 4px;
+  }
+}
+@media (max-width: 620px) {
+  .fold-header {
+    flex-wrap: wrap;
+    padding: 10px 12px;
+  }
+  .fold-heading {
+    flex: 1;
+  }
+  .fold-heading > span {
+    max-width: 200px;
+  }
+  .fold-main-actions {
+    margin-left: 0;
+  }
+  .fold-secondary-actions {
+    border: 0;
+    margin-left: auto;
+  }
+  .fold-main-actions > button span {
+    display: none;
+  }
+  .fold-body,
+  .fold-body.has-panel {
+    position: relative;
+    display: block;
+    overflow: hidden;
+  }
+  .fold-stage {
+    height: 100%;
+    min-height: 0;
+  }
+  .fold-controls {
+    position: absolute;
+    inset: 18% 0 0;
+    background: #101c28;
+    z-index: 4;
+    overflow: auto;
+    border-top: 1px solid #38525e;
+    border-radius: 15px 15px 0 0;
+    box-shadow: 0 -8px 30px #0005;
+  }
+  .fold-panel-heading {
+    position: sticky;
+    top: 0;
+    background: #101c28;
+    z-index: 1;
+  }
+  .fold-paper-actions {
+    bottom: 22px;
+    gap: 5px;
+    flex-wrap: wrap;
+    width: max-content;
+  }
+  .fold-paper-actions > span {
+    font-size: 12px;
+  }
+  .fold-paper-actions button {
+    font-size: 13px;
+    min-height: 40px;
+  }
+  .fold-paper-actions select {
+    max-width: 145px;
+  }
+}
+@media (max-width: 620px) {
+  .fold-heading {
+    flex: 1 1 calc(100% - 120px);
+  }
+  .fold-heading h2 {
+    white-space: nowrap;
+  }
+  .fold-heading > span {
+    max-width: 250px;
+  }
+  .fold-stage canvas {
+    position: absolute;
+    top: 55px;
+    height: calc(100% - 150px);
+  }
+}

@@ -9,7 +9,8 @@ test('repeated flourishes preserve source placement, bulk controls, overrides, a
   await ready(page);
   await tab(page, 'Content');
   await page.getByText('Defaults', { exact: true }).click();
-  await page.getByRole('checkbox', { name: 'Two-cell images', exact: true }).check();
+  await page.getByRole('combobox', { name: 'Default image layout', exact: true }).click();
+  await page.getByRole('option', { name: 'Full two cells', exact: true }).click();
   await applied(page);
   const original = await ready(page, request);
   await page.getByText('Repeated images', { exact: true }).click();
@@ -25,7 +26,7 @@ test('repeated flourishes preserve source placement, bulk controls, overrides, a
   });
   expect(Math.abs(rowCenters.label - rowCenters.checkbox)).toBeLessThan(2);
   await expect(page.getByText(/Use as illustrations|Adjust all 20 images/)).toHaveCount(0);
-  await page.getByLabel('Repeated images treatment', { exact: true }).selectOption('flourish');
+  await page.getByLabel('Repeated images image layout', { exact: true }).selectOption('flourish');
   await expect(preview(page)).toHaveAttribute('data-render-id', original.id);
   await applied(page);
   const compact = await ready(page, request);
@@ -33,7 +34,7 @@ test('repeated flourishes preserve source placement, bulk controls, overrides, a
   expect(compact.result.coverage.complete).toBe(true);
   expect(compact.result.coverage.overflows).toBe(0);
   expect(compact.result.imageRegions).toHaveLength(20);
-  await page.getByLabel('Repeated images treatment', { exact: true }).selectOption('image');
+  await page.getByLabel('Repeated images image layout', { exact: true }).selectOption('two-cells');
   await expect(preview(page)).toHaveAttribute('data-render-id', compact.id);
   await applied(page);
   const illustrations = await ready(page, request);
@@ -41,7 +42,7 @@ test('repeated flourishes preserve source placement, bulk controls, overrides, a
   expect(Object.values(illustrations.settings.imageTreatments).every((t: any) => t.kind === 'image')).toBe(
     true,
   );
-  await page.getByLabel('Repeated images treatment', { exact: true }).selectOption('flourish');
+  await page.getByLabel('Repeated images image layout', { exact: true }).selectOption('flourish');
   await applied(page);
   expect((await ready(page, request)).id).toBe(compact.id);
   const doc = await (await request.get(`/api/documents/${compact.documentId}`)).json();
@@ -66,7 +67,7 @@ test('repeated flourishes preserve source placement, bulk controls, overrides, a
   expect(changed.result.imageRegions[0].width).toBeCloseTo(((18 * 27) / 14) * 0.75, 1);
   expect(changed.result.imageRegions[1].width).toBeCloseTo(18, 1);
   await page.locator('.matching-images').getByText('20 matching images', { exact: true }).click();
-  await page.getByRole('button', { name: 'Apply treatment to all 20', exact: true }).click();
+  await page.getByRole('button', { name: 'Apply layout to all 20', exact: true }).click();
   const groupCheckbox = page.getByRole('checkbox', { name: /^Include all 20 occurrences of repeated image/ });
   await expect(groupCheckbox).toBeChecked();
   await groupCheckbox.uncheck();
@@ -146,5 +147,7 @@ test('repeated image summary includes exact matches with mixed structural neighb
   await ready(page);
   await tab(page, 'Content');
   await page.getByText('Repeated images', { exact: true }).click();
-  await expect(page.locator('.repeated-image').getByText('20 matching images', { exact: true })).toBeVisible();
+  await expect(
+    page.locator('.repeated-image').getByText('20 matching images', { exact: true }),
+  ).toBeVisible();
 });

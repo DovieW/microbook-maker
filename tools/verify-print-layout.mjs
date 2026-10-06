@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import puppeteer from 'puppeteer';
+import { imageLayoutForBlock } from '../packages/core/src/index.ts';
 
 export async function verifyPrintLayout(html, directory, job) {
   const browser = await puppeteer.launch({
@@ -37,7 +38,7 @@ export async function verifyPrintLayout(html, directory, job) {
           index: cells.indexOf(group.closest('.cell')),
           centerX: Math.abs(a.x + a.width / 2 - b.x - b.width / 2),
           centerY: Math.abs(a.y + a.height / 2 - b.y - b.height / 2),
-          aspect: Math.abs(a.width / a.height - image.naturalHeight / image.naturalWidth),
+          aspect: Math.abs(a.width / a.height - image.naturalWidth / image.naturalHeight),
           width: b.width,
           bounds:
             a.top >= b.top - 0.1 &&
@@ -77,7 +78,7 @@ export async function verifyPrintLayout(html, directory, job) {
     if (audit.partStyle)
       assert.equal(audit.partStyle, job.settings.partHeadingStyle === 'upright' ? 'normal' : 'italic');
     const expectedSpreads = audit.imageIds.filter(
-      (id) => (job.settings.imageCellSpans?.[id] ?? (job.settings.twoCellImages ? 2 : 1)) === 2,
+      (id) => ['two-cells', 'four-cells'].includes(imageLayoutForBlock(job.settings, id)),
     );
     assert.deepEqual(
       audit.spreads.map((s) => s.blockId),
@@ -86,16 +87,18 @@ export async function verifyPrintLayout(html, directory, job) {
     if (expectedSpreads.length) {
       assert.equal(audit.spreads.length, expectedSpreads.length);
       for (const spread of audit.spreads) {
-        const first = job.result.cells[spread.index],
-          second = job.result.cells[spread.index + 1];
-        assert.equal(first.span, 2);
-        assert.equal(second.continuationOf, first.index);
-        assert.equal(first.page, second.page);
-        assert.ok(first.index % 4 <= 2);
-        assert.equal(second.text, '');
+        const first = job.result.cells[spread.index];
+        const span = imageLayoutForBlock(job.settings, spread.blockId) === 'four-cells' ? 4 : 2;
+        const continuations = job.result.cells.filter((cell) => cell.continuationOf === first.index);
+        assert.equal(first.span, span);
+        assert.equal(continuations.length, span - 1);
+        for (const cell of continuations) {
+          assert.equal(first.page, cell.page);
+          assert.equal(cell.text, '');
+        }
         assert.ok(spread.centerX < 0.1 && spread.centerY < 0.1, JSON.stringify(spread));
         assert.ok(spread.aspect < 0.03 && spread.bounds);
-        assert.deepEqual(spread.rotation, [0, -1, 1, 0]);
+        assert.deepEqual(spread.rotation, [1, 0, 0, 1]);
         assert.equal(spread.filter, 'none');
       }
     } else assert.equal(audit.spreads.length, 0);

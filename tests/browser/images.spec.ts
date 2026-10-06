@@ -42,10 +42,7 @@ test('image inclusion applies, persists, restores cached bytes and stays with it
   await expect(page.locator('.image-choice')).toHaveCount(4);
 });
 
-test('selected image controls override and reset the global one/two-cell layout', async ({
-  page,
-  request,
-}) => {
+test('selected image controls override and reset the book layout', async ({ page, request }) => {
   await page.goto('/');
   await upload(page, 'two-cell-images.epub');
   const original = await ready(page, request);
@@ -55,8 +52,8 @@ test('selected image controls override and reset the global one/two-cell layout'
     j.result.cells.find((c: any) => c.blockIds.includes(id) && c.continuationOf === undefined)?.span || 1;
   await tab(page, 'Content');
   await page.getByRole('button', { name: 'Image 1 details', exact: true }).click();
-  await page.getByLabel('Two cells for image 1', { exact: true }).check();
-  await expect(page.getByLabel('Two cells for image 2', { exact: true })).toHaveCount(0);
+  await page.getByRole('combobox', { name: 'Image layout', exact: true }).click();
+  await page.getByRole('option', { name: 'Full two cells', exact: true }).click();
   await applied(page);
   const mixed = await ready(page, request);
   expect(span(mixed, images[0].id)).toBe(2);
@@ -64,11 +61,15 @@ test('selected image controls override and reset the global one/two-cell layout'
   await page.reload();
   await ready(page);
   await tab(page, 'Content');
-  await expect(page.getByLabel('Two cells for image 1', { exact: true })).toBeChecked();
+  await expect(page.getByRole('combobox', { name: 'Image layout', exact: true })).toHaveText(
+    'Full two cells',
+  );
   await page.locator('.image-defaults summary').click();
-  await page.getByLabel('Two-cell images', { exact: true }).check();
+  await page.getByRole('combobox', { name: 'Default image layout', exact: true }).click();
+  await page.getByRole('option', { name: 'Full two cells', exact: true }).click();
   await page.getByRole('button', { name: 'Image 2 details', exact: true }).click();
-  await page.getByLabel('Two cells for image 2', { exact: true }).uncheck();
+  await page.getByRole('combobox', { name: 'Image layout', exact: true }).click();
+  await page.getByRole('option', { name: 'Inline', exact: true }).click();
   await applied(page);
   const wide = await ready(page, request);
   expect(span(wide, images[0].id)).toBe(2);
@@ -90,10 +91,10 @@ test('selected image controls override and reset the global one/two-cell layout'
   }
   await tab(page, 'Content');
   await page.getByLabel('Include image 2', { exact: true }).uncheck();
-  await expect(page.getByLabel('Two cells for image 2', { exact: true })).toBeDisabled();
+  await expect(page.getByRole('combobox', { name: 'Image layout', exact: true })).toHaveText('Inline');
   await page.getByLabel('Include image 2', { exact: true }).check();
-  await expect(page.getByLabel('Two cells for image 2', { exact: true })).not.toBeChecked();
-  await page.getByRole('button', { name: 'Use book setting for image 2', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Image layout', exact: true }).click();
+  await page.getByRole('option', { name: 'Use book default', exact: true }).click();
   await applied(page);
   expect(span(await ready(page, request), images[1].id)).toBe(2);
   await page.screenshot({
@@ -204,7 +205,7 @@ test('rotation previews independently and applies to the PDF with swapped dimens
   const modal = page.getByRole('dialog', { name: 'Image preview' });
   await expect(
     modal.getByRole('region', { name: 'Original color preview', exact: true }).locator('img'),
-  ).not.toHaveAttribute('src', /rotation=/);
+  ).toHaveAttribute('src', /rotation=90/);
   await expect(
     modal.getByRole('region', { name: 'Laser optimized preview', exact: true }).locator('img'),
   ).toHaveAttribute('src', /rotation=90/);

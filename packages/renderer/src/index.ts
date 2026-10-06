@@ -441,7 +441,7 @@ export async function render(
           ? [
               {
                 code: 'image-row-break',
-                message: `Two-cell illustrations leave ${cells.filter((cell) => cell.blank).length} row-end cells empty to keep each image together.`,
+                message: `Full-cell illustrations leave ${cells.filter((cell) => cell.blank).length} cells empty to keep each image together.`,
               },
             ]
           : []),

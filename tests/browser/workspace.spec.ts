@@ -101,7 +101,7 @@ test('Contents separates search, jumps and inclusion; mobile drawer closes on na
     page
       .locator('.contents-row')
       .filter({ has: page.getByRole('checkbox', { name: 'Include Home', exact: true }) }),
-  ).toContainText('Not in preview');
+  ).toContainText('Excluded');
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await tab(page, 'Content');

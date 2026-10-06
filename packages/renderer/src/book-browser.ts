@@ -8,6 +8,8 @@ import {
   fontStacks,
   headingLabel,
   normalizedText,
+  imageLayoutForBlock,
+  imageRotationForBlock,
 } from '@microbook/core';
 
 let activeDocument = '';
@@ -64,11 +66,11 @@ async function layoutBook(payload: {
         index >= insertion &&
         index < openingEnd &&
         block.kind === 'image' &&
-        s.imageTreatments[block.id]?.kind !== 'flourish' &&
-        (s.imageCellSpans[block.id] ?? (s.twoCellImages ? 2 : 1)) === 2,
+        ['two-cells', 'four-cells'].includes(imageLayoutForBlock(s, block.id)),
     );
     if (candidate > insertion) {
-      const count = selected[candidate + 1]?.captionFor === selected[candidate].id ? 2 : 1;
+      let count = 1;
+      while (selected[candidate + count]?.captionFor === selected[candidate].id) count++;
       selected.splice(insertion, 0, ...selected.splice(candidate, count));
     }
   }
@@ -146,15 +148,14 @@ async function layoutBook(payload: {
     element.append(line, details);
     return { element, count, details };
   };
-  function nextCell() {
+  function createCell(index: number) {
     reportProgress();
-    current++;
-    if (current % 16 === 0) {
+    if (index % 16 === 0) {
       page = document.createElement('div');
       page.className = 'page';
       document.body.append(page);
     }
-    const slot = slots[current % 16];
+    const slot = slots[index % 16];
     const x = margin + (slot % 4) * cellWidth;
     const y = margin + Math.floor(slot / 4) * cellHeight;
     const cell = document.createElement('div');
@@ -185,28 +186,28 @@ async function layoutBook(payload: {
     // through this container moves the whole 100%-height flow below its clipping edge.
     flow.style.display = 'flow-root';
     cell.dataset.slot = String(slot);
-    const needsSheetHeader = s.rich.sheetHeaders === 'every' && current > 0 && current % 32 === 0;
+    const needsSheetHeader = s.rich.sheetHeaders === 'every' && index > 0 && index % 32 === 0;
     const needsPositionHeader =
       s.readingOrder === 'quadrants' ? [0, 2, 8, 10].includes(slot) : slot % 4 === 0;
     if (needsSheetHeader) {
       const sheetHeader = makeSheetHeader();
-      sheetHeaders.set(current, sheetHeader);
+      sheetHeaders.set(index, sheetHeader);
       flow.append(sheetHeader.element);
-    } else if (s.positionHeaders && current > 0 && needsPositionHeader) {
+    } else if (s.positionHeaders && index > 0 && needsPositionHeader) {
       const position = document.createElement('span');
       position.className = 'cell-position';
       // A following layout pass fits the final label when its measured width changes.
-      position.textContent = payload.positionLabels?.[current] || '0a / 0 · 0%';
-      positionHeaders[current] = position;
+      position.textContent = payload.positionLabels?.[index] || '0a / 0 · 0%';
+      positionHeaders[index] = position;
       flow.append(position);
     }
     cell.append(flow);
     page.append(cell);
     flows.push(flow);
     maps.push({
-      index: current,
+      index,
       slot,
-      page: Math.floor(current / 16),
+      page: Math.floor(index / 16),
       x: x * 0.75,
       y: y * 0.75,
       width: cellWidth * 0.75,
@@ -215,6 +216,27 @@ async function layoutBook(payload: {
       text: '',
     });
     return flow;
+  }
+  function ensureCellsThrough(index: number) {
+    while (maps.length <= index) createCell(maps.length);
+  }
+  function nextCell() {
+    do {
+      current++;
+      ensureCellsThrough(current);
+    } while (maps[current].continuationOf !== undefined);
+    return flows[current];
+  }
+  function spreadIndices(index: number, count: 2 | 4): number[] | undefined {
+    const slot = slots[index % 16];
+    if (count === 2 && (s.readingOrder === 'quadrants' ? slot % 2 === 1 : slot % 4 === 3)) return;
+    // Four-cell images occupy one physical quadrant, regardless of reading order.
+    if (count === 4 && (slot % 2 !== 0 || Math.floor(slot / 4) % 2 !== 0)) return;
+    const physical = count === 4 ? [slot, slot + 1, slot + 4, slot + 5] : [slot, slot + 1];
+    const base = Math.floor(index / 16) * 16;
+    const indices = physical.map((part) => base + slots.indexOf(part));
+    if (indices.some((part) => part < index || maps[part]?.continuationOf !== undefined)) return;
+    return indices;
   }
   let flow = nextCell();
   const header = document.createElement('div');
@@ -601,16 +623,27 @@ async function layoutBook(payload: {
       block.kind === 'image' &&
       s.rich.openingImageOrder === 'text-first' &&
       !pendingLabels.length &&
-      s.imageTreatments[block.id]?.kind !== 'flourish' &&
-      (s.imageCellSpans[block.id] ?? (s.twoCellImages ? 2 : 1)) === 2
+      ['cell', 'two-cells', 'four-cells'].includes(imageLayoutForBlock(s, block.id))
     ) {
       const occupied = Array.from(flow.children).some((child) => !child.classList.contains('cell-position'));
-      const targetSlot = slots[(current + (occupied ? 1 : 0)) % 16];
-      const cannotStartSpread = s.readingOrder === 'quadrants' ? targetSlot % 2 === 1 : targetSlot % 4 === 3;
-      const captionCount = selected[blockIndex + 1]?.captionFor === block.id ? 1 : 0;
+      let targetIndex = current + (occupied ? 1 : 0);
+      while (maps[targetIndex]?.continuationOf !== undefined) targetIndex++;
+      const count = imageLayoutForBlock(s, block.id) === 'four-cells' ? 4 : 2;
+      const layout = imageLayoutForBlock(s, block.id);
+      const lastContent = flow.lastElementChild;
+      const remaining =
+        flow.getBoundingClientRect().bottom -
+        (lastContent?.getBoundingClientRect().bottom ?? flow.getBoundingClientRect().top);
+      const cannotStartSpread =
+        layout === 'cell'
+          ? occupied && remaining > s.fontSizePx * s.lineHeight * 3
+          : !spreadIndices(targetIndex, count);
+      let captionCount = 0;
+      while (selected[blockIndex + 1 + captionCount]?.captionFor === block.id) captionCount++;
       const nextText = selected.findIndex(
         (candidate, index) =>
           index > blockIndex + captionCount &&
+          !selected.slice(blockIndex + 1, index + 1).some((b) => b.kind === 'heading') &&
           !candidate.pageLabel &&
           !candidate.captionFor &&
           candidate.kind !== 'image' &&
@@ -647,8 +680,9 @@ async function layoutBook(payload: {
       const img = document.createElement('img');
       const output = s.imageOutputOverrides?.[block.id] ??
         s.imageOutput ?? { mode: 'original' as const, strength: 'gentle' as const };
-      const imageUrl = `${assetBase}/${encodeURIComponent(asset.id)}${imageOutputQuery(output, s.imageRotations?.[block.id] ?? 0)}`;
-      if (output.mode === 'original' && !s.imageRotations?.[block.id]) img.src = imageUrl;
+      const imageRotation = imageRotationForBlock(s, block.id);
+      const imageUrl = `${assetBase}/${encodeURIComponent(asset.id)}${imageOutputQuery(output, imageRotation)}`;
+      if (output.mode === 'original' && !imageRotation) img.src = imageUrl;
       else {
         // Embed the exact cached output. Reusing an image URL with different output
         // queries can fail decode in the warm Chromium print page.
@@ -673,9 +707,19 @@ async function layoutBook(payload: {
       }
       if (img.naturalWidth * img.naturalHeight > 40_000_000)
         throw new Error('An image exceeds the 40 megapixel limit');
-      const caption =
-        selected[blockIndex + 1]?.captionFor === block.id ? selected[blockIndex + 1] : undefined;
-      const captionNode = caption ? makeBlock(caption) : undefined;
+      const captions: Block[] = [];
+      for (let i = blockIndex + 1; selected[i]?.captionFor === block.id; i++) captions.push(selected[i]);
+      const captionNode = captions.length ? document.createElement('div') : undefined;
+      const captionNodes = captions.map(makeBlock);
+      captionNode?.append(...captionNodes);
+      const registerCaptions = () => {
+        for (let i = 0; i < captions.length; i++) {
+          const text = captionNodes[i].textContent || '';
+          expectedCharacters += text.length;
+          register(captions[i], text);
+          placedCaptions.add(captions[i].id);
+        }
+      };
       const group = document.createElement('div');
       group.className = 'image-group';
       group.dataset.block = block.id;
@@ -683,12 +727,14 @@ async function layoutBook(payload: {
       group.append(...labels, img);
       if (captionNode) group.append(captionNode);
       const treatment = s.imageTreatments[block.id];
-      if (treatment?.kind === 'flourish') {
+      const layout = imageLayoutForBlock(s, block.id);
+      if (layout === 'flourish') {
+        const flourish = treatment?.kind === 'flourish' ? treatment : { widthEm: 4, gapEm: 0.25 };
         group.classList.add('flourish');
-        group.style.padding = `${treatment.gapEm * s.fontSizePx}px 0`;
+        group.style.padding = `${flourish.gapEm * s.fontSizePx}px 0`;
         const sizeFlourish = () => {
           const scale = Math.min(
-            (treatment.widthEm * s.fontSizePx) / img.naturalWidth,
+            (flourish.widthEm * s.fontSizePx) / img.naturalWidth,
             (flow.clientWidth - 2) / img.naturalWidth,
             (s.fontSizePx * 3) / img.naturalHeight,
           );
@@ -713,28 +759,20 @@ async function layoutBook(payload: {
         if (!fit(group)) throw new Error(`Flourish cannot fit: ${block.source}`);
         registerLabels();
         register(block, '');
-        if (caption && captionNode?.parentElement === group) {
-          const captionText = captionNode.textContent || '';
-          expectedCharacters += captionText.length;
-          register(caption, captionText);
-          placedCaptions.add(caption.id);
-        }
+        if (captionNode?.parentElement === group) registerCaptions();
         continue;
       }
-      if ((s.imageCellSpans[block.id] ?? (s.twoCellImages ? 2 : 1)) === 2) {
-        // A spread owns two neighboring physical slots on the same printed row.
-        // Keep the source map at 16 slots/side; either slot previews the complete image.
-        // Moving past an invalid final column can land on a generated sheet header.
-        // Recheck both constraints until the chosen owner is empty and has an adjacent
-        // physical continuation in the selected reading order.
+      if (layout === 'two-cells' || layout === 'four-cells') {
+        const count = layout === 'four-cells' ? 4 : 2;
+        // Reserve physical slots without consuming intervening text cells in row order.
+        let indices: number[] | undefined;
         for (;;) {
           if (Array.from(flow.children).some((child) => !child.classList.contains('cell-position'))) {
             flow = nextCell();
             continue;
           }
-          const slot = maps[current].slot ?? current % 16;
-          const cannotStartSpread = s.readingOrder === 'quadrants' ? slot % 2 === 1 : slot % 4 === 3;
-          if (!cannotStartSpread) break;
+          indices = spreadIndices(current, count);
+          if (indices) break;
           maps[current].blank = true;
           flow = nextCell();
         }
@@ -742,21 +780,28 @@ async function layoutBook(payload: {
         const owner = flow;
         imagePosition(owner);
         const cell = owner.parentElement!;
-        const secondFlow = nextCell();
-        const second = current;
-        const secondCell = secondFlow.parentElement!;
+        ensureCellsThrough(Math.max(...indices!));
+        const lastCell = flows[indices!.at(-1)!].parentElement!;
         cell.style.width = `${cellWidth * 2}px`;
-        cell.style.paddingRight = getComputedStyle(secondCell).paddingRight;
-        cell.style.borderRight = secondCell.style.borderRight;
-        secondCell.style.display = 'none';
-        secondCell.dataset.continuation = String(first);
-        maps[first].span = 2;
-        maps[second].continuationOf = first;
-        maps[second].blockIds = [block.id];
-        maps[second].sectionId = block.sectionId;
+        if (count === 4) {
+          cell.style.height = `${cellHeight * 2}px`;
+          cell.style.paddingBottom = getComputedStyle(lastCell).paddingBottom;
+        }
+        cell.style.paddingRight = getComputedStyle(lastCell).paddingRight;
+        cell.style.borderRight = lastCell.style.borderRight;
+        maps[first].span = count;
+        for (const index of indices!.slice(1)) {
+          const continuation = flows[index].parentElement!;
+          continuation.style.display = 'none';
+          continuation.dataset.continuation = String(first);
+          flows[index].replaceChildren();
+          delete positionHeaders[index];
+          maps[index].continuationOf = first;
+          maps[index].blockIds = [block.id];
+          maps[index].sectionId = block.sectionId;
+        }
         group.classList.add('image-spread');
-        // Isolate print fragmentation before rotating: the unrotated box is taller
-        // than a cell and would otherwise fragment at the bottom of a PDF page.
+        // Keep each full image and its caption in one physical print region.
         Object.assign(group.style, {
           position: 'relative',
           width: '100%',
@@ -765,35 +810,39 @@ async function layoutBook(payload: {
         });
         const content = document.createElement('div');
         content.className = 'image-spread-content';
-        // Keep the container within the physical cell. Rotating this tall
-        // container itself makes Chromium fragment it before applying the
-        // transform at page boundaries. Rotate only the atomic image and the
-        // short caption/label boxes instead.
+        // Orientation is already applied to the image asset. Layout must not
+        // rotate it again; previews and printed images share the same choice.
         Object.assign(content.style, {
           position: 'absolute',
           inset: '0',
         });
         const labelsBox = document.createElement('div');
         labelsBox.append(...labels);
+        const legacyTwoCell =
+          count === 2 && !s.imageLayout && !(treatment?.kind === 'image' && treatment.layout);
+        const imageWidth = owner.clientWidth;
         Object.assign(labelsBox.style, {
           position: 'absolute',
-          top: '50%',
-          width: `${owner.clientHeight}px`,
-          transform: 'translate(-50%, -50%) rotate(-90deg)',
+          top: '0',
+          left: '50%',
+          width: `${imageWidth}px`,
+          transform: 'translateX(-50%)',
         });
         Object.assign(img.style, {
           position: 'absolute',
           left: '50%',
           top: '50%',
           margin: '0',
-          transform: 'translate(-50%, -50%) rotate(-90deg)',
+          transform: 'translate(-50%, -50%)',
         });
         if (captionNode)
           Object.assign(captionNode.style, {
             position: 'absolute',
-            top: '50%',
-            width: `${owner.clientHeight}px`,
-            transform: 'translate(-50%, -50%) rotate(-90deg)',
+            top: 'auto',
+            bottom: '0',
+            left: '50%',
+            width: `${imageWidth}px`,
+            transform: 'translateX(-50%)',
             margin: '0',
             textAlign: 'center',
             textAlignLast: 'center',
@@ -805,16 +854,16 @@ async function layoutBook(payload: {
         const size = () => {
           const captionHeight = captionNode?.parentElement === content ? captionNode.offsetHeight : 0;
           const reserve = 2 * Math.max(captionHeight, labelsBox.offsetHeight) + 2;
-          const room = content.clientWidth - reserve;
+          const room = content.clientHeight - reserve;
           if (room < s.fontSizePx) return false;
           const scale =
-            Math.min(1, (content.clientHeight - 2) / img.naturalWidth, room / img.naturalHeight) *
-            s.imageScale;
+            Math.min(
+              legacyTwoCell ? 1 : Infinity,
+              (imageWidth - 2) / img.naturalWidth,
+              room / img.naturalHeight,
+            ) * s.imageScale;
           img.style.width = `${img.naturalWidth * scale}px`;
           img.style.height = `${img.naturalHeight * scale}px`;
-          labelsBox.style.left = `calc(50% - ${(img.naturalHeight * scale) / 2 + labelsBox.offsetHeight / 2 + 1}px)`;
-          if (captionNode)
-            captionNode.style.left = `calc(50% + ${(img.naturalHeight * scale) / 2 + captionHeight / 2 + 1}px)`;
           return true;
         };
         if (!size() && captionNode) captionNode.remove();
@@ -822,16 +871,21 @@ async function layoutBook(payload: {
         current = first;
         registerLabels();
         register(block, '');
-        if (caption && captionNode?.parentElement === content) {
-          const captionText = captionNode.textContent || '';
-          expectedCharacters += captionText.length;
-          register(caption, captionText);
-          placedCaptions.add(caption.id);
-        }
-        current = second;
-        flow = secondFlow;
+        if (captionNode?.parentElement === content) registerCaptions();
+        flow = owner;
         spreadFull = true;
         continue;
+      }
+      while (
+        layout === 'cell' &&
+        Array.from(flow.children).some(
+          (child) =>
+            !child.classList.contains('cell-position') &&
+            !child.classList.contains('sheet-header') &&
+            !child.classList.contains('book-header'),
+        )
+      ) {
+        flow = nextCell();
       }
       flow.append(group);
       const sizeImage = () => {
@@ -852,7 +906,7 @@ async function layoutBook(payload: {
           2;
         if (availableHeight < s.fontSizePx) return false;
         const scale = Math.min(
-          s.imageScale,
+          layout === 'cell' ? Infinity : s.imageScale,
           ((flow.clientWidth - 2) * s.imageScale) / img.naturalWidth,
           (availableHeight * s.imageScale) / img.naturalHeight,
         );
@@ -872,14 +926,10 @@ async function layoutBook(payload: {
         sizeImage();
       } // Long captions continue through the normal paragraph compositor.
       if (!fit(group)) throw new Error(`Illustration cannot fit: ${block.source}`);
+      if (layout === 'cell' && s.fillImageSpace === false) spreadFull = true;
       registerLabels();
       register(block, '');
-      if (caption && captionNode?.parentElement === group) {
-        const captionText = captionNode.textContent || '';
-        expectedCharacters += captionText.length;
-        register(caption, captionText);
-        placedCaptions.add(caption.id);
-      }
+      if (captionNode?.parentElement === group) registerCaptions();
       continue;
     }
     const original = makeBlock(block);

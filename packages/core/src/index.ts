@@ -73,12 +73,19 @@ export const settingsSchema = z
     positionHeaders: z.boolean().default(true),
     sourcePageNumbers: z.boolean().default(false),
     twoCellImages: z.boolean().default(false),
-    imageCellSpans: z.record(z.string().max(200), z.union([z.literal(1), z.literal(2)])).default({}),
+    // Optional so older saved books retain their one/two-cell setting.
+    imageLayout: z.enum(['flourish', 'inline', 'cell', 'two-cells', 'four-cells']).optional(),
+    imageCellSpans: z
+      .record(z.string().max(200), z.union([z.literal(1), z.literal(2), z.literal(4)]))
+      .default({}),
     imageTreatments: z
       .record(
         z.string().max(200),
         z.discriminatedUnion('kind', [
-          z.object({ kind: z.literal('image') }),
+          z.object({
+            kind: z.literal('image'),
+            layout: z.enum(['inline', 'cell', 'two-cells', 'four-cells']).optional(),
+          }),
           z.object({
             kind: z.literal('flourish'),
             widthEm: z.number().min(1).max(12).default(4),
@@ -93,11 +100,13 @@ export const settingsSchema = z
       )
       .default({}),
     imageOutput: imageOutputSchema.default(() => imageOutputSchema.parse({})),
+    imageRotation: z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)]).optional(),
     imageRotations: z
       .record(z.string().max(200), z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)]))
       .default({}),
     imageOutputOverrides: z.record(z.string().max(200), imageOutputSchema).default({}),
     imageScale: z.number().min(0.2).max(1).default(1),
+    fillImageSpace: z.boolean().optional(),
     includeImages: z.boolean().default(true),
     excludedImageIds: z.array(z.string().max(200)).max(10000).default([]),
     marginMm: z.number().min(0).max(12).default(0),
@@ -120,6 +129,40 @@ export const settingsSchema = z
     }
   });
 export type RenderSettings = z.infer<typeof settingsSchema>;
+export type ImageRotation = 0 | 90 | 180 | 270;
+export const imageRotationOptions: readonly (readonly [string, string])[] = [
+  ['0', 'Original'],
+  ['90', '90° right'],
+  ['180', '180°'],
+  ['270', '90° left'],
+];
+export function defaultImageRotation(settings: RenderSettings): ImageRotation {
+  return settings.imageRotation ?? 0;
+}
+export function imageRotationForBlock(settings: RenderSettings, blockId: string): ImageRotation {
+  return settings.imageRotations[blockId] ?? defaultImageRotation(settings);
+}
+export type ImageLayout = 'flourish' | 'inline' | 'cell' | 'two-cells' | 'four-cells';
+export const imageLayoutOptions: readonly (readonly [ImageLayout, string])[] = [
+  ['flourish', 'Flourish'],
+  ['inline', 'Inline'],
+  ['cell', 'Full cell'],
+  ['two-cells', 'Full two cells'],
+  ['four-cells', 'Full four cells'],
+];
+export function defaultImageLayout(settings: RenderSettings): ImageLayout {
+  return settings.imageLayout ?? (settings.twoCellImages ? 'two-cells' : 'inline');
+}
+export function imageLayoutOverride(settings: RenderSettings, blockId: string): ImageLayout | undefined {
+  const treatment = settings.imageTreatments[blockId];
+  if (treatment?.kind === 'flourish') return 'flourish';
+  if (treatment?.kind === 'image' && treatment.layout) return treatment.layout;
+  const span = settings.imageCellSpans[blockId];
+  return span === 4 ? 'four-cells' : span === 2 ? 'two-cells' : span === 1 ? 'inline' : undefined;
+}
+export function imageLayoutForBlock(settings: RenderSettings, blockId: string): ImageLayout {
+  return imageLayoutOverride(settings, blockId) ?? defaultImageLayout(settings);
+}
 export type Mode = RenderSettings['mode'];
 // Retain stored/API identifiers so existing books, exports and preferences still open.
 export const modeLabels: Record<Mode, string> = { classic: 'Basic', book: 'Rich' };
@@ -275,15 +318,21 @@ export interface CellMap {
   ranges?: { blockId: string; start: number; end: number }[];
   readingStart?: number;
   readingEnd?: number;
-  /** A two-cell illustration keeps two physical slots but previews as one region. */
-  span?: 2;
+  /** A full illustration keeps its physical slots but previews as one region. */
+  span?: 2 | 4;
   continuationOf?: number;
   blank?: boolean;
 }
 export function previewRegion(cells: CellMap[], index: number): CellMap | undefined {
   const selected = cells[Math.min(index, cells.length - 1)];
   const first = selected?.continuationOf === undefined ? selected : cells[selected.continuationOf];
-  return first && { ...first, width: first.width * (first.span || 1) };
+  return (
+    first && {
+      ...first,
+      width: first.width * (first.span ? 2 : 1),
+      height: first.height * (first.span === 4 ? 2 : 1),
+    }
+  );
 }
 export interface SourceLocation {
   cell: number;

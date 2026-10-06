@@ -1,14 +1,21 @@
 import { useEffect, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Minus, Plus, X } from 'lucide-react';
-import { imageOutputQuery, imageOutputModes, laserContrastLevels, type ImageOutput } from '@microbook/core';
+import {
+  imageOutputQuery,
+  imageOutputModes,
+  laserContrastLevels,
+  type ImageOutput,
+  type ImageRotation,
+} from '@microbook/core';
 import { ImageRotationControls } from './ImageRotationControls';
 import { IconButton } from './ui';
 export type PreviewImage = {
   src: string;
   blockId: string;
   output: ImageOutput;
-  rotation?: number;
+  rotation?: ImageRotation;
+  rotationOverride?: ImageRotation;
   alt: string;
   title: string;
 };
@@ -39,11 +46,13 @@ export function ImagePreview({
   returnFocus,
   onChoose,
   onRotate,
+  onInheritRotation,
 }: {
   image?: PreviewImage;
   onClose: () => void;
   returnFocus: () => void;
   onRotate?: (rotation: 0 | 90 | 180 | 270) => void;
+  onInheritRotation?: () => void;
   onChoose?: (output: ImageOutput) => void;
 }) {
   const [element, setElement] = useState<HTMLDivElement | null>(null);
@@ -102,7 +111,12 @@ export function ImagePreview({
           </header>
           <div className="image-comparison-toolbar">
             {image && onRotate && (
-              <ImageRotationControls rotation={image.rotation ?? 0} onChange={onRotate} />
+              <ImageRotationControls
+                rotation={image.rotation ?? 0}
+                override={image.rotationOverride}
+                onChange={onRotate}
+                onInherit={onInheritRotation}
+              />
             )}
             {width < 1050 && (
               <label>
@@ -152,8 +166,7 @@ export function ImagePreview({
                 const selected =
                   image.output.mode === mode.value &&
                   (mode.value !== 'laser' || image.output.strength === strength);
-                const src =
-                  image.src + imageOutputQuery(output, mode.value === 'original' ? 0 : (image.rotation ?? 0));
+                const src = image.src + imageOutputQuery(output, image.rotation ?? 0);
                 return (
                   <section
                     key={mode.value}

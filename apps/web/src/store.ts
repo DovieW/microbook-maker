@@ -37,6 +37,7 @@ interface Preferences {
   zoom: number;
   zoomMode: 'fit' | 'custom';
   previewLoading: PreviewLoading;
+  spoilerFree: boolean;
   lastDocumentId?: string;
   documents: Record<string, DocumentPreferences>;
   patch: (value: Partial<Preferences>) => void;
@@ -57,6 +58,7 @@ export const usePreferences = create<Preferences>()(
       zoom: 1,
       zoomMode: 'fit',
       previewLoading: 'smooth',
+      spoilerFree: false,
       documents: {},
       patch: (value) => set(value),
       document: (id, value) =>
@@ -136,6 +138,7 @@ export const usePreferences = create<Preferences>()(
         zoom,
         zoomMode,
         previewLoading,
+        spoilerFree,
         lastDocumentId,
         documents,
       }) => ({
@@ -148,6 +151,7 @@ export const usePreferences = create<Preferences>()(
         zoom,
         zoomMode,
         previewLoading,
+        spoilerFree,
         lastDocumentId,
         documents,
       }),
@@ -210,6 +214,7 @@ export const usePreferences = create<Preferences>()(
           previewLoading: ['standard', 'smooth', 'all'].includes(stored.previewLoading)
             ? stored.previewLoading
             : 'smooth',
+          spoilerFree: stored.spoilerFree === true,
         };
       },
     },

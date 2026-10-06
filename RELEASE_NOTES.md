@@ -1,17 +1,21 @@
-# MicroBook 2.2
+# MicroBook 2.3
 
-This release makes the workspace feel more responsive and pleasant while keeping motion subtle and purposeful.
+This release adds more control over book content and image placement, plus an experimental paper-folding simulator.
 
 ## What’s new
 
-- **Clear Apply feedback.** Applying layout changes now has a short, readable progress transition and a restrained completion response.
-- **Smoother workspace navigation.** Sidebar tabs, sections, dialogs, and expanding content controls transition without abrupt jumps.
-- **Stable content reordering.** Moving text and images animates their actual before-and-after positions, making the new order easier to follow.
-- **Gentler preview updates.** Completed renders enter cleanly and preserve the reader’s sense of place while controls update.
-- **Motion accessibility.** The interface follows the operating system’s reduced-motion preference and keeps essential state changes understandable without animation.
+- **Folding simulator.** Try folds on a labeled 3D sheet, inspect its layers, rotate and pan, and record, replay, save or export a folding method. This is a prototype: it does not simulate real paper stiffness, friction, cuts or diagonal folds, and it does not yet show the book’s PDF on the paper.
+- **Spoiler-free viewing.** A header toggle blurs book content in the interface without changing the printed PDF.
+- **Clearer content inspection.** Excluded and empty sections have distinct statuses. Source content can be inspected even when a section has no printed location.
+- **Image layout choices.** Choose Flourish, Inline, Full cell, Full two cells or Full four cells. Individual and repeated images can inherit defaults or override them.
+- **Orientation defaults.** Set a book-wide image orientation, with overrides for individual images and repeated groups.
+- **Less wasted space.** Text first also works with full-cell images and continues across EPUB file splits. Recognized chart source credits stay with their images. A new setting, on by default, allows following text to fill unused space below single-cell images.
+- **Tighter typography.** Rich line height can be reduced to 0.5.
 
 ## Upgrading
 
-Back up both persistent volumes and keep the previous container image before upgrading. Reuse the same compose project, volumes, and mount paths so the existing library remains available. Do not run `docker compose down -v`.
+Back up both persistent volumes and retain the previous image. Reuse the existing volumes, mounts and port. Do not run `docker compose down -v`.
 
-See [deployment and rollback instructions](DEPLOYMENT.md). Existing PDFs remain stored as originally rendered; applying settings again uses the updated renderer and can change page flow.
+Existing PDFs remain unchanged. Click Apply to regenerate a book with the new layout behavior. Folding methods and interface preferences are saved in the browser.
+
+See [deployment and rollback instructions](DEPLOYMENT.md) and [folding simulator limits](docs/FOLDING_SIMULATOR.md).

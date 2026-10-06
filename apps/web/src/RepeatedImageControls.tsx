@@ -1,12 +1,30 @@
-import { settingsSchema, imageOutputModes, laserContrastLevels, type Block } from '@microbook/core';
+import {
+  settingsSchema,
+  imageOutputModes,
+  laserContrastLevels,
+  imageLayoutForBlock,
+  imageLayoutOverride,
+  imageLayoutOptions,
+  imageRotationOptions,
+  type ImageRotation,
+  type ImageLayout,
+  type Block,
+} from '@microbook/core';
+import { imageLayoutChanges, imageRotationChanges } from './imageLayoutSettings';
 import type { Workspace } from './LayoutControls';
 
 export function RepeatedImageControls({ w, group }: { w: Workspace; group: Block[] }) {
   const s = settingsSchema.parse(w.kept?.settings || w.draft);
   const common = (values: (string | number)[]) =>
     values.every((v) => v === values[0]) ? String(values[0]) : '';
-  const treatments = group.map((b) => s.imageTreatments[b.id] || { kind: 'image' as const });
-  const kind = common(treatments.map((t) => t.kind));
+  const treatments = group.map(
+    (b) =>
+      s.imageTreatments[b.id] ||
+      (imageLayoutForBlock(s, b.id) === 'flourish'
+        ? { kind: 'flourish' as const, widthEm: 4, gapEm: 0.25 }
+        : { kind: 'image' as const }),
+  );
+  const kind = common(group.map((b) => imageLayoutForBlock(s, b.id)));
   const output = common(group.map((b) => s.imageOutputOverrides[b.id]?.mode ?? 'inherit'));
   const field = (
     label: string,
@@ -47,15 +65,16 @@ export function RepeatedImageControls({ w, group }: { w: Workspace; group: Block
         Changes affect every occurrence. Other individual settings stay unchanged.
       </p>
       {field(
-        'Treatment',
-        kind,
-        [
-          ['image', 'Illustration'],
-          ['flourish', 'Flourish'],
-        ],
+        'Image layout',
+        common(group.map((b) => imageLayoutOverride(s, b.id) ?? 'inherit')),
+        [['inherit', 'Use book default'], ...imageLayoutOptions],
         (value) =>
-          treatment(() =>
-            value === 'flourish' ? { kind: 'flourish', widthEm: 4, gapEm: 0.25 } : { kind: 'image' },
+          w.edit(
+            imageLayoutChanges(
+              s,
+              group.map((b) => b.id),
+              value as ImageLayout | 'inherit',
+            ),
           ),
       )}
       {kind === 'flourish' &&
@@ -80,40 +99,18 @@ export function RepeatedImageControls({ w, group }: { w: Workspace; group: Block
             </label>
           );
         })}
-      {kind === 'image' &&
-        field(
-          'Layout',
-          common(group.map((b) => s.imageCellSpans[b.id] ?? 'inherit')),
-          [
-            ['inherit', 'Use book setting'],
-            ['1', 'One cell'],
-            ['2', 'Two cells'],
-          ],
-          (value) => {
-            const imageCellSpans = { ...s.imageCellSpans };
-            group.forEach((b) => {
-              if (value === 'inherit') delete imageCellSpans[b.id];
-              else imageCellSpans[b.id] = Number(value) as 1 | 2;
-            });
-            w.edit({ imageCellSpans });
-          },
-        )}
       {field(
         'Orientation',
-        common(group.map((b) => s.imageRotations[b.id] ?? 0)),
-        [
-          ['0', 'Original (0°)'],
-          ['90', '90° right'],
-          ['180', '180°'],
-          ['270', '90° left'],
-        ],
+        common(group.map((b) => s.imageRotations[b.id] ?? 'inherit')),
+        [['inherit', 'Use book default'], ...imageRotationOptions],
         (value) =>
-          w.edit({
-            imageRotations: {
-              ...s.imageRotations,
-              ...Object.fromEntries(group.map((b) => [b.id, Number(value) as 0 | 90 | 180 | 270])),
-            },
-          }),
+          w.edit(
+            imageRotationChanges(
+              s,
+              group.map((b) => b.id),
+              value === 'inherit' ? 'inherit' : (Number(value) as ImageRotation),
+            ),
+          ),
       )}
       {field(
         'Image output',

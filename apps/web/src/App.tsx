@@ -1,5 +1,5 @@
 import { version } from '../../../package.json';
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   BookOpen,
   PanelLeft,
@@ -13,6 +13,9 @@ import {
   ChevronLeft,
   ChevronRight,
   LoaderCircle,
+  Origami,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { useWorkspace } from './useWorkspace';
 import { RenderActivity } from './RenderActivity';
@@ -23,14 +26,25 @@ import { modeLabels } from '@microbook/core';
 import { printedLocation } from './imageLocations';
 import { PrintTips } from './PrintTips';
 import type { FindState } from './Preview';
+const FoldingSimulator = lazy(() =>
+  import('./folding/FoldingSimulator').then((m) => ({ default: m.FoldingSimulator })),
+);
 const Preview = lazy(() => import('./Preview').then((m) => ({ default: m.Preview })));
 export default function App() {
   const w = useWorkspace();
+  const [foldingOpen, setFoldingOpen] = useState(false);
+  const foldingButton = useRef<HTMLButtonElement>(null);
   const [narrow, setNarrow] = useState(() => matchMedia('(max-width:959px)').matches);
   const [findOpen, setFindOpen] = useState(false);
   const [find, setFind] = useState<FindState>({ current: 0, total: 0 });
   const [findCommand, setFindCommand] = useState<{ serial: number; previous: boolean }>();
   const findInput = useRef<HTMLInputElement>(null);
+  useLayoutEffect(() => {
+    document.documentElement.dataset.spoilerFree = String(w.prefs.spoilerFree);
+    return () => {
+      delete document.documentElement.dataset.spoilerFree;
+    };
+  }, [w.prefs.spoilerFree]);
   useEffect(() => {
     const media = matchMedia('(max-width:959px)');
     const update = () => setNarrow(media.matches);
@@ -39,6 +53,7 @@ export default function App() {
   }, []);
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
+      if (foldingOpen) return;
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f' && w.preview) {
         e.preventDefault();
         setFindOpen(true);
@@ -51,7 +66,7 @@ export default function App() {
     };
     document.addEventListener('keydown', key);
     return () => document.removeEventListener('keydown', key);
-  }, [w.preview, findOpen]);
+  }, [w.preview, findOpen, foldingOpen]);
   const page = (w.preview?.result?.cells[w.cell]?.page || 0) + 1;
   const toggleSidebar = () =>
     narrow ? w.setMobileOpen(!w.mobileOpen) : w.prefs.patch({ sidebarOpen: !w.prefs.sidebarOpen });
@@ -83,6 +98,7 @@ export default function App() {
     <div
       className="app redesign"
       onDragOver={(e) => {
+        if (foldingOpen) return;
         if (e.dataTransfer.types.includes('Files')) {
           e.preventDefault();
           w.setDragging(true);
@@ -92,6 +108,7 @@ export default function App() {
         if (!e.currentTarget.contains(e.relatedTarget as Node)) w.setDragging(false);
       }}
       onDrop={(e) => {
+        if (foldingOpen) return;
         e.preventDefault();
         w.setDragging(false);
         const file = e.dataTransfer.files[0];
@@ -108,6 +125,22 @@ export default function App() {
         accept=".epub,.txt,.md,.markdown"
         onChange={(e) => void w.importFile(e.target.files?.[0])}
       />
+      {foldingOpen && (
+        <Suspense
+          fallback={
+            <div role="status" className="preview-empty">
+              Opening folding simulator…
+            </div>
+          }
+        >
+          <FoldingSimulator
+            onClose={() => {
+              setFoldingOpen(false);
+              requestAnimationFrame(() => foldingButton.current?.focus());
+            }}
+          />
+        </Suspense>
+      )}
       <header className="header">
         {narrow && (
           <button
@@ -124,7 +157,7 @@ export default function App() {
           <BookOpen size={19} />
           <span className="brand-name">MicroBook</span>
         </div>
-        <span className="book-title" title={w.metadata?.title}>
+        <span className="book-title" title={w.prefs.spoilerFree ? undefined : w.metadata?.title}>
           {w.metadata?.title}
         </span>
         {w.kept && (
@@ -134,7 +167,21 @@ export default function App() {
         )}
         <div className="header-actions">
           <PrintTips />
-          <button className="open-book-action" onClick={() => w.input.current?.click()}>
+          <button
+            ref={foldingButton}
+            className="icon-button"
+            aria-label="Folding simulator"
+            title="Folding simulator"
+            onClick={() => setFoldingOpen(true)}
+          >
+            <Origami size={18} />
+          </button>
+          <button
+            className="open-book-action"
+            aria-label="Open book"
+            title="Open book"
+            onClick={() => w.input.current?.click()}
+          >
             <Plus size={15} />
             <span>Open book</span>
           </button>
@@ -167,6 +214,20 @@ export default function App() {
           >
             <History size={18} />
           </IconButton>
+          <button
+            type="button"
+            className="icon-button spoiler-toggle"
+            aria-label="Spoiler-free mode"
+            aria-pressed={w.prefs.spoilerFree}
+            title={
+              w.prefs.spoilerFree
+                ? 'Turn off spoiler-free mode'
+                : 'Turn on spoiler-free mode: blur book content'
+            }
+            onClick={() => w.prefs.patch({ spoilerFree: !w.prefs.spoilerFree })}
+          >
+            {w.prefs.spoilerFree ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
         </div>
       </header>
       <div className="workspace-layout">

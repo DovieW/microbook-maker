@@ -119,13 +119,13 @@ export function useWorkspace() {
       ...(!kept ? { sourceBlock: id } : {}),
     });
   };
-  const jumpSection = (id: string, index: number) => {
+  const jumpSection = (id: string, index?: number) => {
     if (!doc) return;
     setSelectedSectionId(id);
     setSelectedSectionCell(index);
     prefs.document(doc.id, { selectedImageId: undefined });
     const region = preview?.result?.sectionRegions?.find((item) => item.sectionId === id);
-    goTo(index, region);
+    if (index !== undefined) goTo(index, region);
   };
   useEffect(() => {
     setSelectedSectionId(undefined);

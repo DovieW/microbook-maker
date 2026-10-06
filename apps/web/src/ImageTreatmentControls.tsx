@@ -1,5 +1,15 @@
-import { automaticImageHeadings, headingLabel, matchingImageBlocks, type Block } from '@microbook/core';
+import {
+  automaticImageHeadings,
+  headingLabel,
+  matchingImageBlocks,
+  imageLayoutForBlock,
+  imageLayoutOverride,
+  imageLayoutOptions,
+  type ImageLayout,
+  type Block,
+} from '@microbook/core';
 import { Dropdown } from './ui';
+import { imageLayoutChanges } from './imageLayoutSettings';
 import type { Workspace } from './LayoutControls';
 
 export function ImageTreatmentControls({
@@ -13,44 +23,44 @@ export function ImageTreatmentControls({
 }) {
   const s = w.kept?.settings || w.draft;
   const treatment = s.imageTreatments[block.id];
-  const kind = heading ? 'heading' : treatment?.kind || 'image';
+  const layout = imageLayoutForBlock(s, block.id);
+  const override = imageLayoutOverride(s, block.id);
   const matches = matchingImageBlocks(w.doc!, block);
   const set = (value: typeof treatment) =>
     w.edit({ imageTreatments: { ...s.imageTreatments, [block.id]: value } });
-  const current =
-    treatment || (heading ? { kind: 'heading' as const, ...heading } : { kind: 'image' as const });
+  const flourish =
+    treatment?.kind === 'flourish' ? treatment : { kind: 'flourish' as const, widthEm: 4, gapEm: 0.25 };
   return (
     <div className="image-treatment-controls">
       <label className="field">
-        <span>Treatment</span>
+        <span>Image layout</span>
         <Dropdown
-          label="Image treatment"
-          value={kind}
-          options={[
-            ['image', 'Illustration'],
-            ['flourish', 'Flourish'],
-            ['heading', 'Heading'],
-          ]}
-          onChange={(value) => {
+          label="Image layout"
+          value={override || 'inherit'}
+          options={[['inherit', 'Use book default'], ...imageLayoutOptions]}
+          onChange={(value) => w.edit(imageLayoutChanges(s, [block.id], value as ImageLayout | 'inherit'))}
+        />
+      </label>
+      {heading ? (
+        <p className="image-output-help">This image is currently replaced with a text heading.</p>
+      ) : (
+        <button
+          onClick={() => {
             const text =
               w.doc!.assets.find((a) => a.id === block.assetId)?.alt ||
               w.doc!.sections.find((section) => section.id === block.sectionId)?.title ||
               'Chapter';
-            set(
-              value === 'flourish'
-                ? { kind: 'flourish', widthEm: 4, gapEm: 0.25 }
-                : value === 'heading'
-                  ? {
-                      kind: 'heading',
-                      text: text.slice(0, 500),
-                      headingKind: headingLabel(text)?.kind || 'chapter',
-                    }
-                  : { kind: 'image' },
-            );
+            set({
+              kind: 'heading',
+              text: text.slice(0, 500),
+              headingKind: headingLabel(text)?.kind || 'chapter',
+            });
           }}
-        />
-      </label>
-      {treatment?.kind === 'flourish' && (
+        >
+          Replace with text heading
+        </button>
+      )}
+      {!heading && layout === 'flourish' && (
         <>
           <label className="field">
             <span>Max width</span>
@@ -61,8 +71,8 @@ export function ImageTreatmentControls({
                 min="1"
                 max="12"
                 step="0.5"
-                value={treatment.widthEm}
-                onChange={(e) => set({ ...treatment, widthEm: Number(e.target.value) })}
+                value={flourish.widthEm}
+                onChange={(e) => set({ ...flourish, widthEm: Number(e.target.value) })}
               />
               <span>em</span>
             </span>
@@ -76,8 +86,8 @@ export function ImageTreatmentControls({
                 min="0"
                 max="2"
                 step="0.05"
-                value={treatment.gapEm}
-                onChange={(e) => set({ ...treatment, gapEm: Number(e.target.value) })}
+                value={flourish.gapEm}
+                onChange={(e) => set({ ...flourish, gapEm: Number(e.target.value) })}
               />
               <span>em</span>
             </span>
@@ -88,16 +98,26 @@ export function ImageTreatmentControls({
         <details className="matching-images">
           <summary>{matches.length} matching images</summary>
           <button
-            onClick={() =>
-              w.edit({
-                imageTreatments: {
-                  ...s.imageTreatments,
-                  ...Object.fromEntries(matches.map((b) => [b.id, { ...current }])),
-                },
-              })
-            }
+            onClick={() => {
+              const ids = matches.map((b) => b.id);
+              if (heading)
+                w.edit({
+                  imageTreatments: {
+                    ...s.imageTreatments,
+                    ...Object.fromEntries(ids.map((id) => [id, { kind: 'heading', ...heading }])),
+                  },
+                });
+              else {
+                const changes = imageLayoutChanges(s, ids, layout);
+                if (layout === 'flourish')
+                  ids.forEach((id) => {
+                    changes.imageTreatments![id] = { ...flourish };
+                  });
+                w.edit(changes);
+              }
+            }}
           >
-            Apply treatment to all {matches.length}
+            Apply {heading ? 'text heading' : 'layout'} to all {matches.length}
           </button>
           <button
             onClick={() =>
@@ -109,7 +129,7 @@ export function ImageTreatmentControls({
             Include all matching
           </button>
           <button
-            disabled={kind === 'heading'}
+            disabled={!!heading}
             onClick={() =>
               w.edit({ excludedImageIds: [...new Set([...s.excludedImageIds, ...matches.map((b) => b.id)])] })
             }
@@ -118,16 +138,20 @@ export function ImageTreatmentControls({
           </button>
         </details>
       )}
-      {treatment && (
+      {treatment && automaticImageHeadings(w.doc!).has(block.id) && (
         <button
           className="image-location"
-          onClick={() => {
-            const imageTreatments = { ...s.imageTreatments };
-            delete imageTreatments[block.id];
-            w.edit({ imageTreatments });
-          }}
+          onClick={() => w.edit(imageLayoutChanges(s, [block.id], 'inherit'))}
         >
-          Reset to {automaticImageHeadings(w.doc!).has(block.id) ? 'detected heading' : 'image'}
+          Reset to detected heading
+        </button>
+      )}
+      {heading && !automaticImageHeadings(w.doc!).has(block.id) && (
+        <button
+          className="image-location"
+          onClick={() => w.edit(imageLayoutChanges(s, [block.id], 'inherit'))}
+        >
+          Use image instead
         </button>
       )}
     </div>

@@ -2003,7 +2003,8 @@ summary > span {
   white-space: nowrap;
 }
 @media (max-width: 650px) {
-  .redesign .print-action span {
+  .redesign .print-action span,
+  .redesign .open-book-action span {
     display: none;
   }
   .redesign .header-actions {
@@ -2631,8 +2632,11 @@ summary > span {
   gap: 4px;
   padding: 8px 0;
 }
-.image-rotation-controls > span {
-  margin-right: auto;
+.image-rotation-controls > .field {
+  grid-column: 1 / -1;
+}
+.image-rotation-controls > .icon-button:nth-child(2) {
+  grid-column: 2;
 }
 .image-rotation-controls > .icon-button {
   width: 32px;
@@ -3127,10 +3131,94 @@ summary > span {
   border-radius: 5px;
   background: #fff;
 }
+.section-status-note,
+.section-source-description {
+  margin: 8px 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+.section-source {
+  margin-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.section-source > summary {
+  padding: 10px 0;
+  cursor: pointer;
+  font-size: 12px;
+}
+.section-source-body {
+  max-height: 300px;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.section-source-body > p {
+  white-space: pre-wrap;
+}
+.section-source-heading {
+  font-weight: 600;
+}
+.section-source-body figure {
+  margin: 10px 0;
+}
+.section-source-body img {
+  display: block;
+  max-width: 100%;
+  max-height: 220px;
+  object-fit: contain;
+}
 .section-mini-preview canvas {
   display: block;
   width: 100%;
   height: auto;
+}
+/* A presentation preference: keep navigation and print settings readable. */
+html[data-spoiler-free='true']
+  :is(
+    .pdfViewer .canvasWrapper,
+    .pdfViewer .textLayer,
+    .pdfViewer .annotationLayer,
+    .section-mini-preview canvas,
+    .native-print-view iframe
+  ) {
+  filter: blur(12px);
+  user-select: none;
+}
+html[data-spoiler-free='true']
+  :is(
+    .book-title,
+    .contents-jump > span,
+    .image-title,
+    .book-open > span,
+    .image-preview-dialog header h2,
+    .image-preview-dialog header p,
+    .section-source-body > p:not(.section-source-description),
+    .section-source-body figcaption,
+    .heading-detection li
+  ) {
+  filter: blur(6px);
+  user-select: none;
+}
+html[data-spoiler-free='true']
+  :is(
+    .image-preview-stage img,
+    .image-preview-button img,
+    .image-thumbnail img,
+    .repeated-image-preview,
+    .section-source-body img,
+    .book-open > img
+  ) {
+  filter: blur(12px);
+}
+html[data-spoiler-free='true'] .pdfViewer .textLayer {
+  pointer-events: none;
+}
+.spoiler-toggle[aria-pressed='true'] {
+  color: var(--accent);
+  background: #83d8c21a;
+  border-color: var(--accent);
 }
 .section-preview-loading,
 .section-mini-preview > span {
