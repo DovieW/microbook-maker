@@ -416,7 +416,7 @@ function SectionRow({
     generated: generatedContents && included,
     previewReady: !!w.preview?.result,
     pending: w.dirty,
-    location: location ? printedLocation(location.page) : undefined,
+    location: location ? printedLocation(location.page, w.preview?.result, location.index) : undefined,
   });
   return (
     <div

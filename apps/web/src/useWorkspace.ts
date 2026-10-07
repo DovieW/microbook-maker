@@ -179,9 +179,10 @@ export function useWorkspace() {
     setMobileOpen(false);
   }
   const selectCell = (index: number) => goTo(index);
-  const onReading = (id: string, position: ReadingPosition) => {
+  const onReading = (id: string, position: ReadingPosition, cellIndex?: number) => {
     if (preview?.id !== id || !doc) return;
     const cell =
+      (cellIndex === undefined ? undefined : preview.result?.cells[cellIndex]) ||
       preview.result?.cells.find(
         (c) =>
           c.page === position.page - 1 &&
@@ -189,7 +190,8 @@ export function useWorkspace() {
           position.left < c.x + c.width &&
           792 - position.top >= c.y &&
           792 - position.top < c.y + c.height,
-      ) || preview.result?.cells.find((c) => c.page === position.page - 1);
+      ) ||
+      preview.result?.cells.find((c) => c.page === position.page - 1);
     if (kept) {
       if (cell) setKeptCell(cell.index);
       return;

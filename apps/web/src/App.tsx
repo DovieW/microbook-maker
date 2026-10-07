@@ -32,6 +32,8 @@ const FoldingSimulator = lazy(() =>
 const Preview = lazy(() => import('./Preview').then((m) => ({ default: m.Preview })));
 export default function App() {
   const w = useWorkspace();
+  const [bookletView, setBookletView] = useState<'reading' | 'print'>('reading');
+  const readingBooklet = bookletView === 'reading' && !!w.preview?.result?.booklet;
   const [foldingOpen, setFoldingOpen] = useState(false);
   const foldingButton = useRef<HTMLButtonElement>(null);
   const [narrow, setNarrow] = useState(() => matchMedia('(max-width:959px)').matches);
@@ -67,13 +69,17 @@ export default function App() {
     document.addEventListener('keydown', key);
     return () => document.removeEventListener('keydown', key);
   }, [w.preview, findOpen, foldingOpen]);
-  const page = (w.preview?.result?.cells[w.cell]?.page || 0) + 1;
+  const page =
+    (readingBooklet
+      ? w.preview?.result?.booklet?.reading.cells[w.cell]?.page || 0
+      : w.preview?.result?.cells[w.cell]?.page || 0) + 1;
   const toggleSidebar = () =>
     narrow ? w.setMobileOpen(!w.mobileOpen) : w.prefs.patch({ sidebarOpen: !w.prefs.sidebarOpen });
   const mainPreview = (rendered: NonNullable<typeof w.preview>) => (
     <Preview
       key={rendered.id}
       job={rendered}
+      bookletView={bookletView}
       visible={w.preview?.id === rendered.id}
       cell={w.preview?.id === rendered.id ? w.cell : w.docPrefs?.cells?.[rendered.settings.mode] || 0}
       initial={w.kept ? undefined : w.docPrefs?.reading?.[rendered.settings.mode]}
@@ -166,7 +172,7 @@ export default function App() {
           </span>
         )}
         <div className="header-actions">
-          <PrintTips />
+          <PrintTips booklet={!!w.preview?.result?.booklet} />
           <button
             ref={foldingButton}
             className="icon-button"
@@ -317,12 +323,22 @@ export default function App() {
               </IconButton>
             </div>
           )}
+          {w.preview?.result?.booklet && (
+            <div className="booklet-preview-tabs segments" aria-label="Booklet preview mode">
+              <button aria-pressed={bookletView === 'reading'} onClick={() => setBookletView('reading')}>
+                Reading
+              </button>
+              <button aria-pressed={bookletView === 'print'} onClick={() => setBookletView('print')}>
+                Print sheets
+              </button>
+            </div>
+          )}
           {w.preview && (
             <footer className="statusbar">
               <div className="paper-counts">
                 <span>
                   {w.preview?.result
-                    ? `${w.preview.result.sheets} ${w.preview.result.sheets === 1 ? 'sheet' : 'sheets'} · ${w.preview.result.pages} sides`
+                    ? `${w.preview.result.sheets} ${w.preview.result.sheets === 1 ? 'sheet' : 'sheets'} · ${w.preview.result.booklet ? `${w.preview.result.booklet.pageCount} pages · ${w.preview.result.booklet.signatures} ${w.preview.result.booklet.signatures === 1 ? 'signature' : 'signatures'}` : `${w.preview.result.pages} sides`}`
                     : ''}
                 </span>
                 {w.difference !== undefined && (
@@ -336,13 +352,29 @@ export default function App() {
               </div>
               <div className="page-controls">
                 <Navigation
+                  unit={readingBooklet ? 'page' : 'side'}
+                  spreads={readingBooklet}
                   value={page}
-                  total={w.preview?.result?.pages || 0}
+                  total={
+                    readingBooklet
+                      ? w.preview?.result?.booklet?.pageCount || 0
+                      : w.preview?.result?.pages || 0
+                  }
                   onChange={(value) =>
-                    w.selectCell(w.preview?.result?.cells.find((c) => c.page === value - 1)?.index || 0)
+                    w.selectCell(
+                      readingBooklet
+                        ? Math.min(value - 1, w.preview!.result!.cells.length - 1)
+                        : w.preview?.result?.cells.find((c) => c.page === value - 1)?.index || 0,
+                    )
                   }
                 />
-                {w.preview && <span className="sheet-location">{printedLocation(page - 1)}</span>}
+                {w.preview && (
+                  <span className="sheet-location">
+                    {readingBooklet
+                      ? `Page ${page} · ${w.preview.result?.booklet?.signatures} ${w.preview.result?.booklet?.signatures === 1 ? 'signature' : 'signatures'}`
+                      : printedLocation(page - 1)}
+                  </span>
+                )}
               </div>
               <div className="zoom-control">
                 <IconButton

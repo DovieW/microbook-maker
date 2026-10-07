@@ -4,7 +4,8 @@ import {
   laserContrastLevels,
   imageLayoutForBlock,
   imageLayoutOverride,
-  imageLayoutOptions,
+  imageLayoutOptionsFor,
+  imageLayoutValue,
   imageRotationOptions,
   type ImageRotation,
   type ImageLayout,
@@ -66,8 +67,12 @@ export function RepeatedImageControls({ w, group }: { w: Workspace; group: Block
       </p>
       {field(
         'Image layout',
-        common(group.map((b) => imageLayoutOverride(s, b.id) ?? 'inherit')),
-        [['inherit', 'Use book default'], ...imageLayoutOptions],
+        common(
+          group.map((b) =>
+            imageLayoutOverride(s, b.id) ? imageLayoutValue(s, imageLayoutOverride(s, b.id)!) : 'inherit',
+          ),
+        ),
+        [['inherit', 'Use book default'], ...imageLayoutOptionsFor(s)],
         (value) =>
           w.edit(
             imageLayoutChanges(

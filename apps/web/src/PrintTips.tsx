@@ -9,7 +9,7 @@ const External = ({ href, children }: { href: string; children: React.ReactNode 
   </a>
 );
 
-export function PrintTips() {
+export function PrintTips({ booklet = false }: { booklet?: boolean }) {
   return (
     <Dialog.Root>
       <Dialog.Trigger asChild>
@@ -39,8 +39,9 @@ export function PrintTips() {
             <aside className="tips-callout">
               <strong>Test one sheet first</strong>
               <span>
-                Print sides 1–2, fold them, and check orientation and legibility before printing the whole
-                book.
+                {booklet
+                  ? 'Print sides 1–2 at actual size, cut and fold the pieces, and check their front/back alignment before printing the whole book.'
+                  : 'Print sides 1–2, fold them, and check orientation and legibility before printing the whole book.'}
               </span>
             </aside>
 
@@ -87,7 +88,10 @@ export function PrintTips() {
                   <strong>Scale:</strong> 100% or Actual size — never Fit or Shrink
                 </li>
                 <li>
-                  <strong>Pages per sheet:</strong> 1 — MicroBook already places 16 cells on each side
+                  <strong>Pages per sheet:</strong> 1 —{' '}
+                  {booklet
+                    ? 'MicroBook already arranges the cut pieces on each side'
+                    : 'MicroBook already places 16 cells on each side'}
                 </li>
                 <li>
                   <strong>Two-sided:</strong> Flip on long edge for portrait Letter
@@ -105,27 +109,28 @@ export function PrintTips() {
               </p>
             </section>
 
-            <section aria-labelledby="tips-folding">
-              <div className="tips-section-heading">
-                <BookOpen size={20} aria-hidden="true" />
-                <div>
-                  <h3 id="tips-folding">Folding</h3>
-                  <p>
-                    Use the printed rules as crease guides and keep the edges square as layers accumulate.
-                  </p>
+            {!booklet && (
+              <section aria-labelledby="tips-folding">
+                <div className="tips-section-heading">
+                  <BookOpen size={20} aria-hidden="true" />
+                  <div>
+                    <h3 id="tips-folding">Folding</h3>
+                    <p>
+                      Use the printed rules as crease guides and keep the edges square as layers accumulate.
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <ol className="tips-steps">
-                <li>Place the sheet on a hard, flat surface and pre-crease each printed fold line.</li>
-                <li>Make the parallel folds as an accordion, alternating toward and away from you.</li>
-                <li>Collapse the cross-folds into a cell-sized packet, pressing each crease firmly.</li>
-                <li>Stack the folded sheets in printed order and keep the covers on the outside.</li>
-              </ol>
-              <External href="https://www.youtube.com/watch?v=Q3jTZT2e8os">
-                Watch a rectangular map-fold demonstration on YouTube
-              </External>
-            </section>
-
+                <ol className="tips-steps">
+                  <li>Place the sheet on a hard, flat surface and pre-crease each printed fold line.</li>
+                  <li>Make the parallel folds as an accordion, alternating toward and away from you.</li>
+                  <li>Collapse the cross-folds into a cell-sized packet, pressing each crease firmly.</li>
+                  <li>Stack the folded sheets in printed order and keep the covers on the outside.</li>
+                </ol>
+                <External href="https://www.youtube.com/watch?v=Q3jTZT2e8os">
+                  Watch a rectangular map-fold demonstration on YouTube
+                </External>
+              </section>
+            )}
             <section aria-labelledby="tips-printer">
               <div className="tips-section-heading">
                 <Printer size={20} aria-hidden="true" />

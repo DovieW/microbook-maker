@@ -514,6 +514,15 @@ app.get('/api/renders/:id/pdf', (req, res) => {
     dotfiles: 'allow',
   });
 });
+app.get('/api/renders/:id/reading-pdf', (req, res) => {
+  const job = getJob(req.params.id);
+  if (job.status !== 'completed') return res.sendStatus(409);
+  if (!job.result?.booklet) return res.sendStatus(404);
+  store.lease(job.id);
+  res
+    .type('application/pdf')
+    .sendFile(path.join(store.renderDir(job.id), 'reading.pdf'), { dotfiles: 'allow' });
+});
 app.patch('/api/renders/:id', async (req, res) => {
   const job = getJob(req.params.id);
   if (job.status !== 'completed') return res.sendStatus(409);

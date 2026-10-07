@@ -10,6 +10,8 @@ import {
   normalizedText,
   imageLayoutForBlock,
   imageRotationForBlock,
+  bookletGeometry,
+  imposeBooklet,
 } from '@microbook/core';
 
 let activeDocument = '';
@@ -22,7 +24,19 @@ async function layoutBook(payload: {
   printedAt?: string;
   positionLabels?: Record<number, string>;
 }) {
-  const { document: book, settings: s, assetBase, fontStack } = payload;
+  const { document: book, assetBase, fontStack } = payload;
+  const booklet = payload.settings.printFormat === 'booklet';
+  const s = booklet
+    ? {
+        ...payload.settings,
+        readingOrder: 'rows' as const,
+        positionHeaders: false,
+        foldGaps: false,
+        borderStyle: 'none' as const,
+        rich: { ...payload.settings.rich, sheetHeaders: 'first' as const },
+      }
+    : payload.settings;
+  const geometry = bookletGeometry(s);
   if (activeDocument !== book.id) {
     preparations.clear();
     activeDocument = book.id;
@@ -35,8 +49,13 @@ async function layoutBook(payload: {
   document.head.append(style);
   await document.fonts.ready;
   const margin = (s.marginMm * 96) / 25.4;
-  const cellWidth = (816 - margin * 2) / 4;
-  const cellHeight = (1056 * 0.997 - margin * 2) / 4;
+  const cellWidth = booklet ? geometry.width / 0.75 : (816 - margin * 2) / 4;
+  const cellHeight = booklet ? geometry.height / 0.75 : (1056 * 0.997 - margin * 2) / 4;
+  if (booklet)
+    style.textContent += `@page{size:${cellWidth}px ${cellHeight}px;margin:0}.page{width:${cellWidth}px;height:${cellHeight}px}.booklet-footer{position:absolute;left:3mm;right:3mm;bottom:1mm;display:flex;justify-content:space-between;font-size:5px;line-height:1;white-space:nowrap}`;
+  if (booklet)
+    style.textContent +=
+      '.reference-location{width:12ch!important}.compact-toc{grid-template-columns:minmax(0,1fr) 8ch!important}.book-title{white-space:normal!important;overflow:visible!important}';
   const maps: CellMap[] = [];
   const flows: HTMLElement[] = [];
   const positionHeaders: HTMLElement[] = [];
@@ -150,14 +169,14 @@ async function layoutBook(payload: {
   };
   function createCell(index: number) {
     reportProgress();
-    if (index % 16 === 0) {
+    if (booklet || index % 16 === 0) {
       page = document.createElement('div');
       page.className = 'page';
       document.body.append(page);
     }
     const slot = slots[index % 16];
-    const x = margin + (slot % 4) * cellWidth;
-    const y = margin + Math.floor(slot / 4) * cellHeight;
+    const x = booklet ? 0 : margin + (slot % 4) * cellWidth;
+    const y = booklet ? 0 : margin + Math.floor(slot / 4) * cellHeight;
     const cell = document.createElement('div');
     cell.className = 'cell';
     Object.assign(cell.style, {
@@ -166,6 +185,20 @@ async function layoutBook(payload: {
       width: `${cellWidth}px`,
       height: `${cellHeight}px`,
     });
+    if (booklet) {
+      const inset = (3 * 96) / 25.4;
+      const binding = (s.booklet.bindingMarginMm * 96) / 25.4;
+      Object.assign(cell.style, {
+        paddingTop: `${inset}px`,
+        paddingBottom: `${inset + 10}px`,
+        paddingLeft: `${inset + (index % 2 === 0 ? binding : 0)}px`,
+        paddingRight: `${inset + (index % 2 === 1 ? binding : 0)}px`,
+      });
+      const footer = document.createElement('div');
+      footer.className = 'booklet-footer';
+      footer.innerHTML = `<span>${index + 1}</span><span class="assembly-label"></span>`;
+      page.append(footer);
+    }
     if (s.borderStyle !== 'none') {
       if (slot % 4 < 3) cell.style.borderRight = `1px ${s.borderStyle} black`;
       if (slot >= 4) cell.style.borderTop = `1px ${s.borderStyle} black`;
@@ -206,8 +239,8 @@ async function layoutBook(payload: {
     flows.push(flow);
     maps.push({
       index,
-      slot,
-      page: Math.floor(index / 16),
+      slot: booklet ? undefined : slot,
+      page: booklet ? index : Math.floor(index / 16),
       x: x * 0.75,
       y: y * 0.75,
       width: cellWidth * 0.75,
@@ -262,7 +295,7 @@ async function layoutBook(payload: {
   sheetsValue.textContent = '0';
   stats.append(
     sheetsValue,
-    ' sheets · ',
+    booklet ? ' pages · ' : ' sheets · ',
     words.toLocaleString('en-US'),
     ' words · about ',
     formatMinutes(minutes),
@@ -432,7 +465,7 @@ async function layoutBook(payload: {
       const location = document.createElement('span');
       location.className = 'compact-toc-location';
       location.dataset.location = block.destination;
-      location.textContent = 'Sheet 0000 · Back · Cell 16';
+      location.textContent = booklet ? 'Page 00000' : 'Sheet 0000 · Back · Cell 16';
       node.append(link, location);
       return node;
     }
@@ -1101,7 +1134,7 @@ async function layoutBook(payload: {
     node.id = 'destination-' + id;
     destinations[id] = {
       page: cell.page,
-      cell: (cell.slot ?? cell.index % 16) + 1,
+      cell: booklet ? cell.index + 1 : (cell.slot ?? cell.index % 16) + 1,
       x: (rect.left - bounds.left) * 0.75,
       y: (rect.top - bounds.top) * 0.75,
     };
@@ -1139,13 +1172,16 @@ async function layoutBook(payload: {
   const printLocation = (id: string) => {
     const d = destinations[id];
     return d
-      ? `Sheet ${Math.floor(d.page / 2) + 1} · ${d.page % 2 ? 'Back' : 'Front'} · Cell ${d.cell}`
+      ? booklet
+        ? `Page ${d.page + 1}`
+        : `Sheet ${Math.floor(d.page / 2) + 1} · ${d.page % 2 ? 'Back' : 'Front'} · Cell ${d.cell}`
       : 'Not in preview';
   };
-  for (const node of document.querySelectorAll<HTMLElement>('[data-location]'))
+  for (const node of document.querySelectorAll<HTMLElement>('[data-location]')) {
     node.textContent = node.classList.contains('reference-location')
       ? ` [${printLocation(node.dataset.location!)}]`
       : printLocation(node.dataset.location!);
+  }
   // Raster compatibility is an explicit image-only operation, after physical placement.
   if (s.rich.vectors === 'raster')
     for (const img of document.images) {
@@ -1161,8 +1197,16 @@ async function layoutBook(payload: {
       img.src = canvas.toDataURL('image/png');
       await img.decode();
     }
-  const totalSheets = Math.ceil(maps.length / 32);
-  sheetsValue.textContent = String(totalSheets);
+  const totalSheets = booklet ? imposeBooklet(maps.length, s).sheets : Math.ceil(maps.length / 32);
+  sheetsValue.textContent = String(booklet ? imposeBooklet(maps.length, s).pageCount : totalSheets);
+  if (booklet && s.booklet.assemblyLabels) {
+    const imposition = new Map(imposeBooklet(maps.length, s).placements.map((p) => [p.pageNumber, p]));
+    pageNodes.forEach((node, index) => {
+      const placement = imposition.get(index + 1)!;
+      node.querySelector('.assembly-label')!.textContent =
+        `S${placement.signature} · Piece ${placement.piece}`;
+    });
+  }
   const positionLabels: Record<number, string> = {};
   let positionWidthsChanged = false;
   let readingOffset = 0;
@@ -1338,4 +1382,141 @@ export async function renderBook(payload: Parameters<typeof layoutBook>[0]) {
   throw new Error(
     'Position headers did not settle. Turn off position headers or adjust text size and retry.',
   );
+}
+
+/** Called after pagination; adds only blank padding pages and assembly furniture. */
+export function prepareBooklet(
+  layout: Pick<RenderResult, 'cells' | 'destinations' | 'sectionRegions'>,
+  settings: RenderSettings,
+) {
+  const plan = imposeBooklet(layout.cells.length, settings);
+  const geometry = bookletGeometry(settings);
+  const nodes = Array.from(document.querySelectorAll<HTMLElement>('.page'));
+  const byPage = new Map(plan.placements.map((p) => [p.pageNumber, p]));
+  for (let index = nodes.length; index < plan.pageCount; index++) {
+    const page = document.createElement('div');
+    page.className = 'page';
+    const placement = byPage.get(index + 1)!;
+    const footer = document.createElement('div');
+    footer.className = 'booklet-footer';
+    footer.textContent = `${index + 1}${settings.booklet.assemblyLabels ? ` · S${placement.signature} · Piece ${placement.piece}` : ''}`;
+    page.append(footer);
+    document.body.append(page);
+  }
+  const pages = Array.from(document.querySelectorAll('.page'));
+  const imageRegions = Array.from(document.images).flatMap((img) => {
+    const page = img.closest('.page');
+    if (!page) return [];
+    const rect = img.getBoundingClientRect(),
+      bounds = page.getBoundingClientRect();
+    return [
+      {
+        blockId: img.closest<HTMLElement>('.image-group')?.dataset.block,
+        page: pages.indexOf(page),
+        x: (rect.x - bounds.x) * 0.75,
+        y: (rect.y - bounds.y) * 0.75,
+        width: rect.width * 0.75,
+        height: rect.height * 0.75,
+      },
+    ];
+  });
+  const cells = [...layout.cells];
+  const offset = cells.at(-1)?.readingEnd;
+  for (let index = cells.length; index < plan.pageCount; index++)
+    cells.push({
+      index,
+      page: index,
+      x: 0,
+      y: 0,
+      width: geometry.width,
+      height: geometry.height,
+      blockIds: [],
+      text: '',
+      blank: true,
+      readingStart: offset,
+      readingEnd: offset,
+    });
+  return {
+    contentPages: plan.contentPages,
+    pageCount: plan.pageCount,
+    signatures: plan.signatures,
+    width: geometry.width,
+    height: geometry.height,
+    placements: plan.placements,
+    reading: { ...layout, cells, imageRegions },
+  } satisfies NonNullable<RenderResult['booklet']>;
+}
+
+/** Move the already measured page nodes; no content is repaginated for printing. */
+export function arrangeBooklet(booklet: NonNullable<RenderResult['booklet']>, settings: RenderSettings) {
+  const logical = Array.from(document.querySelectorAll<HTMLElement>('.page'));
+  const sheets = Math.max(...booklet.placements.map((p) => p.printPage)) + 1;
+  const pages = Array.from({ length: sheets }, () => {
+    const page = document.createElement('div');
+    page.className = 'page';
+    Object.assign(page.style, { width: '816px', height: '1056px' });
+    return page;
+  });
+  const byPage = new Map(booklet.placements.map((p) => [p.pageNumber, p]));
+  const guides = new Set<string>();
+  for (const placement of booklet.placements) {
+    const node = logical[placement.pageNumber - 1];
+    node.className = 'booklet-leaf';
+    Object.assign(node.style, {
+      position: 'absolute',
+      left: `${placement.x / 0.75}px`,
+      top: `${placement.y / 0.75}px`,
+      width: `${placement.width / 0.75}px`,
+      height: `${placement.height / 0.75}px`,
+      overflow: 'hidden',
+    });
+    pages[placement.printPage].append(node);
+    // One rectangle/fold line per piece side, attached to its left-hand leaf.
+    const key = `${placement.printPage}:${placement.signature}:${placement.piece}`;
+    if (!guides.has(key)) {
+      guides.add(key);
+      const guide = document.createElement('div');
+      guide.className = 'booklet-cut-guide';
+      Object.assign(guide.style, {
+        position: 'absolute',
+        pointerEvents: 'none',
+        boxSizing: 'border-box',
+        zIndex: '2',
+        left: `${placement.x / 0.75}px`,
+        top: `${placement.y / 0.75}px`,
+        width: `${(placement.width * 2) / 0.75}px`,
+        height: `${placement.height / 0.75}px`,
+        border: settings.booklet.cutGuides ? '.5px solid black' : 'none',
+      });
+      if (settings.booklet.foldGuides) {
+        const fold = document.createElement('div');
+        Object.assign(fold.style, {
+          position: 'absolute',
+          left: '50%',
+          top: '0',
+          bottom: '0',
+          borderLeft: '.5px dashed black',
+        });
+        guide.append(fold);
+      }
+      pages[placement.printPage].append(guide);
+    }
+  }
+  document.body.replaceChildren(...pages);
+  const style = document.createElement('style');
+  style.textContent =
+    '@page{size:Letter portrait;margin:0}.booklet-leaf{break-after:auto;background:white}.page .booklet-leaf:last-child{break-after:auto}';
+  document.head.append(style);
+  const translate = <T extends { page: number; x: number; y: number }>(region: T): T => {
+    const placement = byPage.get(region.page + 1)!;
+    return { ...region, page: placement.printPage, x: region.x + placement.x, y: region.y + placement.y };
+  };
+  return {
+    cells: booklet.reading.cells.map(translate),
+    destinations: Object.fromEntries(
+      Object.entries(booklet.reading.destinations || {}).map(([id, region]) => [id, translate(region)]),
+    ),
+    sectionRegions: booklet.reading.sectionRegions?.map(translate),
+    imageRegions: booklet.reading.imageRegions?.map(translate),
+  };
 }

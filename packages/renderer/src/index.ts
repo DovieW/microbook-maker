@@ -92,6 +92,7 @@ export async function fingerprint(): Promise<Record<string, string>> {
       'packages/core/src/epub-styles.ts',
       'packages/core/src/index.ts',
       'packages/renderer/src/index.ts',
+      'packages/core/src/booklet.ts',
       'package-lock.json',
     ].map((p) => fs.readFile(path.join(root, p))),
   );
@@ -181,6 +182,7 @@ export async function render(
     if (classic || page.url() !== `${baseUrl}/__renderer/book`)
       await page.goto(`${baseUrl}/__renderer/${classic ? 'classic' : 'book'}`);
     let cells: CellMap[];
+    let booklet: RenderResult['booklet'];
     let destinations: RenderResult['destinations'];
     let navigation: RenderResult['navigation'];
     let sectionRegions: RenderResult['sectionRegions'];
@@ -380,6 +382,32 @@ export async function render(
     await page.evaluate((title) => {
       document.title = title;
     }, job.metadata.title);
+    if (!classic && job.settings.printFormat === 'booklet') {
+      booklet = await page.evaluate(
+        (payload) => (window as any).Microbook.prepareBooklet(payload.layout, payload.settings),
+        {
+          layout: { cells, destinations, sectionRegions },
+          settings: job.settings,
+        },
+      );
+      const readingPdf = await page.pdf({
+        outline: job.settings.rich.bookmarks,
+        printBackground: true,
+        preferCSSPageSize: true,
+        timeout: 600000,
+      });
+      await fs.writeFile(path.join(outputDir, 'reading.pdf'), readingPdf);
+      const imposed = await page.evaluate(
+        (payload) => (window as any).Microbook.arrangeBooklet(payload.booklet, payload.settings),
+        {
+          booklet,
+          settings: job.settings,
+        },
+      );
+      cells = imposed.cells;
+      destinations = imposed.destinations;
+      sectionRegions = imposed.sectionRegions;
+    }
     const pdf = await page.pdf({
       outline: !classic && job.settings.rich.bookmarks,
       format: 'Letter',
@@ -421,6 +449,7 @@ export async function render(
       });
     });
     const result: RenderResult = {
+      booklet,
       destinations,
       navigation,
       sectionRegions,
@@ -437,7 +466,7 @@ export async function render(
       diagnostics: [
         ...doc.diagnostics,
         ...featureDiagnostics,
-        ...(cells.some((cell) => cell.blank)
+        ...(!booklet && cells.some((cell) => cell.blank)
           ? [
               {
                 code: 'image-row-break',

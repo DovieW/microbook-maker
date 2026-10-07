@@ -1,6 +1,6 @@
 # MicroBook
 
-Turn a book into a few sheets of paper you can print and fold.
+Turn a book into a few sheets of paper you can print and fold, or cut into a tiny bound book.
 
 Open an EPUB, Markdown, or text file, adjust the layout, and preview the PDF before printing. MicroBook fits multiple small pages onto each sheet, with space around the folds.
 
@@ -13,7 +13,7 @@ Open an EPUB, Markdown, or text file, adjust the layout, and preview the PDF bef
 ## Using MicroBook
 
 1. **Open a book.** EPUB works best when you want to keep headings, illustrations, and notes.
-2. **Choose a layout.** Basic keeps things simple. Rich gives you control over typography, headings, images, and navigation. Read across rows or by quadrant.
+2. **Choose a layout.** Basic keeps things simple. Rich gives you control over typography, headings, images, and navigation. Use Folded sheet to read across rows or by quadrant, or Bound booklet to cut, nest, and sew small pages.
 3. **Arrange the content.** Reorder or leave out sections and images, replace a cover, or add your own text and pictures.
 4. **Apply and check.** Changes stay in draft until you apply them. Search the PDF or click a content item to jump to it.
 5. **Print or download.** History keeps your books and layouts; save a named version when you want to keep an alternative.
@@ -23,6 +23,8 @@ You can also export layout settings, import them into another book, and keep you
 ## Printing
 
 Print at **100% / actual size**, with the printer’s pages-per-sheet option set to **1**. MicroBook has already arranged the pages. Try one duplex sheet first to check orientation and folding before printing a whole book.
+
+For **Bound booklet**, use Rich mode, portrait Letter paper, and duplex **flip on long edge**. Cut along the solid guides, fold along the dashed guides, and nest pieces by signature. See [booklet printing](docs/BOUND_BOOKLET.md) for sizing and assembly.
 
 The type is small by design. Increase the text size if needed; the book will use more sheets. The app’s **Tips** button covers paper, printers, and folding. See the [print guide](docs/PRINT_REFINEMENTS.md) for more detail.
 

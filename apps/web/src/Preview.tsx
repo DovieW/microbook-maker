@@ -20,6 +20,7 @@ function previewPagesThrough(pageNumber: number) {
 export type FindState = { current: number; total: number; pending?: boolean };
 type Props = {
   job: RenderJob;
+  bookletView?: 'reading' | 'print';
   cell: number;
   initial?: ReadingPosition;
   zoom: number;
@@ -27,7 +28,7 @@ type Props = {
   loadingMode: PreviewLoading;
   visible?: boolean;
   onZoom: (n: number) => void;
-  onReading: (id: string, p: ReadingPosition) => void;
+  onReading: (id: string, p: ReadingPosition, cellIndex?: number) => void;
   selectedImageId?: string;
   selectedSectionId?: string;
   selectedSectionCell?: number;
@@ -49,11 +50,40 @@ type Props = {
   onFind: (state: FindState) => void;
 };
 export function Preview(props: Props) {
-  const { job, visible = true } = props;
+  const { visible = true } = props;
+  const reading = props.bookletView === 'reading' && !!props.job.result?.booklet;
+  const booklet = props.job.result?.booklet;
+  const job = reading
+    ? { ...props.job, result: { ...props.job.result!, ...booklet!.reading, pages: booklet!.pageCount } }
+    : props.job;
+  const pageWidth = reading ? booklet!.width : 612;
+  const pageHeight = reading ? booklet!.height : 792;
+  const printCell = props.jump
+    ? props.job.result?.cells.find(
+        (c) =>
+          c.page === props.jump!.page - 1 &&
+          props.jump!.x >= c.x - 0.01 &&
+          props.jump!.x < c.x + c.width &&
+          props.jump!.y >= c.y - 0.01 &&
+          props.jump!.y < c.y + c.height,
+      )
+    : undefined;
+  const readingCell = printCell ? booklet?.reading.cells[printCell.index] : undefined;
+  const jump =
+    reading && props.jump && readingCell && printCell
+      ? {
+          ...props.jump,
+          page: readingCell.page + 1,
+          x: props.jump.x - printCell.x,
+          y: props.jump.y - printCell.y,
+        }
+      : props.jump;
+  const effective = { ...props, job, jump };
+
   const holder = useRef<HTMLDivElement>(null);
   const pages = useRef<HTMLDivElement>(null);
-  const live = useRef(props);
-  live.current = props;
+  const live = useRef(effective);
+  live.current = effective;
   const [adapter, setAdapter] = useState<{
     viewer: PDFViewer;
     events: EventBus;
@@ -106,6 +136,7 @@ export function Preview(props: Props) {
       maxCanvasPixels: 16_000_000,
       enableAutoLinking: false,
     });
+    if (reading) viewer.spreadMode = 2; /* first page alone, then even/odd facing pairs */
     linkService.setViewer(viewer);
     const retainPages = props.loadingMode === 'all';
     const retainedDestroy = new Map<any, () => void>();
@@ -153,10 +184,10 @@ export function Preview(props: Props) {
       hit.className = `section-hit${fallback ? ' fallback' : ''}${sectionId === live.current.selectedSectionId ? ' selected' : ''}`;
       hit.dataset.sectionId = sectionId;
       Object.assign(hit.style, {
-        left: `${(region.x / 612) * 100}%`,
-        top: `${(region.y / 792) * 100}%`,
-        width: `${(region.width / 612) * 100}%`,
-        height: `${(region.height / 792) * 100}%`,
+        left: `${(region.x / pageWidth) * 100}%`,
+        top: `${(region.y / pageHeight) * 100}%`,
+        width: `${(region.width / pageWidth) * 100}%`,
+        height: `${(region.height / pageHeight) * 100}%`,
       });
       layer.append(hit);
     };
@@ -193,10 +224,10 @@ export function Preview(props: Props) {
             hit.className = `image-hit${region.blockId === live.current.selectedImageId ? ' selected' : ''}`;
             hit.dataset.imageBlock = region.blockId;
             Object.assign(hit.style, {
-              left: `${(region.x / 612) * 100}%`,
-              top: `${(region.y / 792) * 100}%`,
-              width: `${(region.width / 612) * 100}%`,
-              height: `${(region.height / 792) * 100}%`,
+              left: `${(region.x / pageWidth) * 100}%`,
+              top: `${(region.y / pageHeight) * 100}%`,
+              width: `${(region.width / pageWidth) * 100}%`,
+              height: `${(region.height / pageHeight) * 100}%`,
             });
             const button = document.createElement('button');
             button.type = 'button';
@@ -277,7 +308,32 @@ export function Preview(props: Props) {
         lastPosition.current = { page: location.pageNumber, left: location.left, top: location.top };
         clearTimeout(scrollTimer);
         scrollTimer = setTimeout(() => {
-          if (lastPosition.current) live.current.onReading(job.id, lastPosition.current);
+          if (lastPosition.current) {
+            const position = lastPosition.current;
+            const logical = reading
+              ? booklet!.reading.cells.find((c) => c.page === position.page - 1)
+              : undefined;
+            const current = props.job.result!.cells[live.current.cell];
+            const index =
+              logical?.index ??
+              (booklet
+                ? current?.page === position.page - 1
+                  ? current.index
+                  : props.job.result!.cells.find((c) => c.page === position.page - 1 && !c.blank)?.index
+                : undefined);
+            const printed = index === undefined ? undefined : props.job.result!.cells[index];
+            live.current.onReading(
+              job.id,
+              printed
+                ? {
+                    page: printed.page + 1,
+                    left: printed.x + (reading ? position.left : 0),
+                    top: 792 - printed.y - (reading ? pageHeight - position.top : 0),
+                  }
+                : position,
+              index,
+            );
+          }
         }, 120);
         clearTimeout(timer);
         timer = setTimeout(() => {
@@ -285,7 +341,7 @@ export function Preview(props: Props) {
         }, 250);
       },
     );
-    const task = getDocument({ url: `/api/renders/${job.id}/pdf` });
+    const task = getDocument({ url: `/api/renders/${job.id}/${reading ? 'reading-pdf' : 'pdf'}` });
     void task.promise
       .then((pdf) => {
         if (stopped) return;
@@ -314,7 +370,7 @@ export function Preview(props: Props) {
       void task.destroy();
       setAdapter(undefined);
     };
-  }, [job.id, props.loadingMode]);
+  }, [job.id, props.loadingMode, reading]);
   useEffect(() => {
     if (!adapter || ready !== job.id) return;
     const { viewer } = adapter;
@@ -325,7 +381,16 @@ export function Preview(props: Props) {
     viewer.currentScaleValue = props.zoomMode === 'fit' ? 'page-width' : String(props.zoom);
     if (!restored.current) {
       restored.current = true;
-      const p = live.current.initial;
+      const stored = live.current.initial;
+      const physical = props.job.result?.cells[live.current.cell];
+      const p =
+        reading && stored && physical
+          ? {
+              page: live.current.cell + 1,
+              left: stored.left - physical.x,
+              top: pageHeight - (792 - stored.top - physical.y),
+            }
+          : stored;
       const c = job.result!.cells[live.current.cell];
       if (p)
         viewer.scrollPageIntoView({
@@ -336,7 +401,7 @@ export function Preview(props: Props) {
       else if (c)
         viewer.scrollPageIntoView({
           pageNumber: c.page + 1,
-          destArray: [null, { name: 'XYZ' }, c.x, 792 - c.y, null],
+          destArray: [null, { name: 'XYZ' }, c.x, pageHeight - c.y, null],
         });
     }
     viewer.update();
@@ -361,27 +426,21 @@ export function Preview(props: Props) {
     return () => resize.disconnect();
   }, [adapter, visible, props.zoom, props.zoomMode, props.loadingMode, ready]);
   useEffect(() => {
-    if (
-      !adapter ||
-      ready !== job.id ||
-      !visible ||
-      props.jump?.id !== job.id ||
-      lastJump.current === props.jump.serial
-    )
+    if (!adapter || ready !== job.id || !visible || jump?.id !== job.id || lastJump.current === jump.serial)
       return;
-    lastJump.current = props.jump.serial;
+    lastJump.current = jump.serial;
     adapter.viewer.scrollPageIntoView({
-      pageNumber: props.jump.page,
-      destArray: [null, { name: 'XYZ' }, props.jump.x, 792 - props.jump.y, null],
+      pageNumber: jump.page,
+      destArray: [null, { name: 'XYZ' }, jump.x, pageHeight - jump.y, null],
       allowNegativeOffset: true,
     });
     holder.current?.querySelector('.preview-jump-cue')?.remove();
     window.clearTimeout(cueTimer.current);
     window.cancelAnimationFrame(cueFrame.current || 0);
-    if (props.jump.cue) {
+    if (jump.cue) {
       let attempts = 0;
       const showCue = () => {
-        const page = adapter.viewer.getPageView(props.jump!.page - 1);
+        const page = adapter.viewer.getPageView(jump!.page - 1);
         const layer = (page?.div as HTMLElement | undefined)?.querySelector<HTMLElement>('.image-overlays');
         if (!layer) {
           if (++attempts < 30) cueFrame.current = window.requestAnimationFrame(showCue);
@@ -389,19 +448,19 @@ export function Preview(props: Props) {
         }
         const cue = document.createElement('div');
         cue.className = 'preview-jump-cue';
-        cue.dataset.jumpSerial = String(props.jump!.serial);
+        cue.dataset.jumpSerial = String(jump!.serial);
         Object.assign(cue.style, {
-          left: `${(props.jump!.x / 612) * 100}%`,
-          top: `${(props.jump!.y / 792) * 100}%`,
-          width: `${(props.jump!.width / 612) * 100}%`,
-          height: `${(props.jump!.height / 792) * 100}%`,
+          left: `${(jump!.x / pageWidth) * 100}%`,
+          top: `${(jump!.y / pageHeight) * 100}%`,
+          width: `${(jump!.width / pageWidth) * 100}%`,
+          height: `${(jump!.height / pageHeight) * 100}%`,
         });
         layer.append(cue);
         cueTimer.current = window.setTimeout(() => cue.remove(), 700);
       };
       showCue();
     }
-  }, [adapter, visible, props.jump, ready]);
+  }, [adapter, visible, jump, ready]);
   useEffect(() => {
     holder.current
       ?.querySelectorAll<HTMLElement>('.image-hit')
@@ -446,7 +505,7 @@ export function Preview(props: Props) {
     <div
       className={`viewer-holder${entered ? ' preview-entered' : ''}`}
       hidden={!visible}
-      aria-label="Print preview"
+      aria-label={reading ? 'Reading preview' : 'Print preview'}
       aria-busy={loading ? 'true' : 'false'}
       data-render-id={job.id}
     >

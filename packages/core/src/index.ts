@@ -1,3 +1,4 @@
+export { bookletGeometry, imposeBooklet, type BookletPlacement } from './booklet.ts';
 import { z } from 'zod';
 import { imageOutputSchema } from './image-output.ts';
 export {
@@ -49,6 +50,26 @@ export const settingsSchema = z
     foldGapMm: z.number().min(0.5).max(6).default(2.5),
     foldGapEveryRow: z.boolean().default(true),
     readingOrder: z.enum(['rows', 'quadrants']).default('rows'),
+    printFormat: z.enum(['folded-sheet', 'booklet']).default('folded-sheet'),
+    booklet: z
+      .object({
+        pageWidth: z.union([z.literal(1), z.literal(2)]).default(1),
+        pageHeight: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).default(1),
+        piecesPerSignature: z.number().int().min(1).max(8).default(4),
+        bindingMarginMm: z.number().min(0).max(6).default(2),
+        cutGuides: z.boolean().default(true),
+        foldGuides: z.boolean().default(true),
+        assemblyLabels: z.boolean().default(true),
+      })
+      .default(() => ({
+        pageWidth: 1 as const,
+        pageHeight: 1 as const,
+        piecesPerSignature: 4,
+        bindingMarginMm: 2,
+        cutGuides: true,
+        foldGuides: true,
+        assemblyLabels: true,
+      })),
     lineHeight: z.number().min(0.5).max(1.6).default(1),
     paragraphStyle: z.enum(['lines', 'markers', 'continuous', 'spaced']).default('continuous'),
     paragraphIndentEm: z.number().min(0).max(3).default(0),
@@ -127,7 +148,8 @@ export const settingsSchema = z
         message: 'Basic supports sizes 4–10 and dashed, solid, or dotted borders.',
       });
     }
-  });
+  })
+  .transform((s) => (s.mode === 'classic' ? { ...s, printFormat: 'folded-sheet' as const } : s));
 export type RenderSettings = z.infer<typeof settingsSchema>;
 export type ImageRotation = 0 | 90 | 180 | 270;
 export const imageRotationOptions: readonly (readonly [string, string])[] = [
@@ -150,6 +172,22 @@ export const imageLayoutOptions: readonly (readonly [ImageLayout, string])[] = [
   ['two-cells', 'Full two cells'],
   ['four-cells', 'Full four cells'],
 ];
+export function imageLayoutOptionsFor(settings: RenderSettings) {
+  return settings.mode === 'book' && settings.printFormat === 'booklet'
+    ? ([
+        ['flourish', 'Flourish'],
+        ['inline', 'Inline'],
+        ['cell', 'Full page'],
+      ] as const)
+    : imageLayoutOptions;
+}
+export function imageLayoutValue(settings: RenderSettings, value: ImageLayout): ImageLayout {
+  return settings.mode === 'book' &&
+    settings.printFormat === 'booklet' &&
+    ['two-cells', 'four-cells'].includes(value)
+    ? 'cell'
+    : value;
+}
 export function defaultImageLayout(settings: RenderSettings): ImageLayout {
   return settings.imageLayout ?? (settings.twoCellImages ? 'two-cells' : 'inline');
 }
@@ -161,7 +199,12 @@ export function imageLayoutOverride(settings: RenderSettings, blockId: string): 
   return span === 4 ? 'four-cells' : span === 2 ? 'two-cells' : span === 1 ? 'inline' : undefined;
 }
 export function imageLayoutForBlock(settings: RenderSettings, blockId: string): ImageLayout {
-  return imageLayoutOverride(settings, blockId) ?? defaultImageLayout(settings);
+  const layout = imageLayoutOverride(settings, blockId) ?? defaultImageLayout(settings);
+  return settings.mode === 'book' &&
+    settings.printFormat === 'booklet' &&
+    ['cell', 'two-cells', 'four-cells'].includes(layout)
+    ? 'cell'
+    : layout;
 }
 export type Mode = RenderSettings['mode'];
 // Retain stored/API identifiers so existing books, exports and preferences still open.
@@ -374,7 +417,22 @@ export function cellAtLocation(cells: CellMap[], location: SourceLocation): numb
         );
   return anchored?.index ?? byOffset?.index ?? Math.min(location.cell, Math.max(0, cells.length - 1));
 }
+export interface BookletResult {
+  contentPages: number;
+  pageCount: number;
+  signatures: number;
+  width: number;
+  height: number;
+  placements: import('./booklet').BookletPlacement[];
+  reading: {
+    cells: CellMap[];
+    destinations?: RenderResult['destinations'];
+    sectionRegions?: RenderResult['sectionRegions'];
+    imageRegions?: RenderResult['imageRegions'];
+  };
+}
 export interface RenderResult {
+  booklet?: BookletResult;
   destinations?: Record<string, { page: number; x: number; y: number; cell: number }>;
   navigation?: { title: string; blockId: string; depth: number }[];
   sectionRegions?: { sectionId: string; page: number; x: number; y: number; width: number; height: number }[];

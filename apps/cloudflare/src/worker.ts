@@ -105,7 +105,7 @@ export default {
           format: 'letter',
           printBackground: true,
           outline: request.headers.get('X-Microbook-Bookmarks') === 'true',
-          preferCSSPageSize: false,
+          preferCSSPageSize: request.headers.get('X-Microbook-Page-Size') === 'css',
           displayHeaderFooter: false,
           margin: { top: 0, bottom: 0, left: 0, right: 0 },
         },

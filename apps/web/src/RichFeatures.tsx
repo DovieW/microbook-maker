@@ -62,13 +62,15 @@ export function RichFeatures({
           ['chapters', 'Parts and chapters'],
           ['all', 'All sections'],
         ])}
-        {select('sheetHeaders', 'Sheet headers', [
-          ['every', 'Every sheet'],
-          ['first', 'First sheet only'],
-          ['off', 'Off'],
-        ])}
+        {(w.kept?.settings || w.draft).printFormat !== 'booklet' &&
+          select('sheetHeaders', 'Sheet headers', [
+            ['every', 'Every sheet'],
+            ['first', 'First sheet only'],
+            ['off', 'Off'],
+          ])}
         {check('printDate', 'Print date')}
-        {check('chapterHeaders', 'Chapter names in mini headers')}
+        {(w.kept?.settings || w.draft).printFormat !== 'booklet' &&
+          check('chapterHeaders', 'Chapter names in mini headers')}
         {select('pageReferences', 'Original page references', [
           ['off', 'Off'],
           ['headers', 'Mini headers'],

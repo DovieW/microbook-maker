@@ -16,7 +16,7 @@ import {
   type RenderJob,
   type Asset,
 } from '@microbook/core';
-const fingerprint = { renderer: 'hosted-browser-2' };
+const fingerprint = { renderer: 'hosted-browser-3' };
 const active = new Map<string, AbortController>();
 let queue = Promise.resolve();
 const channel = new BroadcastChannel('microbook-render-jobs');
@@ -162,6 +162,23 @@ async function run(job: RenderJob) {
     }
     const pdf = await response.blob();
     if (controller.signal.aborted) return;
+    if (prepared.readingHtml) {
+      const reading = await fetch('/_cloud/print', {
+        method: 'POST',
+        body: prepared.readingHtml,
+        headers: {
+          'Content-Type': 'text/html',
+          'X-Microbook-Bookmarks': String(job.settings.rich.bookmarks),
+          'X-Microbook-Page-Size': 'css',
+        },
+        signal: controller.signal,
+      });
+      if (!reading.ok) throw Error(`Could not create the reading PDF (${reading.status})`);
+      await putOwned('binary:/api/renders/' + job.id + '/reading-pdf', {
+        documentId: doc.id,
+        blob: await reading.blob(),
+      });
+    }
     const latest = await documentById(job.documentId);
     await putOwned('binary:/api/renders/' + job.id + '/pdf', { documentId: doc.id, blob: pdf });
     job.result = prepared.result;
@@ -216,7 +233,7 @@ async function handle(request: Request): Promise<Response> {
     parts = url.pathname.split('/').filter(Boolean),
     method = request.method;
   if (url.pathname === '/api/health')
-    return json({ ok: true, version: '2.3.0', rendererReady: true, fingerprint, hosted: true });
+    return json({ ok: true, version: '2.4.0', rendererReady: true, fingerprint, hosted: true });
   if (url.pathname === '/api/metadata/lookup') return fetch('/_cloud/metadata' + url.search);
   if (parts[1] === 'image-test-print') {
     const list = await fetch('/hosted-print-samples/samples.json').then((r) => r.json());
@@ -436,7 +453,7 @@ async function handle(request: Request): Promise<Response> {
     if (['lease', 'release'].includes(parts[3])) return noContent();
     if (parts[3] === 'map') return json(job.result?.cells || []);
     if (parts[3] === 'export') return json({ url: `/api/renders/${job.id}/download` });
-    if (['pdf', 'download', 'thumbnail'].includes(parts[3])) {
+    if (['pdf', 'reading-pdf', 'download', 'thumbnail'].includes(parts[3])) {
       const record = await get(
         'binary:/api/renders/' + job.id + '/' + (parts[3] === 'download' ? 'pdf' : parts[3]),
       );

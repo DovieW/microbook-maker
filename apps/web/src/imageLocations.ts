@@ -39,5 +39,9 @@ export function imageLocations(
     ];
   });
 }
-export const printedLocation = (page: number) =>
-  `Sheet ${Math.floor(page / 2) + 1} · ${page % 2 ? 'Back' : 'Front'}`;
+export const printedLocation = (page: number, result?: RenderResult, index?: number) => {
+  const placement = result?.booklet?.placements.find((p) => p.pageNumber === (index ?? 0) + 1);
+  return placement
+    ? `Page ${placement.pageNumber} · Signature ${placement.signature}`
+    : `Sheet ${Math.floor(page / 2) + 1} · ${page % 2 ? 'Back' : 'Front'}`;
+};

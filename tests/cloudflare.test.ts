@@ -115,3 +115,14 @@ it('public mode serves the app but never exposes a shared Library or accepts cro
   expect((await worker.fetch(print('https://microbook.example'), bindings)).status).toBe(200);
   expect(bindings.BROWSER.quickAction.mock.calls[0][1].pdfOptions.outline).toBe(true);
 });
+
+it('honors logical booklet page dimensions only when the caller requests CSS page size', async () => {
+  const bindings = env();
+  bindings.BROWSER.quickAction.mockResolvedValue(new Response('%PDF-test'));
+  const response = await worker.fetch(
+    request('<style>@page{size:153pt 198pt}</style><p>Page</p>', { 'X-Microbook-Page-Size': 'css' }),
+    bindings,
+  );
+  expect(response.status).toBe(200);
+  expect(bindings.BROWSER.quickAction.mock.calls[0][1].pdfOptions.preferCSSPageSize).toBe(true);
+});

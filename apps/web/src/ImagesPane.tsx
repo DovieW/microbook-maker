@@ -4,7 +4,8 @@ import {
   imageOutputQuery,
   settingsSchema,
   defaultImageLayout,
-  imageLayoutOptions,
+  imageLayoutOptionsFor,
+  imageLayoutValue,
   defaultImageRotation,
   imageRotationForBlock,
   imageRotationOptions,
@@ -160,8 +161,8 @@ export function ImagesPane({
               <span>Image layout</span>
               <Dropdown
                 label="Default image layout"
-                value={defaultImageLayout(draft)}
-                options={imageLayoutOptions}
+                value={imageLayoutValue(draft, defaultImageLayout(draft))}
+                options={imageLayoutOptionsFor(draft)}
                 onChange={(value) => w.edit({ imageLayout: value as ImageLayout })}
               />
             </label>
@@ -182,7 +183,10 @@ export function ImagesPane({
                 onChange={(e) => w.edit({ fillImageSpace: e.target.checked })}
               />
             </label>
-            <p className="image-output-help">Following text can fill the space below full-cell images.</p>
+            <p className="image-output-help">
+              Following text can fill the space below{' '}
+              {draft.printFormat === 'booklet' ? 'full-page' : 'full-cell'} images.
+            </p>
             <label className="field">
               <span>Image scale</span>
               <input
@@ -277,7 +281,7 @@ export function ImagesPane({
                   : !w.preview?.result
                     ? 'Preview not generated'
                     : cell
-                      ? printedLocation(cell.page)
+                      ? printedLocation(cell.page, w.preview?.result, cell.index)
                       : w.dirty
                         ? 'No location in applied preview'
                         : 'No visible content with current settings';
@@ -387,7 +391,7 @@ export function ImagesPane({
                         className="image-location"
                         aria-label={
                           cell
-                            ? `Show image ${i + 1}: ${printedLocation(cell.page)}`
+                            ? `Show image ${i + 1}: ${printedLocation(cell.page, w.preview?.result, cell.index)}`
                             : `Go to context for image ${i + 1}`
                         }
                         disabled={!cell && !context}
@@ -485,7 +489,7 @@ export function ImagesPane({
                     disabled={!cell && !context}
                     onClick={() => w.jumpImage(block.id)}
                   >
-                    {cell ? printedLocation(cell.page) : 'Go to context'}
+                    {cell ? printedLocation(cell.page, w.preview?.result, cell.index) : 'Go to context'}
                   </button>
                   <fieldset disabled={!!w.kept}>
                     <ImageTreatmentControls w={w} block={block} heading={heading} />

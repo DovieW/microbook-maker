@@ -4,7 +4,8 @@ import {
   matchingImageBlocks,
   imageLayoutForBlock,
   imageLayoutOverride,
-  imageLayoutOptions,
+  imageLayoutOptionsFor,
+  imageLayoutValue,
   type ImageLayout,
   type Block,
 } from '@microbook/core';
@@ -36,8 +37,8 @@ export function ImageTreatmentControls({
         <span>Image layout</span>
         <Dropdown
           label="Image layout"
-          value={override || 'inherit'}
-          options={[['inherit', 'Use book default'], ...imageLayoutOptions]}
+          value={override ? imageLayoutValue(s, override) : 'inherit'}
+          options={[['inherit', 'Use book default'], ...imageLayoutOptionsFor(s)]}
           onChange={(value) => w.edit(imageLayoutChanges(s, [block.id], value as ImageLayout | 'inherit'))}
         />
       </label>

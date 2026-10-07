@@ -3,7 +3,14 @@ import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { importDocument, IMPORT_REVISION } from '@microbook/core/import';
-import { blockText, defaultSettings, wordCount, type BookDocument, type RenderJob } from '@microbook/core';
+import {
+  blockText,
+  defaultSettings,
+  settingsSchema,
+  wordCount,
+  type BookDocument,
+  type RenderJob,
+} from '@microbook/core';
 
 const writes = new Map<string, Promise<void>>();
 export async function atomicJson(file: string, value: unknown) {
@@ -73,6 +80,7 @@ export class Storage {
           await fs.readFile(path.join(this.renderDir(id), 'job.json'), 'utf8'),
         );
         if (job.version !== 1 || job.id !== id) continue;
+        job.settings = settingsSchema.parse(job.settings);
         if (job.status === 'running') {
           job.status = 'interrupted';
           job.phase = 'Interrupted';
@@ -81,6 +89,7 @@ export class Storage {
         }
         if (job.status === 'completed') {
           await fs.access(path.join(this.renderDir(id), 'output.pdf'));
+          if (job.result?.booklet) await fs.access(path.join(this.renderDir(id), 'reading.pdf'));
           await fs.access(path.join(this.renderDir(id), 'result.json'));
         }
         this.jobs.set(id, job);

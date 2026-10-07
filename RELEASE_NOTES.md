@@ -1,21 +1,24 @@
-# MicroBook 2.3
+# MicroBook 2.4
 
-This release adds more control over book content and image placement, plus an experimental paper-folding simulator.
+Print a book as small pages you can cut, fold into signatures, and sew together. Rich mode now offers **Folded sheet** and **Bound booklet** near the top of Layout.
 
 ## What’s new
 
-- **Folding simulator.** Try folds on a labeled 3D sheet, inspect its layers, rotate and pan, and record, replay, save or export a folding method. This is a prototype: it does not simulate real paper stiffness, friction, cuts or diagonal folds, and it does not yet show the book’s PDF on the paper.
-- **Spoiler-free viewing.** A header toggle blurs book content in the interface without changing the printed PDF.
-- **Clearer content inspection.** Excluded and empty sections have distinct statuses. Source content can be inspected even when a section has no printed location.
-- **Image layout choices.** Choose Flourish, Inline, Full cell, Full two cells or Full four cells. Individual and repeated images can inherit defaults or override them.
-- **Orientation defaults.** Set a book-wide image orientation, with overrides for individual images and repeated groups.
-- **Less wasted space.** Text first also works with full-cell images and continues across EPUB file splits. Recognized chart source credits stay with their images. A new setting, on by default, allows following text to fill unused space below single-cell images.
-- **Tighter typography.** Rich line height can be reduced to 0.5.
+- **Booklet sizing and binding.** Choose pages one or two cells wide and one to four cells tall. Set one to eight folded pieces per signature and an alternating inner binding margin. The default is one-cell pages, four pieces (16 pages) per signature, and a 2 mm binding margin.
+- **Two previews.** Reading shows pages in order and facing spreads. Print sheets shows the duplex arrangement. Download always produces the printable PDF; both previews use the same pagination.
+- **Page-based navigation.** Contents, references, bookmarks, and content locations use booklet page numbers. Full-cell image treatments appear as Full page in booklet mode while retaining their folded-sheet settings.
+- **Assembly controls.** Cut guides, dashed fold guides, and signature/piece labels can be switched independently. Page numbers remain visible. The last signature is smaller when possible; unused sheet positions are left empty.
+
+Basic and existing books continue to use Folded sheet. Switching formats preserves their settings. Layout changes still require Apply.
+
+## Printing a booklet
+
+Use **portrait US Letter**, **100% / actual size**, **one page per sheet**, and **duplex flip on long edge**. Cut along solid guides, fold along dashed guides, then nest piece 1 outside piece 2 and continue inward within each signature. How many signatures you bind into one volume is up to you.
+
+Print the attached numbered calibration sheet before a full book. Automated checks verify page pairing, mirrored backs, content coverage, and PDF navigation; your printer’s duplex direction, cutting, nesting, and binding margin still need a physical check. Cross-gutter image spreads, volume splitting, and sewing simulation are not included.
 
 ## Upgrading
 
-Back up both persistent volumes and retain the previous image. Reuse the existing volumes, mounts and port. Do not run `docker compose down -v`.
+Back up both persistent volumes and retain the previous image. Reuse the existing volumes, mounts, and port. Do not run `docker compose down -v`. Existing PDFs remain unchanged; click Apply to regenerate a book.
 
-Existing PDFs remain unchanged. Click Apply to regenerate a book with the new layout behavior. Folding methods and interface preferences are saved in the browser.
-
-See [deployment and rollback instructions](DEPLOYMENT.md) and [folding simulator limits](docs/FOLDING_SIMULATOR.md).
+See [booklet printing](docs/BOUND_BOOKLET.md) and [deployment and rollback instructions](DEPLOYMENT.md).

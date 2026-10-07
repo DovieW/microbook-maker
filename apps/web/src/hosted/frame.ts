@@ -1,5 +1,5 @@
 import { Buffer } from 'buffer';
-import { renderBook } from '../../../../packages/renderer/src/book-browser';
+import { renderBook, prepareBooklet, arrangeBooklet } from '../../../../packages/renderer/src/book-browser';
 import {
   fontStacks,
   documentText,
@@ -177,8 +177,12 @@ export async function render(
     offset += normalizedText(cell.text).replace(/\s/g, '').length;
     cell.readingEnd = offset;
   }
+  const booklet =
+    settings.mode === 'book' && settings.printFormat === 'booklet'
+      ? prepareBooklet(content, settings)
+      : undefined;
   const pages = Array.from(document.querySelectorAll('.page'));
-  const imageRegions = Array.from(document.images).flatMap((img) => {
+  let imageRegions: NonNullable<RenderResult['imageRegions']> = Array.from(document.images).flatMap((img) => {
     const page = img.closest('.page');
     if (!page) return [];
     const rect = img.getBoundingClientRect(),
@@ -203,13 +207,17 @@ export async function render(
     faceCss.join('\n') +
     '.page,.page *{color:#000!important;-webkit-text-fill-color:#000!important;text-shadow:none!important;border-color:#000!important;outline-color:#000!important}.page *:not(img){background-color:transparent!important;background-image:none!important;box-shadow:none!important}';
   clone.querySelector('head')!.append(css);
-  for (const img of Array.from(clone.querySelectorAll('img')))
+  const embeddedImages = new Map<string, string>();
+  for (const img of Array.from(clone.querySelectorAll('img'))) {
+    const source = img.src;
     img.src = await dataUrl(
       await fetch(img.src).then((r) => {
         if (!r.ok) throw Error('Could not embed an image');
         return r.blob();
       }),
     );
+    embeddedImages.set(source, img.src);
+  }
   // Publisher FontFaces are JS-owned, so they need a CSS representation in the snapshot too.
   if (settings.rich.headingFonts === 'publisher')
     for (const font of documentData.publisherFonts || []) {
@@ -223,15 +231,35 @@ export async function render(
   const title = clone.querySelector('title') || document.createElement('title');
   title.textContent = documentData.metadata.title;
   clone.querySelector('head')!.append(title);
+  let html = clone.outerHTML;
+  let readingHtml: string | undefined;
+  let printPages = pages.length;
+  if (booklet) {
+    readingHtml = html;
+    const imposed = arrangeBooklet(booklet, settings);
+    content = { ...content, ...imposed };
+    imageRegions = imposed.imageRegions || [];
+    const printClone = document.documentElement.cloneNode(true) as HTMLElement;
+    printClone.querySelectorAll('script,link').forEach((n) => n.remove());
+    printClone.querySelector('head')!.replaceWith(clone.querySelector('head')!.cloneNode(true));
+    const letter = document.createElement('style');
+    letter.textContent =
+      '@page{size:Letter portrait;margin:0}.booklet-leaf{break-after:auto;background:white}';
+    printClone.querySelector('head')!.append(letter);
+    for (const img of printClone.querySelectorAll('img')) img.src = embeddedImages.get(img.src)!;
+    html = printClone.outerHTML;
+    printPages = document.querySelectorAll('.page').length;
+  }
   const result: RenderResult = {
+    booklet,
     ...content,
     imageRegions,
-    pages: pages.length,
-    sheets: Math.ceil(pages.length / 2),
-    fingerprint: { renderer: 'hosted-browser-2' },
+    pages: printPages,
+    sheets: Math.ceil(printPages / 2),
+    fingerprint: { renderer: 'hosted-browser-3' },
     timings: { layout: performance.now() - started },
     peakMemoryMb: 0,
     diagnostics: [...documentData.diagnostics, ...(content.diagnostics || [])],
   };
-  return { html: clone.outerHTML, result };
+  return { html, readingHtml, result };
 }

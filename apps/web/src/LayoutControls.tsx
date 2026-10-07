@@ -13,6 +13,7 @@ export function LayoutControls({ w }: { w: Workspace }) {
   const settingsInput = useRef<HTMLInputElement>(null);
   const s = settingsSchema.parse(w.kept?.settings || w.draft);
   const rich = s.mode === 'book';
+  const booklet = rich && s.printFormat === 'booklet';
   const number = (
     key: keyof RenderSettings,
     label: string,
@@ -66,6 +67,103 @@ export function LayoutControls({ w }: { w: Workspace }) {
         ))}
       </div>
       <fieldset disabled={!!w.kept}>
+        {rich && (
+          <label className="field print-format-field">
+            <span>Print format</span>
+            <Dropdown
+              label="Print format"
+              value={s.printFormat}
+              options={[
+                ['folded-sheet', 'Folded sheet'],
+                ['booklet', 'Bound booklet'],
+              ]}
+              onChange={(value) => w.edit({ printFormat: value as RenderSettings['printFormat'] })}
+            />
+          </label>
+        )}
+        {booklet && (
+          <div className="booklet-settings">
+            {(['pageWidth', 'pageHeight', 'piecesPerSignature'] as const).map((key) => (
+              <label className="field" key={key}>
+                <span>
+                  {key === 'pageWidth'
+                    ? 'Page width'
+                    : key === 'pageHeight'
+                      ? 'Page height'
+                      : 'Folded pieces per signature'}
+                </span>
+                <Dropdown
+                  label={
+                    key === 'pageWidth'
+                      ? 'Booklet page width'
+                      : key === 'pageHeight'
+                        ? 'Booklet page height'
+                        : 'Folded pieces per signature'
+                  }
+                  value={String(s.booklet[key])}
+                  options={Array.from(
+                    { length: key === 'pageWidth' ? 2 : key === 'pageHeight' ? 4 : 8 },
+                    (_, i) => [
+                      String(i + 1),
+                      `${i + 1}${key === 'piecesPerSignature' ? '' : i === 0 ? ' cell' : ' cells'}`,
+                    ],
+                  )}
+                  onChange={(value) => w.edit({ booklet: { ...s.booklet, [key]: Number(value) } })}
+                />
+              </label>
+            ))}
+            <div className="booklet-size-diagram" aria-label="Open booklet size">
+              <div style={{ aspectRatio: `${s.booklet.pageWidth * 153} / ${s.booklet.pageHeight * 198}` }}>
+                Left
+              </div>
+              <div style={{ aspectRatio: `${s.booklet.pageWidth * 153} / ${s.booklet.pageHeight * 198}` }}>
+                Right
+              </div>
+            </div>
+            <small>
+              Each page: {(53.975 * s.booklet.pageWidth).toFixed(1)} ×{' '}
+              {(69.85 * s.booklet.pageHeight).toFixed(1)} mm · {s.booklet.piecesPerSignature * 4} pages per
+              signature
+            </small>
+            <label className="field">
+              <span>Binding margin</span>
+              <span className="unit-input">
+                <input
+                  aria-label="Binding margin"
+                  type="number"
+                  min="0"
+                  max="6"
+                  step="0.5"
+                  value={s.booklet.bindingMarginMm}
+                  onChange={(e) =>
+                    w.edit({ booklet: { ...s.booklet, bindingMarginMm: Number(e.target.value) } })
+                  }
+                />
+                <span>mm</span>
+              </span>
+            </label>
+            {(['cutGuides', 'foldGuides', 'assemblyLabels'] as const).map((key) => (
+              <label className="check-field" key={key}>
+                <span>
+                  {key === 'cutGuides'
+                    ? 'Cut guides'
+                    : key === 'foldGuides'
+                      ? 'Fold guides'
+                      : 'Assembly labels'}
+                </span>
+                <input
+                  type="checkbox"
+                  checked={s.booklet[key]}
+                  onChange={(e) => w.edit({ booklet: { ...s.booklet, [key]: e.target.checked } })}
+                />
+              </label>
+            ))}
+            <small>
+              Print at actual size, double-sided, flip on long edge. Cut the solid guides, fold the dashed
+              guides, and nest pieces in numbered order.
+            </small>
+          </div>
+        )}
         <label className="field font-field">
           <span>Font</span>
           <Dropdown
@@ -76,40 +174,46 @@ export function LayoutControls({ w }: { w: Workspace }) {
           />
         </label>
         {number('fontSizePx', 'Text size in CSS pixels', 'px', 4, rich ? 12 : 10, rich ? 0.25 : 1)}
-        <label className="field">
-          <span>Fold lines</span>
-          <Dropdown
-            label="Fold lines"
-            value={s.borderStyle}
-            options={['solid', 'dashed', 'dotted', ...(rich ? ['none'] : [])].map((v) => [
-              v,
-              v[0].toUpperCase() + v.slice(1),
-            ])}
-            onChange={(borderStyle) => w.edit({ borderStyle: borderStyle as RenderSettings['borderStyle'] })}
-          />
-        </label>
-        <label className="field">
-          <span>Reading order</span>
-          <Dropdown
-            label="Reading order"
-            value={s.readingOrder}
-            options={[
-              ['rows', 'Across rows'],
-              ['quadrants', 'By quadrant'],
-            ]}
-            onChange={(readingOrder) =>
-              w.edit({
-                readingOrder: readingOrder as RenderSettings['readingOrder'],
-                foldGapEveryRow: readingOrder === 'rows',
-              })
-            }
-          />
-        </label>
-        {check('foldGaps', 'Space at folds')}
-        {s.foldGaps && <>{number('foldGapMm', 'Fold gap size', 'mm', 0.5, 6, 0.25)}</>}
+        {!booklet && (
+          <>
+            <label className="field">
+              <span>Fold lines</span>
+              <Dropdown
+                label="Fold lines"
+                value={s.borderStyle}
+                options={['solid', 'dashed', 'dotted', ...(rich ? ['none'] : [])].map((v) => [
+                  v,
+                  v[0].toUpperCase() + v.slice(1),
+                ])}
+                onChange={(borderStyle) =>
+                  w.edit({ borderStyle: borderStyle as RenderSettings['borderStyle'] })
+                }
+              />
+            </label>
+            <label className="field">
+              <span>Reading order</span>
+              <Dropdown
+                label="Reading order"
+                value={s.readingOrder}
+                options={[
+                  ['rows', 'Across rows'],
+                  ['quadrants', 'By quadrant'],
+                ]}
+                onChange={(readingOrder) =>
+                  w.edit({
+                    readingOrder: readingOrder as RenderSettings['readingOrder'],
+                    foldGapEveryRow: readingOrder === 'rows',
+                  })
+                }
+              />
+            </label>
+            {check('foldGaps', 'Space at folds')}
+            {s.foldGaps && <>{number('foldGapMm', 'Fold gap size', 'mm', 0.5, 6, 0.25)}</>}
+          </>
+        )}
         {rich && (
           <>
-            {check('positionHeaders', 'Position headers')}
+            {!booklet && check('positionHeaders', 'Position headers')}
             {number('lineHeight', 'Line height', '×', 0.5, 1.6, 0.05)}
             <RichFeatures w={w} group="navigation" />
             <RichFeatures w={w} group="references" />
@@ -222,7 +326,7 @@ export function LayoutControls({ w }: { w: Workspace }) {
                   onChange={(e) => w.edit({ rich: { ...s.rich, contentsWrap: e.target.checked } })}
                 />
               </label>
-              {number('marginMm', 'Page margins', 'mm', 0, 12, 0.5)}
+              {!booklet && number('marginMm', 'Page margins', 'mm', 0, 12, 0.5)}
               {check('sourcePageNumbers', 'Source page numbers')}
               <label className="field">
                 <span>Opening image order</span>

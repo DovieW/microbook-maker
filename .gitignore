@@ -19,3 +19,5 @@ coverage/
 # Local debugging outputs
 tmp/
 test-results.root-owned.*/
+# Generated physical assembly samples
+/output/pdf/
