@@ -11,3 +11,5 @@ The Reading preview shows logical page order; Print sheets shows the duplex arra
 For a physical check, run `npm run build` and `node tools/booklet-calibration.mjs` (set `PUPPETEER_EXECUTABLE_PATH` when Chromium is elsewhere). Print `output/pdf/booklet-calibration.pdf`, cut, fold, and nest. Its pages should read 1–32 upright in two 16-page signatures, with the signature and piece labels matching across both sides. This checks the printer's duplex setting before printing a book.
 
 This version supports Rich only, Letter paper, rectangular pieces, and single-page pictures. Volume splitting, cross-gutter image spreads, and sewing simulation are not included.
+
+The hosted Cloudflare edition pauses briefly between creating the printable PDF and the Reading PDF to respect the Free account’s request limit. Cancel remains available during that pause.

@@ -163,6 +163,12 @@ async function run(job: RenderJob) {
     const pdf = await response.blob();
     if (controller.signal.aborted) return;
     if (prepared.readingHtml) {
+      // The Free Quick Actions plan allows one request every ten seconds.
+      // Pace this second artifact rather than retry a rejected request.
+      job.phase = 'Preparing reading preview';
+      await save(job);
+      await Promise.race([aborted, new Promise((resolve) => setTimeout(resolve, 11000))]);
+      if (controller.signal.aborted) return;
       const reading = await fetch('/_cloud/print', {
         method: 'POST',
         body: prepared.readingHtml,
