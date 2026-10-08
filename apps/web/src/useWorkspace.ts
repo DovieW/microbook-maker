@@ -9,6 +9,7 @@ import {
   type SourceLocation,
   effectiveSettings,
   settingsSchema,
+  defaultSettings,
   type BookDocument,
   type Metadata,
   type Mode,
@@ -345,7 +346,7 @@ export function useWorkspace() {
     },
     [accept, previews, preview, cell, mode, imagesOpen],
   );
-  async function openDocument(id: string, savedId?: string, preferredMode?: Mode) {
+  async function openDocument(id: string, savedId?: string, preferredMode?: Mode, showLayout = false) {
     clearTimeout(successTimer.current);
     setApplySuccessSerial(0);
     output.cancel();
@@ -381,10 +382,12 @@ export function useWorkspace() {
           completed[0];
       }
       const mode =
-        preferredMode ||
-        stored?.mode ||
-        state.explicitMode ||
-        (document.format === 'epub' ? 'book' : 'classic');
+        document.format === 'pdf'
+          ? 'book'
+          : preferredMode ||
+            stored?.mode ||
+            state.explicitMode ||
+            (document.format === 'epub' ? 'book' : 'classic');
       const completed = available[mode];
       const drafts = { ...stored?.drafts };
       for (const target of ['classic', 'book'] as const)
@@ -401,7 +404,7 @@ export function useWorkspace() {
         previewIds: { classic: available.classic?.id, book: available.book?.id },
         cells: { ...stored?.cells, [mode]: stored?.cells?.[mode] ?? stored?.cell ?? 0 },
       });
-      state.patch({ lastDocumentId: id });
+      state.patch({ lastDocumentId: id, ...(showLayout ? { sidebarTab: 'layout', sidebarOpen: true } : {}) });
       setPreviews(available);
       const pending = !savedId && document.renders.find((r) => r.id === stored?.pendingId);
       if (pending) {
@@ -501,9 +504,20 @@ export function useWorkspace() {
       setDoc(document);
       setPreviews({});
       const state = usePreferences.getState();
-      const mode = state.explicitMode || (document.format === 'epub' ? 'book' : 'classic');
+      const mode =
+        document.format === 'pdf'
+          ? 'book'
+          : state.explicitMode || (document.format === 'epub' ? 'book' : 'classic');
       const bookSettings = {
         ...state.settings.book,
+        ...(document.format === 'pdf'
+          ? {
+              printFormat: 'folded-sheet' as const,
+              selectedSections: null,
+              sectionOrder: [],
+              pdf: defaultSettings('book').pdf,
+            }
+          : {}),
         rich: newRichFeatures(),
         imageOutput: { mode: 'laser' as const, strength: 'gentle' as const },
         imageOutputOverrides: {},
@@ -549,6 +563,7 @@ export function useWorkspace() {
       const selectedSections = parsed.data.selectedSections?.filter((id) => sectionIds.has(id));
       const imported: RenderSettings = {
         ...parsed.data,
+        ...(doc.format === 'pdf' ? { mode: 'book' as const } : {}),
         selectedSections: selectedSections?.length ? selectedSections : null,
         sectionOrder: parsed.data.sectionOrder.filter((id) => sectionIds.has(id)),
         excludedImageIds: parsed.data.excludedImageIds.filter((id) => imageIds.has(id)),
@@ -700,6 +715,7 @@ export function useWorkspace() {
     if (doc && next.success) prefs.edit(doc.id, next.data);
   };
   const switchMode = (mode: Mode) => {
+    if (doc?.format === 'pdf') return;
     if (
       !doc ||
       (mode === docPrefs?.mode && !kept) ||

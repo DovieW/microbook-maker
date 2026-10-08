@@ -1,3 +1,4 @@
+import { renderPdfPages } from '../../core/src/pdf';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { readFileSync, existsSync } from 'node:fs';
@@ -29,6 +30,7 @@ let coldBrowserMs = 0;
 let browser: Browser | undefined;
 let bookPage: Page | undefined;
 let activePage: Page | undefined;
+let pdfCancelled = false;
 const escapeHtml = (value: string) =>
   value.replace(
     /[&<>\"']/g,
@@ -49,6 +51,7 @@ export async function stopRenderer() {
   browser = undefined;
 }
 export async function cancelRender() {
+  pdfCancelled = true;
   if (activePage) await activePage.close().catch(() => {});
   activePage = undefined;
   bookPage = undefined;
@@ -93,6 +96,7 @@ export async function fingerprint(): Promise<Record<string, string>> {
       'packages/core/src/index.ts',
       'packages/renderer/src/index.ts',
       'packages/core/src/booklet.ts',
+      'packages/core/src/pdf.ts',
       'package-lock.json',
     ].map((p) => fs.readFile(path.join(root, p))),
   );
@@ -114,6 +118,42 @@ export async function render(
   baseUrl: string,
   progress: (phase: string, value?: RenderProgress) => void,
 ): Promise<RenderResult> {
+  if (doc.format === 'pdf') {
+    pdfCancelled = false;
+    progress('Arranging PDF pages');
+    const prepared = await renderPdfPages(
+      await fs.readFile(path.join(documentDir, doc.sourcePath)),
+      doc,
+      job.settings,
+      await fingerprint(),
+      () => {
+        if (pdfCancelled) throw Error('Cancelled');
+      },
+    );
+    await fs.mkdir(outputDir, { recursive: true });
+    await fs.writeFile(path.join(outputDir, 'output.pdf.tmp'), prepared.pdf);
+    await fs.rename(path.join(outputDir, 'output.pdf.tmp'), path.join(outputDir, 'output.pdf'));
+    if (prepared.readingPdf) await fs.writeFile(path.join(outputDir, 'reading.pdf'), prepared.readingPdf);
+    progress('Creating preview');
+    const page = await (await getBrowser()).newPage();
+    activePage = page;
+    try {
+      await page.goto(`${baseUrl}/__renderer/book`);
+      await page.addScriptTag({ url: `${baseUrl}/__renderer/pdf-preview.js` });
+      const png = await page.evaluate(
+        async (bytes, worker) => (window as any).PdfPreview.thumbnail(bytes, worker),
+        Buffer.from(prepared.pdf).toString('base64'),
+        `${baseUrl}/pdf.worker.min.mjs`,
+      );
+      await fs.writeFile(path.join(outputDir, 'thumbnail.png'), Buffer.from(png.split(',')[1], 'base64'));
+    } finally {
+      await page.close().catch(() => {});
+      activePage = undefined;
+    }
+    prepared.result.peakMemoryMb = Math.round(process.memoryUsage().rss / 1024 ** 2);
+    await fs.writeFile(path.join(outputDir, 'result.json'), JSON.stringify(prepared.result, null, 2));
+    return prepared.result;
+  }
   const start = performance.now();
   const timings: Record<string, number> = {};
   const b = await getBrowser();

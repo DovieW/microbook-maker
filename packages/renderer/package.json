@@ -2,7 +2,7 @@
   "name": "@microbook/renderer",
   "private": true,
   "type": "module",
-  "version": "2.4.0",
+  "version": "2.5.0",
   "exports": {
     ".": "./src/index.ts"
   },
@@ -10,6 +10,7 @@
     "@chenglou/pretext": "0.0.8",
     "@microbook/core": "*",
     "markdown-it": "^14.3.1",
+    "pdfjs-dist": "6.3.289",
     "pretext-classic": "npm:@chenglou/pretext@0.0.6",
     "puppeteer": "^25.10.0"
   }

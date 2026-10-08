@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowUpDown, Plus, MoreHorizontal } from 'lucide-react';
+import { ArrowUpDown, Plus, MoreHorizontal, BookOpen } from 'lucide-react';
 import { modeLabels, type LibraryRender } from '@microbook/core';
 import { Dropdown, IconButton } from './ui';
 import type { Workspace } from './LayoutControls';
@@ -33,38 +33,40 @@ export function BooksPane({ w }: { w: Workspace }) {
           {w.preview.saved ? 'Version kept' : 'Keep version'}
         </button>
       )}
-      <div className="books-actions">
-        <input
-          type="search"
-          aria-label="Find book"
-          placeholder="Find book…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        <Dropdown
-          label="Sort books"
-          value={sort}
-          onChange={setSort}
-          className="books-sort"
-          trigger={
-            <span className="books-sort-icon" aria-hidden="true">
-              <ArrowUpDown size={16} />
-            </span>
-          }
-          options={[
-            ['recent', 'Recently opened'],
-            ['title', 'Title'],
-          ]}
-        />
-        <IconButton
-          label="Import"
-          className="books-import"
-          data-tooltip="Import book"
-          onClick={() => w.input.current?.click()}
-        >
-          <Plus size={16} />
-        </IconButton>
-      </div>
+      {w.library.length > 0 && (
+        <div className="books-actions">
+          <input
+            type="search"
+            aria-label="Find book"
+            placeholder="Find book…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <Dropdown
+            label="Sort books"
+            value={sort}
+            onChange={setSort}
+            className="books-sort"
+            trigger={
+              <span className="books-sort-icon" aria-hidden="true">
+                <ArrowUpDown size={16} />
+              </span>
+            }
+            options={[
+              ['recent', 'Recently opened'],
+              ['title', 'Title'],
+            ]}
+          />
+          <IconButton
+            label="Import"
+            className="books-import"
+            data-tooltip="Import book"
+            onClick={() => w.input.current?.click()}
+          >
+            <Plus size={16} />
+          </IconButton>
+        </div>
+      )}
       {w.libraryLoading && <p role="status">Loading books…</p>}
       {w.libraryError && (
         <div role="alert">
@@ -72,9 +74,24 @@ export function BooksPane({ w }: { w: Workspace }) {
           <button onClick={() => void w.showLibrary()}>Retry</button>
         </div>
       )}
-      {!w.libraryLoading && !w.libraryError && !books.length && (
-        <p className="muted">{query ? 'No matching books' : 'No books yet'}</p>
-      )}
+      {!w.libraryLoading &&
+        !w.libraryError &&
+        !books.length &&
+        (w.library.length ? (
+          <p className="muted">No matching books</p>
+        ) : (
+          <div className="books-empty">
+            <span className="books-empty-icon" aria-hidden="true">
+              <BookOpen size={26} />
+            </span>
+            <strong>No books yet</strong>
+            <p>Books you open will appear here, along with their saved layouts.</p>
+            <button className="primary" onClick={() => w.input.current?.click()}>
+              <Plus size={16} aria-hidden="true" /> Import book
+            </button>
+            <small>EPUB · PDF · TXT · Markdown</small>
+          </div>
+        ))}
       {books.map((book) => {
         const latest =
           book.renders.find((r) => r.id === book.lastRenderId && r.status === 'completed') ||
@@ -82,7 +99,10 @@ export function BooksPane({ w }: { w: Workspace }) {
         return (
           <article className={`book-row${book.id === w.doc?.id ? ' current' : ''}`} key={book.id}>
             <div className="book-row-main">
-              <button className="book-open" onClick={() => void w.openDocument(book.id)}>
+              <button
+                className="book-open"
+                onClick={() => void w.openDocument(book.id, undefined, undefined, true)}
+              >
                 {latest && <img src={`/api/renders/${latest.id}/thumbnail`} alt="" loading="lazy" />}
                 <span>
                   <strong>{book.metadata.title}</strong>
@@ -113,8 +133,8 @@ export function BooksPane({ w }: { w: Workspace }) {
                   book.renders.find((r) => r.settings.mode === mode && r.status === 'completed');
                 return (
                   r && (
-                    <button key={mode} onClick={() => void w.openDocument(book.id, undefined, mode)}>
-                      {modeLabels[mode]} · {r.result?.sheets} {r.result?.sheets === 1 ? 'sheet' : 'sheets'}
+                    <button key={mode} onClick={() => void w.openDocument(book.id, undefined, mode, true)}>
+                      {book.format === 'pdf' ? 'PDF pages' : modeLabels[mode]} · {r.result?.sheets} {r.result?.sheets === 1 ? 'sheet' : 'sheets'}
                     </button>
                   )
                 );
@@ -127,7 +147,9 @@ export function BooksPane({ w }: { w: Workspace }) {
                   .filter((r) => r.saved)
                   .map((r) => (
                     <div className="kept-row" key={r.id}>
-                      <button onClick={() => void w.openDocument(book.id, r.id)}>{label(r)}</button>
+                      <button onClick={() => void w.openDocument(book.id, r.id, undefined, true)}>
+                        {label(r)}
+                      </button>
                       <details>
                         <summary aria-label={`Version actions for ${label(r)}`}>
                           <MoreHorizontal size={14} />

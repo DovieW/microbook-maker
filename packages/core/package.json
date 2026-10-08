@@ -2,7 +2,7 @@
   "name": "@microbook/core",
   "private": true,
   "type": "module",
-  "version": "2.4.0",
+  "version": "2.5.0",
   "exports": {
     ".": "./src/index.ts",
     "./import": "./src/import.ts"
@@ -11,6 +11,7 @@
     "@xmldom/xmldom": "0.9.12",
     "fontkit": "^2.0.4",
     "markdown-it": "^14.3.1",
+    "pdf-lib": "^1.17.1",
     "yauzl": "3.4.0",
     "zod": "4.5.4"
   }

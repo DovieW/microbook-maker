@@ -14,6 +14,14 @@ await bundle({
   sourcemap: true,
 });
 await bundle({
+  entryPoints: ['packages/renderer/src/pdf-preview.ts'],
+  outfile: 'dist/pdf-preview.js',
+  bundle: true,
+  format: 'iife',
+  globalName: 'PdfPreview',
+  target: 'chrome148',
+});
+await bundle({
   entryPoints: ['apps/server/src/index.ts', 'apps/server/src/worker.ts'],
   outdir: 'dist',
   entryNames: '[name]',
@@ -35,3 +43,5 @@ await vite({
   root: path.join(root, 'apps/web'),
   configFile: path.join(root, 'apps/web/vite.config.ts'),
 });
+
+await fs.copyFile('node_modules/pdfjs-dist/build/pdf.worker.min.mjs', 'apps/web/dist/pdf.worker.min.mjs');

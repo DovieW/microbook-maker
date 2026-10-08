@@ -413,7 +413,9 @@ app.post('/api/documents/:id/renders', async (req, res) => {
       error:
         'The original source is unavailable. You can still print this PDF; open the original book to create a new layout.',
     });
-  const settings = effectiveSettings(settingsSchema.parse(req.body.settings));
+  const settings = effectiveSettings(
+    settingsSchema.parse({ ...req.body.settings, ...(doc.format === 'pdf' ? { mode: 'book' } : {}) }),
+  );
   if (
     settings.selectedSections &&
     (!settings.selectedSections.length ||
@@ -500,6 +502,9 @@ app.post('/api/renders/:id/release', async (req, res) => {
   res.status(204).end();
 });
 app.get('/api/renders/:id/map', (req, res) => res.json(getJob(req.params.id).result?.cells || []));
+app.get('/__renderer/pdf-preview.js', (_req, res) =>
+  res.sendFile(path.join(process.cwd(), 'dist/pdf-preview.js')),
+);
 app.get('/api/renders/:id/thumbnail', (req, res) => {
   const job = getJob(req.params.id);
   res.sendFile(path.join(store.renderDir(job.id), 'thumbnail.png'), {

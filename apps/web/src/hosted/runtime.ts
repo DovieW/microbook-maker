@@ -1,3 +1,4 @@
+import { renderPdfPages } from '../../../../packages/core/src/pdf';
 import { renderImageTestPrint } from '../../../../packages/core/src/image-test-print';
 import { Buffer } from 'buffer';
 import { get, put, putOwned, entries, removeDocument } from './db';
@@ -16,7 +17,7 @@ import {
   type RenderJob,
   type Asset,
 } from '@microbook/core';
-const fingerprint = { renderer: 'hosted-browser-3' };
+const fingerprint = { renderer: 'hosted-browser-4' };
 const active = new Map<string, AbortController>();
 let queue = Promise.resolve();
 const channel = new BroadcastChannel('microbook-render-jobs');
@@ -106,85 +107,114 @@ async function run(job: RenderJob) {
     'position:fixed;left:-10000px;top:0;width:816px;height:1056px;border:0;pointer-events:none';
   const cancel = () => frame.remove();
   controller.signal.addEventListener('abort', cancel);
-  const aborted = new Promise<never>((_, reject) =>
-    controller.signal.addEventListener('abort', () => reject(new DOMException('Cancelled', 'AbortError')), {
-      once: true,
-    }),
-  );
   try {
     const doc = await documentById(job.documentId);
     job.status = 'running';
     job.startedAt = new Date().toISOString();
     job.phase = 'Laying out book';
     await save(job);
-    await Promise.race([
-      aborted,
-      new Promise<void>((resolve, reject) => {
-        frame.onload = () => resolve();
-        frame.onerror = () => reject(Error('Could not load the layout engine'));
-        frame.src = `/__renderer/${job.settings.mode === 'classic' ? 'classic' : 'book'}.html`;
-        document.body.append(frame);
-      }),
-    ]);
-    if (controller.signal.aborted) return;
-    const renderer = (frame.contentWindow as any).HostedRenderer;
-    if (!renderer) throw Error('The layout engine could not start. Reload the page.');
-    const prepared = await Promise.race([
-      aborted,
-      renderer.render(
-        { ...doc, metadata: job.metadata },
-        job.settings,
-        (phase: string, progress: any) => {
-          if (!controller.signal.aborted) {
-            job.phase = phase;
-            job.progress = progress;
-            void save(job);
-          }
-        },
-        job.createdAt,
-      ),
-    ]);
-    if (controller.signal.aborted) return;
-    job.phase = 'Creating PDF on Cloudflare';
-    await save(job);
-    const response = await fetch('/_cloud/print', {
-      method: 'POST',
-      body: prepared.html,
-      headers: {
-        'Content-Type': 'text/html',
-        'X-Microbook-Bookmarks': String(job.settings.mode === 'book' && job.settings.rich.bookmarks),
-      },
-      signal: controller.signal,
-    });
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw Error(error.error || `Cloudflare could not create the PDF (${response.status})`);
-    }
-    const pdf = await response.blob();
-    if (controller.signal.aborted) return;
-    if (prepared.readingHtml) {
-      // The Free Quick Actions plan allows one request every ten seconds.
-      // Pace this second artifact rather than retry a rejected request.
-      job.phase = 'Preparing reading preview';
+    let prepared: { result: NonNullable<RenderJob['result']>; html?: string; readingHtml?: string };
+    let pdf: Blob;
+    if (doc.format === 'pdf') {
+      job.phase = 'Arranging PDF pages';
       await save(job);
-      await Promise.race([aborted, new Promise((resolve) => setTimeout(resolve, 11000))]);
+      const source = await get<{ blob: Blob }>('file:' + doc.id + '/' + doc.sourcePath);
+      if (!source) throw Error('The source PDF is missing. Import it again.');
+      const pages = await renderPdfPages(
+        new Uint8Array(await source.blob.arrayBuffer()),
+        doc,
+        job.settings,
+        fingerprint,
+        () => controller.signal.throwIfAborted(),
+      );
+      pdf = new Blob([pages.pdf as BlobPart], { type: 'application/pdf' });
+      prepared = pages;
+      if (pages.readingPdf)
+        await putOwned('binary:/api/renders/' + job.id + '/reading-pdf', {
+          documentId: doc.id,
+          blob: new Blob([pages.readingPdf as BlobPart], { type: 'application/pdf' }),
+        });
+    } else {
+      const aborted = new Promise<never>((_, reject) =>
+        controller.signal.addEventListener(
+          'abort',
+          () => reject(new DOMException('Cancelled', 'AbortError')),
+          {
+            once: true,
+          },
+        ),
+      );
+
+      await Promise.race([
+        aborted,
+        new Promise<void>((resolve, reject) => {
+          frame.onload = () => resolve();
+          frame.onerror = () => reject(Error('Could not load the layout engine'));
+          frame.src = `/__renderer/${job.settings.mode === 'classic' ? 'classic' : 'book'}.html`;
+          document.body.append(frame);
+        }),
+      ]);
       if (controller.signal.aborted) return;
-      const reading = await fetch('/_cloud/print', {
+      const renderer = (frame.contentWindow as any).HostedRenderer;
+      if (!renderer) throw Error('The layout engine could not start. Reload the page.');
+      prepared = await Promise.race([
+        aborted,
+        renderer.render(
+          { ...doc, metadata: job.metadata },
+          job.settings,
+          (phase: string, progress: any) => {
+            if (!controller.signal.aborted) {
+              job.phase = phase;
+              job.progress = progress;
+              void save(job);
+            }
+          },
+          job.createdAt,
+        ),
+      ]);
+      if (controller.signal.aborted) return;
+      job.phase = 'Creating PDF on Cloudflare';
+      await save(job);
+      const response = await fetch('/_cloud/print', {
         method: 'POST',
-        body: prepared.readingHtml,
+        body: prepared.html,
         headers: {
           'Content-Type': 'text/html',
-          'X-Microbook-Bookmarks': String(job.settings.rich.bookmarks),
-          'X-Microbook-Page-Size': 'css',
+          'X-Microbook-Bookmarks': String(job.settings.mode === 'book' && job.settings.rich.bookmarks),
         },
         signal: controller.signal,
       });
-      if (!reading.ok) throw Error(`Could not create the reading PDF (${reading.status})`);
-      await putOwned('binary:/api/renders/' + job.id + '/reading-pdf', {
-        documentId: doc.id,
-        blob: await reading.blob(),
-      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw Error(error.error || `Cloudflare could not create the PDF (${response.status})`);
+      }
+      pdf = await response.blob();
+      if (controller.signal.aborted) return;
+      if (prepared.readingHtml) {
+        // The Free Quick Actions plan allows one request every ten seconds.
+        // Pace this second artifact rather than retry a rejected request.
+        job.phase = 'Preparing reading preview';
+        await save(job);
+        await Promise.race([aborted, new Promise((resolve) => setTimeout(resolve, 11000))]);
+        if (controller.signal.aborted) return;
+        const reading = await fetch('/_cloud/print', {
+          method: 'POST',
+          body: prepared.readingHtml,
+          headers: {
+            'Content-Type': 'text/html',
+            'X-Microbook-Bookmarks': String(job.settings.rich.bookmarks),
+            'X-Microbook-Page-Size': 'css',
+          },
+          signal: controller.signal,
+        });
+        if (!reading.ok) throw Error(`Could not create the reading PDF (${reading.status})`);
+        await putOwned('binary:/api/renders/' + job.id + '/reading-pdf', {
+          documentId: doc.id,
+          blob: await reading.blob(),
+        });
+      }
     }
+    controller.signal.throwIfAborted();
     const latest = await documentById(job.documentId);
     await putOwned('binary:/api/renders/' + job.id + '/pdf', { documentId: doc.id, blob: pdf });
     job.result = prepared.result;
@@ -239,7 +269,7 @@ async function handle(request: Request): Promise<Response> {
     parts = url.pathname.split('/').filter(Boolean),
     method = request.method;
   if (url.pathname === '/api/health')
-    return json({ ok: true, version: '2.4.0', rendererReady: true, fingerprint, hosted: true });
+    return json({ ok: true, version: '2.5.0', rendererReady: true, fingerprint, hosted: true });
   if (url.pathname === '/api/metadata/lookup') return fetch('/_cloud/metadata' + url.search);
   if (parts[1] === 'image-test-print') {
     const list = await fetch('/hosted-print-samples/samples.json').then((r) => r.json());
@@ -274,7 +304,7 @@ async function handle(request: Request): Promise<Response> {
     if (method === 'POST') {
       const file = (await request.formData()).get('file');
       if (!(file instanceof File) || !file.size || file.size > 50 * 1024 ** 2)
-        return json({ error: 'Choose an EPUB, TXT, or Markdown file smaller than 50 MB' }, 422);
+        return json({ error: 'Choose an EPUB, PDF, TXT, or Markdown file smaller than 50 MB' }, 422);
       const id = crypto.randomUUID(),
         result = await importBook(file, id);
       const doc = result.doc;
@@ -382,7 +412,9 @@ async function handle(request: Request): Promise<Response> {
     }
     if (parts[3] === 'renders' && method === 'POST') {
       const body = await request.json(),
-        settings = effectiveSettings(settingsSchema.parse(body.settings));
+        settings = effectiveSettings(
+          settingsSchema.parse({ ...body.settings, ...(doc.format === 'pdf' ? { mode: 'book' } : {}) }),
+        );
       if (
         settings.selectedSections &&
         (!settings.selectedSections.length ||

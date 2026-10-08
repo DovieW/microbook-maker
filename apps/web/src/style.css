@@ -1250,6 +1250,38 @@ summary > span {
   opacity: 1;
   transform: translateY(0);
 }
+.books-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: 250px;
+  margin: 0 auto;
+  padding: 32px 10px;
+  text-align: center;
+}
+.books-empty-icon {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.books-empty strong {
+  font-size: 15px;
+  font-weight: 600;
+}
+.books-empty p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.books-empty small {
+  color: var(--muted);
+  font-size: 10px;
+}
 .book-row {
   border-bottom: 1px solid var(--line);
   padding: 12px 0;
@@ -3263,4 +3295,23 @@ html[data-spoiler-free='true'] .pdfViewer .textLayer {
 }
 .sidebar-body .layout-controls .field.print-format-field {
   grid-template-columns: 100px minmax(0, 1fr);
+}
+
+.pdf-mode-label {
+  display: block;
+  text-align: center;
+  color: var(--muted);
+  margin: -0.3rem 0 0.8rem;
+}
+.pdf-page-options {
+  padding: 0 0.6rem 0.6rem;
+  display: grid;
+  gap: 0.7rem;
+}
+.pdf-pages-pane > input {
+  width: 100%;
+}
+.pdf-pages-pane .section-mini-preview {
+  max-height: 360px;
+  overflow: auto;
 }

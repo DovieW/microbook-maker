@@ -1,24 +1,22 @@
-# MicroBook 2.4
+# MicroBook 2.5
 
-Print a book as small pages you can cut, fold into signatures, and sew together. Rich mode now offers **Folded sheet** and **Bound booklet** near the top of Layout.
+You can now import PDFs alongside EPUBs and text files. Each PDF page keeps its original layout, text, and images, and can be printed across rows, by quadrant, or as a bound booklet.
 
 ## What’s new
 
-- **Booklet sizing and binding.** Choose pages one or two cells wide and one to four cells tall. Set one to eight folded pieces per signature and an alternating inner binding margin. The default is one-cell pages, four pieces (16 pages) per signature, and a 2 mm binding margin.
-- **Two previews.** Reading shows pages in order and facing spreads. Print sheets shows the duplex arrangement. Download always produces the printable PDF; both previews use the same pagination.
-- **Page-based navigation.** Contents, references, bookmarks, and content locations use booklet page numbers. Full-cell image treatments appear as Full page in booklet mode while retaining their folded-sheet settings.
-- **Assembly controls.** Cut guides, dashed fold guides, and signature/piece labels can be switched independently. Page numbers remain visible. The last signature is smaller when possible; unused sheet positions are left empty.
+- **PDF import.** Basic and Rich stay visible but disabled, with an explanation that PDF pages keep their layout. A Pages tab lets you include, reorder, rotate, and preview individual pages before clicking Apply.
+- **PDF layout controls.** Choose one, two, or four cells per source page, set padding and orientation, and optionally show source page numbers. Booklet PDFs offer the same page sizing, signatures, binding margin, guides, and Reading / Print sheets previews as EPUB booklets.
+- **Local PDF processing on Cloudflare.** PDF generation happens in your browser and does not use the hosted EPUB renderer’s browser quota.
+- **Cleaner history.** An empty library shows a simple import prompt. Opening a saved book or kept version takes you to Layout.
 
-Basic and existing books continue to use Folded sheet. Switching formats preserves their settings. Layout changes still require Apply.
+PDF downloads preserve vector text and images. Blank source pages are kept, and existing form appearances are included. Password-protected PDFs need to be unlocked before importing.
 
-## Printing a booklet
+## Printing
 
-Use **portrait US Letter**, **100% / actual size**, **one page per sheet**, and **duplex flip on long edge**. Cut along solid guides, fold along dashed guides, then nest piece 1 outside piece 2 and continue inward within each signature. How many signatures you bind into one volume is up to you.
+Use **portrait US Letter**, **100% / actual size**, and **one page per sheet**. Bound booklets use duplex **flip on long edge**; cut the solid guides, fold the dashed guides, and nest the numbered pieces within each signature.
 
-Print the attached numbered calibration sheet before a full book. Automated checks verify page pairing, mirrored backs, content coverage, and PDF navigation; your printer’s duplex direction, cutting, nesting, and binding margin still need a physical check. Cross-gutter image spreads, volume splitting, and sewing simulation are not included.
+Existing EPUB, Basic, and folded-sheet settings remain available. Changes still require Apply, and previously generated PDFs stay unchanged.
 
 ## Upgrading
 
-Back up both persistent volumes and retain the previous image. Reuse the existing volumes, mounts, and port. Do not run `docker compose down -v`. Existing PDFs remain unchanged; click Apply to regenerate a book.
-
-See [booklet printing](docs/BOUND_BOOKLET.md) and [deployment and rollback instructions](DEPLOYMENT.md).
+Back up both persistent volumes and reuse the existing mounts and port. Do not run `docker compose down -v`. See [deployment and rollback instructions](DEPLOYMENT.md) and [booklet printing](docs/BOUND_BOOKLET.md).

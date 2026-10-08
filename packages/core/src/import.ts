@@ -1,3 +1,4 @@
+import { inspectPdf } from './pdf.ts';
 import { createHash, isUtf8, path, fs, readArchive } from './import-platform.ts';
 import { DOMParser, XMLSerializer } from '@xmldom/xmldom';
 import MarkdownIt from 'markdown-it';
@@ -58,14 +59,21 @@ export async function importDocument(
   if (!input.length || input.length > IMPORT_LIMITS.upload)
     throw new Error('Provide a nonempty file smaller than 50 MB');
   const extension = path.extname(originalName).toLowerCase();
-  if (!['.txt', '.md', '.markdown', '.epub'].includes(extension))
-    throw new Error('Supported formats: EPUB, TXT, Markdown');
+  if (!['.txt', '.md', '.markdown', '.epub', '.pdf'].includes(extension))
+    throw new Error('Supported formats: EPUB, PDF, TXT, Markdown');
   const doc: BookDocument = {
     version: 1,
     importRevision: IMPORT_REVISION,
     id,
     originalName: path.basename(originalName),
-    format: extension === '.epub' ? 'epub' : extension === '.txt' ? 'txt' : 'markdown',
+    format:
+      extension === '.pdf'
+        ? 'pdf'
+        : extension === '.epub'
+          ? 'epub'
+          : extension === '.txt'
+            ? 'txt'
+            : 'markdown',
     sourceHash: createHash('sha256').update(input).digest('hex'),
     sourcePath: `source${extension}`,
     metadata: {
@@ -92,6 +100,18 @@ export async function importDocument(
     doc.blocks.push({ sourceOrder: sourceOrder++, ...block, id: `b${doc.blocks.length + 1}` });
   await fs.mkdir(directory, { recursive: true });
   await fs.writeFile(path.join(directory, doc.sourcePath), input);
+  if (doc.format === 'pdf') {
+    const info = await inspectPdf(input);
+    doc.metadata.title = info.title || doc.metadata.title;
+    doc.metadata.author = info.author;
+    doc.pdfPages = info.pages;
+    doc.sections = info.pages.map((page) => ({
+      id: `p${page.number}`,
+      title: `Page ${page.number}`,
+      source: `page:${page.number}`,
+    }));
+    return doc;
+  }
   if (doc.format !== 'epub' && !isUtf8(input))
     warn(
       'text-encoding',

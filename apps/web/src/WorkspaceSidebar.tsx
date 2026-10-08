@@ -1,3 +1,4 @@
+import { PdfPagesPane } from './PdfPagesPane';
 import { useEffect, useLayoutEffect, useRef, type CSSProperties } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
@@ -11,7 +12,9 @@ import './motion-navigation.css';
 export function WorkspaceSidebar({ w, narrow }: { w: Workspace; narrow: boolean }) {
   const tabs: [SidebarTab, string][] = [
     ...(w.doc ? [['layout', 'Layout'] as [SidebarTab, string]] : []),
-    ...(w.doc && w.mode === 'book' ? [['contents', 'Content'] as [SidebarTab, string]] : []),
+    ...(w.doc && w.mode === 'book'
+      ? [['contents', w.doc.format === 'pdf' ? 'Pages' : 'Content'] as [SidebarTab, string]]
+      : []),
   ];
   const tab =
     w.prefs.sidebarTab === 'books'
@@ -94,7 +97,8 @@ export function WorkspaceSidebar({ w, narrow }: { w: Workspace; narrow: boolean 
         aria-label={tab === 'books' ? 'History' : tabs.find((t) => t[0] === tab)?.[1]}
         key={`${w.doc?.id}-${tab}`}
       >
-        {tab === 'layout' && <LayoutControls w={w} />} {tab === 'contents' && <ContentsPane w={w} />}{' '}
+        {tab === 'layout' && <LayoutControls w={w} />}{' '}
+        {tab === 'contents' && (w.doc?.format === 'pdf' ? <PdfPagesPane w={w} /> : <ContentsPane w={w} />)}{' '}
         {tab === 'books' && <BooksPane w={w} />}
       </div>
       {(w.doc || w.error || w.busy || w.active) && (

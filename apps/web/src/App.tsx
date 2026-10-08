@@ -128,7 +128,7 @@ export default function App() {
         tabIndex={-1}
         className="sr-only"
         aria-label="Import book"
-        accept=".epub,.txt,.md,.markdown"
+        accept=".epub,.pdf,.txt,.md,.markdown"
         onChange={(e) => void w.importFile(e.target.files?.[0])}
       />
       {foldingOpen && (
@@ -268,7 +268,7 @@ export default function App() {
                   <button className="primary" onClick={() => w.input.current?.click()}>
                     Open a book
                   </button>
-                  <span>EPUB · TXT · Markdown</span>
+                  <span>EPUB · PDF · TXT · Markdown</span>
                   <small>or drop a file here</small>
                   {import.meta.env.VITE_HOSTED === '1' && (
                     <div className="hosted-welcome">

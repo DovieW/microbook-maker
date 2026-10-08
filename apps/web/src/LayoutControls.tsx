@@ -1,3 +1,4 @@
+import { PdfControls } from './PdfControls';
 import { version } from '../../../package.json';
 import { useRef } from 'react';
 import { Download, RotateCcw, Upload } from 'lucide-react';
@@ -12,6 +13,7 @@ export type Workspace = ReturnType<typeof useWorkspace>;
 export function LayoutControls({ w }: { w: Workspace }) {
   const settingsInput = useRef<HTMLInputElement>(null);
   const s = settingsSchema.parse(w.kept?.settings || w.draft);
+  const pdf = w.doc?.format === 'pdf';
   const rich = s.mode === 'book';
   const booklet = rich && s.printFormat === 'booklet';
   const number = (
@@ -59,13 +61,27 @@ export function LayoutControls({ w }: { w: Workspace }) {
   );
   return (
     <div className="layout-controls">
-      <div className="segments mode-control" aria-label="Rendering mode">
+      <div
+        className="segments mode-control"
+        aria-label="Rendering mode"
+        title={
+          pdf
+            ? 'PDF pages keep their original layout. Basic and Rich apply only to text and EPUB books.'
+            : undefined
+        }
+      >
         {(['classic', 'book'] as const).map((m) => (
-          <button key={m} aria-pressed={w.mode === m} disabled={w.busy} onClick={() => w.switchMode(m)}>
+          <button
+            key={m}
+            aria-pressed={!pdf && w.mode === m}
+            disabled={w.busy || pdf}
+            onClick={() => w.switchMode(m)}
+          >
             {modeLabels[m]}
           </button>
         ))}
       </div>
+      {pdf && <small className="pdf-mode-label">PDF pages</small>}
       <fieldset disabled={!!w.kept}>
         {rich && (
           <label className="field print-format-field">
@@ -164,16 +180,21 @@ export function LayoutControls({ w }: { w: Workspace }) {
             </small>
           </div>
         )}
-        <label className="field font-field">
-          <span>Font</span>
-          <Dropdown
-            label="Print font"
-            value={s.fontFamily}
-            options={fonts}
-            onChange={(fontFamily) => w.edit({ fontFamily })}
-          />
-        </label>
-        {number('fontSizePx', 'Text size in CSS pixels', 'px', 4, rich ? 12 : 10, rich ? 0.25 : 1)}
+        {pdf && <PdfControls w={w} />}
+        {!pdf && (
+          <>
+            <label className="field font-field">
+              <span>Font</span>
+              <Dropdown
+                label="Print font"
+                value={s.fontFamily}
+                options={fonts}
+                onChange={(fontFamily) => w.edit({ fontFamily })}
+              />
+            </label>
+            {number('fontSizePx', 'Text size in CSS pixels', 'px', 4, rich ? 12 : 10, rich ? 0.25 : 1)}
+          </>
+        )}
         {!booklet && (
           <>
             <label className="field">
@@ -211,7 +232,7 @@ export function LayoutControls({ w }: { w: Workspace }) {
             {s.foldGaps && <>{number('foldGapMm', 'Fold gap size', 'mm', 0.5, 6, 0.25)}</>}
           </>
         )}
-        {rich && (
+        {rich && !pdf && (
           <>
             {!booklet && check('positionHeaders', 'Position headers')}
             {number('lineHeight', 'Line height', '×', 0.5, 1.6, 0.05)}
@@ -280,24 +301,26 @@ export function LayoutControls({ w }: { w: Workspace }) {
             </details>
           </>
         )}
-        <details>
-          <summary>Book details</summary>
-          {w.metadata && (
-            <MetadataEditor
-              metadata={w.metadata}
-              manualFields={w.docPrefs?.manualFields || []}
-              onChange={(metadata, field) =>
-                w.doc &&
-                w.prefs.document(w.doc.id, {
-                  metadata,
-                  manualFields: field
-                    ? [...new Set([...(w.docPrefs?.manualFields || []), field])]
-                    : w.docPrefs?.manualFields,
-                })
-              }
-            />
-          )}
-        </details>
+        {!pdf && (
+          <details>
+            <summary>Book details</summary>
+            {w.metadata && (
+              <MetadataEditor
+                metadata={w.metadata}
+                manualFields={w.docPrefs?.manualFields || []}
+                onChange={(metadata, field) =>
+                  w.doc &&
+                  w.prefs.document(w.doc.id, {
+                    metadata,
+                    manualFields: field
+                      ? [...new Set([...(w.docPrefs?.manualFields || []), field])]
+                      : w.docPrefs?.manualFields,
+                  })
+                }
+              />
+            )}
+          </details>
+        )}
         <details>
           <summary>Advanced</summary>
           <p className="image-output-help">MicroBook {version}</p>
@@ -316,7 +339,7 @@ export function LayoutControls({ w }: { w: Workspace }) {
               }
             />
           </label>
-          {rich && (
+          {rich && !pdf && (
             <>
               <label className="check-field">
                 <span>Wrap printed contents titles</span>
@@ -388,10 +411,12 @@ export function LayoutControls({ w }: { w: Workspace }) {
             onClick={() => w.doc && w.prefs.edit(w.doc.id, defaultSettings(w.mode))}
           >
             <RotateCcw size={14} />
-            Reset {modeLabels[w.mode]} settings
+            Reset {pdf ? 'PDF' : modeLabels[w.mode]} settings
           </button>
           <small>
-            {s.fontSizePx} px = {s.fontSizePx * 0.75} pt · Letter · 4 × 4
+            {pdf
+              ? 'Letter · PDF pages fit without cropping'
+              : `${s.fontSizePx} px = ${s.fontSizePx * 0.75} pt · Letter · 4 × 4`}
           </small>
           {groups.length > 0 && (
             <details>

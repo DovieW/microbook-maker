@@ -50,6 +50,23 @@ export const settingsSchema = z
     foldGapMm: z.number().min(0.5).max(6).default(2.5),
     foldGapEveryRow: z.boolean().default(true),
     readingOrder: z.enum(['rows', 'quadrants']).default('rows'),
+    pdf: z
+      .object({
+        cellsPerPage: z.union([z.literal(1), z.literal(2), z.literal(4)]).default(1),
+        rotation: z.enum(['original', 'auto', '90', '180', '270']).default('original'),
+        pageRotations: z
+          .record(z.string(), z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)]))
+          .default({}),
+        paddingMm: z.number().min(0).max(12).default(1),
+        pageNumbers: z.boolean().default(false),
+      })
+      .default(() => ({
+        cellsPerPage: 1 as const,
+        rotation: 'original' as const,
+        pageRotations: {},
+        paddingMm: 1,
+        pageNumbers: false,
+      })),
     printFormat: z.enum(['folded-sheet', 'booklet']).default('folded-sheet'),
     booklet: z
       .object({
@@ -309,7 +326,8 @@ export interface BookDocument {
   importRevision?: number;
   contentRevision?: number;
   id: string;
-  format: 'txt' | 'markdown' | 'epub';
+  format: 'txt' | 'markdown' | 'epub' | 'pdf';
+  pdfPages?: { number: number; width: number; height: number; rotation: number }[];
   originalName: string;
   sourceHash: string;
   sourcePath: string;

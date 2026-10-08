@@ -2,7 +2,7 @@
 
 Turn a book into a few sheets of paper you can print and fold, or cut into a tiny bound book.
 
-Open an EPUB, Markdown, or text file, adjust the layout, and preview the PDF before printing. MicroBook fits multiple small pages onto each sheet, with space around the folds.
+Open an EPUB, PDF, Markdown, or text file, adjust the layout, and preview the PDF before printing. MicroBook fits multiple small pages onto each sheet, with space around the folds.
 
 [Try it online](https://microbook.dovieweinstock.workers.dev/) · [Sample PDF](samples/flatland-microbook.pdf) · [Self-hosting](#run-it-yourself)
 
@@ -17,6 +17,8 @@ Open an EPUB, Markdown, or text file, adjust the layout, and preview the PDF bef
 3. **Arrange the content.** Reorder or leave out sections and images, replace a cover, or add your own text and pictures.
 4. **Apply and check.** Changes stay in draft until you apply them. Search the PDF or click a content item to jump to it.
 5. **Print or download.** History keeps your books and layouts; save a named version when you want to keep an alternative.
+
+PDFs keep their original layout: each page fits into one cell by default, with options for larger pages, rotation, padding, and booklet printing. Use Pages to select or reorder them. Basic and Rich are unavailable for PDFs.
 
 You can also export layout settings, import them into another book, and keep your preferred settings in the browser.
 
@@ -42,7 +44,7 @@ Open [localhost:7777](http://localhost:7777). Books and PDFs are stored in Docke
 
 A self-hosted instance has one shared library and no user accounts, so use it on your own machine or a trusted network. See [deployment and backups](DEPLOYMENT.md) for upgrades and remote access.
 
-The [hosted Cloudflare beta](https://microbook.dovieweinstock.workers.dev/) keeps history in your browser, without a timed expiry. Clearing site data removes that history. PDF conversion runs on Cloudflare.
+The [hosted Cloudflare beta](https://microbook.dovieweinstock.workers.dev/) keeps history in your browser, without a timed expiry. Clearing site data removes that history. EPUB and text conversion runs on Cloudflare; PDF pages are arranged locally in your browser.
 
 ## Development
 
