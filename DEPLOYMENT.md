@@ -8,7 +8,9 @@ MicroBook Maker listens on **7777**. Express serves the interface and API; a chi
 docker compose -f docker-compose.release.yml up -d
 ```
 
-This file pins `2.5.0` and binds to localhost. For a network installation, configure an authenticated proxy or trusted-network port mapping. The container currently supports linux/amd64.
+This file pins `2.5.1` and binds to localhost. For a network installation, configure an authenticated proxy or trusted-network port mapping.
+
+Starting with `2.5.1`, Docker selects the matching image for Linux x86-64 or ARM64, including Oracle Ampere. To test before the image is published, build from source below. The ARM64 image uses Debian Chromium, so line breaks may differ from the pinned x86-64 engine. Previously generated PDFs stay unchanged.
 
 Set `MICROBOOK_IMAGE=dovieuu/microbook-maker@sha256:...` to pin an immutable digest. Use the same compose project name and volume names when switching files. Use a release only after its verification and publication are complete.
 
@@ -17,6 +19,8 @@ Set `MICROBOOK_IMAGE=dovieuu/microbook-maker@sha256:...` to pin an immutable dig
 ```sh
 docker compose -f docker-compose.production.yml up --build -d
 ```
+
+Use the same command on x86-64 and ARM64. No emulation is needed.
 
 The compose file retains the existing `mbm-generated` and `mbm-uploads` volume names and the persistent container paths:
 

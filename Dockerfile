@@ -1,6 +1,23 @@
-# The engine image is immutable: Classic golden PDFs use these Chromium 148 / Arimo files.
+# Preserve the exact Chromium 148 / Arimo engine for the x86 Classic golden PDFs.
 ARG ENGINE_IMAGE=dovieuu/microbook-maker@sha256:ca89556eff3b41ae67bfd2e1a3f1cf8ad10afe8c7f1d0d3085cd21d673e9c389
-FROM ${ENGINE_IMAGE} AS build
+ARG ARM_ENGINE_IMAGE=node:24-trixie-slim@sha256:af02d57b57719b9657a45199a79264a9437940cd55b3c7b3fc99615654f124a0
+ARG TARGETARCH
+
+FROM ${ENGINE_IMAGE} AS engine-amd64
+USER root
+WORKDIR /
+# Clear the legacy app from the inherited engine image.
+RUN rm -rf /app /etc/nginx /root/.cache/puppeteer && npm uninstall -g pm2
+
+FROM ${ARM_ENGINE_IMAGE} AS engine-arm64
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates chromium fontconfig fonts-croscore fonts-dejavu-core fonts-dejavu-mono \
+    && rm -rf /var/lib/apt/lists/*
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+
+FROM engine-${TARGETARCH} AS engine
+
+FROM engine AS build
 WORKDIR /workspace
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 # Cache the verification tools separately from application edits.
@@ -26,11 +43,10 @@ ENV MICROBOOK_ROOT=/workspace
 ENTRYPOINT ["node", "tools/run.mjs"]
 CMD ["doctor"]
 
-FROM ${ENGINE_IMAGE} AS runtime
+FROM engine AS runtime
 USER root
-WORKDIR /
-RUN rm -rf /app /etc/nginx /root/.cache/puppeteer && npm uninstall -g pm2 && mkdir -p /app/be/uploads /app/be/generated
 WORKDIR /app
+RUN mkdir -p /app/be/uploads /app/be/generated
 ENV NODE_ENV=production PUPPETEER_SKIP_DOWNLOAD=true MICROBOOK_ROOT=/app UPLOADS_DIR=/app/be/uploads GENERATED_DIR=/app/be/generated PORT=7777
 COPY --from=build /workspace/package*.json ./
 COPY --from=build /workspace/apps/server/package.json apps/server/package.json

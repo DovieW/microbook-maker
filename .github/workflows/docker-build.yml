@@ -8,7 +8,7 @@ permissions:
 env:
   IMAGE_NAME: dovieuu/microbook-maker
 jobs:
-  release:
+  verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -31,11 +31,22 @@ jobs:
         with:
           name: release-verification
           path: .artifacts/release-*
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+
+  build-image:
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          node-version: 24
+      - uses: docker/setup-buildx-action@v3
       - uses: docker/metadata-action@v5
         id: meta
         with:
@@ -46,18 +57,82 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./Dockerfile
           target: runtime
-          platforms: linux/amd64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          platforms: linux/${{ matrix.arch }}
+          load: true
+          tags: microbook-maker:release-candidate
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=runtime-${{ matrix.arch }}
+          cache-to: type=gha,scope=runtime-${{ matrix.arch }},mode=max
+      - name: Verify the runtime on native hardware
+        run: node tools/verify-runtime.mjs microbook-maker:release-candidate ${{ matrix.arch }}
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Push image by digest
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: runtime
+          platforms: linux/${{ matrix.arch }}
+          labels: ${{ steps.meta.outputs.labels }}
+          outputs: type=image,name=${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
+      - name: Record digest
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          mkdir -p /tmp/microbook-digests
+          touch "/tmp/microbook-digests/${DIGEST#sha256:}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: microbook-digest-${{ matrix.arch }}
+          path: /tmp/microbook-digests/*
+          if-no-files-found: error
+
+  publish:
+    needs: [verify, build-image]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: microbook-digest-*
+          path: /tmp/microbook-digests
+          merge-multiple: true
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=sha
+      - name: Publish the multi-platform image
+        env:
+          IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
+        shell: bash
+        run: |
+          tags=()
+          while IFS= read -r tag; do
+            if [[ -n "$tag" ]]; then tags+=(-t "$tag"); fi
+          done <<< "$IMAGE_TAGS"
+          sources=()
+          for file in /tmp/microbook-digests/*; do
+            digest="${file##*/}"
+            [[ "$digest" =~ ^[0-9a-f]{64}$ ]]
+            sources+=("$IMAGE_NAME@sha256:$digest")
+          done
+          [[ ${#tags[@]} -gt 0 && ${#sources[@]} -eq 2 ]]
+          docker buildx imagetools create "${tags[@]}" "${sources[@]}"
 
   github-release:
     if: startsWith(github.ref, 'refs/tags/')
-    needs: release
+    needs: publish
     runs-on: ubuntu-latest
     permissions:
       contents: write

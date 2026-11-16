@@ -2,7 +2,7 @@
   "name": "@microbook/renderer",
   "private": true,
   "type": "module",
-  "version": "2.5.0",
+  "version": "2.5.1",
   "exports": {
     ".": "./src/index.ts"
   },

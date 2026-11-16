@@ -44,6 +44,8 @@ Open [localhost:7777](http://localhost:7777). Books and PDFs are stored in Docke
 
 A self-hosted instance has one shared library and no user accounts, so use it on your own machine or a trusted network. See [deployment and backups](DEPLOYMENT.md) for upgrades and remote access.
 
+The Docker image supports Linux x86-64 and ARM64, including Oracle Ampere. You can also [build from source](DEPLOYMENT.md#new-installation).
+
 The [hosted Cloudflare beta](https://microbook.dovieweinstock.workers.dev/) keeps history in your browser, without a timed expiry. Clearing site data removes that history. EPUB and text conversion runs on Cloudflare; PDF pages are arranged locally in your browser.
 
 ## Development
