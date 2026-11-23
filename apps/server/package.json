@@ -2,7 +2,7 @@
   "name": "@microbook/server",
   "private": true,
   "type": "module",
-  "version": "2.5.1",
+  "version": "2.5.2",
   "dependencies": {
     "@microbook/core": "*",
     "@microbook/renderer": "*",

@@ -1,7 +1,5 @@
-# MicroBook 2.5.1
+# MicroBook 2.5.2
 
-The self-hosted Docker image now supports Linux ARM64, including Oracle Ampere. The same `dovieuu/microbook-maker:2.5.1` tag works on ARM64 and x86-64. Docker chooses the right image for your server.
+Rich layouts with fold lines turned off now leave a small gap around the text in each cell. Tight line spacing also leaves room for letters that extend beyond the line box so cell edges do not cut them off.
 
-ARM64 uses Debian Chromium. Line breaks may differ slightly from x86-64, which keeps the existing pinned engine. Existing PDFs and saved data stay as they are.
-
-For a new install or an upgrade, see [deployment instructions](DEPLOYMENT.md).
+To regenerate an existing book, open it and click **Update layout**. Download the new PDF to see the change.

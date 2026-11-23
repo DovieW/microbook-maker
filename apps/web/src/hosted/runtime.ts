@@ -17,7 +17,7 @@ import {
   type RenderJob,
   type Asset,
 } from '@microbook/core';
-const fingerprint = { renderer: 'hosted-browser-4' };
+const fingerprint = { renderer: 'hosted-browser-5' };
 const active = new Map<string, AbortController>();
 let queue = Promise.resolve();
 const channel = new BroadcastChannel('microbook-render-jobs');
@@ -217,7 +217,7 @@ async function run(job: RenderJob) {
     controller.signal.throwIfAborted();
     const latest = await documentById(job.documentId);
     await putOwned('binary:/api/renders/' + job.id + '/pdf', { documentId: doc.id, blob: pdf });
-    job.result = prepared.result;
+    job.result = { ...prepared.result, fingerprint };
     job.status = 'completed';
     job.phase = 'Complete';
     await save(job);
@@ -269,7 +269,7 @@ async function handle(request: Request): Promise<Response> {
     parts = url.pathname.split('/').filter(Boolean),
     method = request.method;
   if (url.pathname === '/api/health')
-    return json({ ok: true, version: '2.5.1', rendererReady: true, fingerprint, hosted: true });
+    return json({ ok: true, version: '2.5.2', rendererReady: true, fingerprint, hosted: true });
   if (url.pathname === '/api/metadata/lookup') return fetch('/_cloud/metadata' + url.search);
   if (parts[1] === 'image-test-print') {
     const list = await fetch('/hosted-print-samples/samples.json').then((r) => r.json());

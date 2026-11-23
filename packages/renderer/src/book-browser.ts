@@ -51,6 +51,15 @@ async function layoutBook(payload: {
   const margin = (s.marginMm * 96) / 25.4;
   const cellWidth = booklet ? geometry.width / 0.75 : (816 - margin * 2) / 4;
   const cellHeight = booklet ? geometry.height / 0.75 : (1056 * 0.997 - margin * 2) / 4;
+  const borderless = !booklet && s.borderStyle === 'none';
+  // Tight line boxes can be shorter than their glyphs. Reserve room for the ink
+  // before pagination so clipping at a cell edge cannot shave off a line.
+  const verticalInset = Math.max(
+    borderless ? 2 : 0,
+    s.lineHeight < 1 ? Math.ceil((s.fontSizePx * (1.25 - s.lineHeight)) / 2) : 0,
+  );
+  const sideInset = borderless ? 3 : 2;
+  const halfFoldGap = (s.foldGapMm * 96) / 25.4 / 2;
   if (booklet)
     style.textContent += `@page{size:${cellWidth}px ${cellHeight}px;margin:0}.page{width:${cellWidth}px;height:${cellHeight}px}.booklet-footer{position:absolute;left:3mm;right:3mm;bottom:1mm;display:flex;justify-content:space-between;font-size:5px;line-height:1;white-space:nowrap}`;
   if (booklet)
@@ -184,6 +193,7 @@ async function layoutBook(payload: {
       top: `${y}px`,
       width: `${cellWidth}px`,
       height: `${cellHeight}px`,
+      padding: `${verticalInset}px ${sideInset}px`,
     });
     if (booklet) {
       const inset = (3 * 96) / 25.4;
@@ -204,14 +214,15 @@ async function layoutBook(payload: {
       if (slot >= 4) cell.style.borderTop = `1px ${s.borderStyle} black`;
     }
     if (s.foldGaps) {
-      const halfGap = `${((s.foldGapMm * 96) / 25.4 / 2).toFixed(3)}px`;
+      const verticalGap = `${Math.max(verticalInset, halfFoldGap).toFixed(3)}px`;
+      const horizontalGap = `${Math.max(sideInset, halfFoldGap).toFixed(3)}px`;
       const row = Math.floor(slot / 4);
       const topGap = s.foldGapEveryRow ? row > 0 : row === 2;
       const bottomGap = s.foldGapEveryRow ? row < 3 : row === 1;
-      cell.style.paddingTop = topGap ? halfGap : '0';
-      cell.style.paddingBottom = bottomGap ? halfGap : '0';
-      if (slot % 4 === 1) cell.style.paddingRight = halfGap;
-      if (slot % 4 === 2) cell.style.paddingLeft = halfGap;
+      if (topGap) cell.style.paddingTop = verticalGap;
+      if (bottomGap) cell.style.paddingBottom = verticalGap;
+      if (slot % 4 === 1) cell.style.paddingRight = horizontalGap;
+      if (slot % 4 === 2) cell.style.paddingLeft = horizontalGap;
     }
     const flow = document.createElement('div');
     flow.className = 'flow';

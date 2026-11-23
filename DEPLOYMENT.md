@@ -8,7 +8,7 @@ MicroBook Maker listens on **7777**. Express serves the interface and API; a chi
 docker compose -f docker-compose.release.yml up -d
 ```
 
-This file pins `2.5.1` and binds to localhost. For a network installation, configure an authenticated proxy or trusted-network port mapping.
+This file pins `2.5.2` and binds to localhost. For a network installation, configure an authenticated proxy or trusted-network port mapping.
 
 Starting with `2.5.1`, Docker selects the matching image for Linux x86-64 or ARM64, including Oracle Ampere. To test before the image is published, build from source below. The ARM64 image uses Debian Chromium, so line breaks may differ from the pinned x86-64 engine. Previously generated PDFs stay unchanged.
 
